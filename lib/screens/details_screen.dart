@@ -13,6 +13,7 @@ import '../widgets/plix_back_button.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
+import '../services/native_player_service.dart';
 import 'player_screen.dart';
 
 class DetailsScreen extends StatefulWidget {
@@ -200,6 +201,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
           type: 'show',
           thumb: _item.grandparentThumb ?? _item.parentThumb ?? _item.thumb,
           art: _item.art,
+          grandparentRatingKey: _item.grandparentRatingKey,
+          grandparentGuid: _item.grandparentGuid,
+          guid: _item.grandparentGuid,
+          year: _item.year,
         );
       }
     }
@@ -341,6 +346,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   void _playTrailer() {
+    NativePlayerService().stop();
     if (_trailerItem == null) return;
     _stopTheme(immediate: true);
     Navigator.of(context).push(
@@ -438,6 +444,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   void _playMedia({required PlexMediaItem item, int resumeMs = 0}) {
+    NativePlayerService().stop();
     _lastPlayedEpisodeKey = item.ratingKey;
     _stopTheme(immediate: true);
     Navigator.of(context).push(
@@ -1317,7 +1324,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 20),
-                                if (_seasons.length > 1) ...[
+                                if (_seasons.length > 1 && !isCompact) ...[
                                   Opacity(
                                     opacity: canPrevSeason ? 1.0 : 0.35,
                                     child: Row(
@@ -1439,7 +1446,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
 
             // Left & Right Season Side Chevrons (sleek, no circle, shown only when episode list focused)
-            if (_item.isShow && _seasons.length > 1) ...[
+            if (_item.isShow && _seasons.length > 1 && !isCompact) ...[
               Positioned(
                 left: 12,
                 top: 0,

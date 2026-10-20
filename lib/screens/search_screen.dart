@@ -655,14 +655,13 @@ class _SearchScreenState extends State<SearchScreen> {
                   );
                 }
 
-                // Fixed rows of 3 with exactly 2 full rows and top half of 3rd row visible (2.5 rows in viewport)
+                // Rows of 3 with standard poster size matching everywhere else in the app (width: 130, aspect ratio: 2/3)
                 const crossAxisCount = 3;
                 const spacing = 16.0;
-                final cellHeight = constraints.maxHeight / 2.5;
                 final cellWidth = (constraints.maxWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+                final cardWidth = cellWidth < 130.0 ? cellWidth : 130.0;
+                final cellHeight = cardWidth * 1.5 + 56.0;
                 final childAspectRatio = cellWidth / cellHeight;
-                // Scale card width so poster (1.5x) + text + margins (~65px) comfortably fits inside cellHeight without clashing onto next row
-                final cardWidth = ((cellHeight - 65.0) / 1.5).clamp(85.0, 110.0);
 
                 return GridView.builder(
                   padding: const EdgeInsets.only(bottom: 40),
@@ -671,7 +670,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     crossAxisCount: crossAxisCount,
                     childAspectRatio: childAspectRatio,
                     crossAxisSpacing: spacing,
-                    mainAxisSpacing: 12,
+                    mainAxisSpacing: 16,
                   ),
                   itemCount: _results.length,
                   itemBuilder: (context, index) {

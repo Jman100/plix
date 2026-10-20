@@ -41,9 +41,9 @@ class PlexMediaService {
     return '$baseUrl$path?X-Plex-Token=$token';
   }
 
-  String buildDirectPlayUrl(String partKey) {
+  String buildDirectPlayUrl(String partKey, {int offsetSeconds = 0, String? clientId}) {
     if (server.isJellyfin) {
-      return _jfService.buildDirectPlayUrl(partKey);
+      return _jfService.buildDirectPlayUrl(partKey, offsetSeconds: offsetSeconds, clientId: clientId);
     }
     if (partKey.startsWith('http')) return partKey;
     return '$baseUrl$partKey?X-Plex-Token=$token';
@@ -444,7 +444,9 @@ class PlexMediaService {
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
-    final metadata = container['Metadata'] as List<dynamic>? ?? [];
+    final metadata = (container['Metadata'] as List<dynamic>?) ??
+        (container['Directory'] as List<dynamic>?) ??
+        [];
     if (metadata.isEmpty) {
       throw Exception('Metadata not found for $ratingKey');
     }
@@ -679,12 +681,27 @@ class PlexMediaService {
     required String subtitleStreamId,
     String? streamKey,
   }) async {
+    if (server.isJellyfin) {
+      return _jfService.fetchSubtitleContent(
+        itemId: ratingKey,
+        subtitleIndex: subtitleStreamId,
+        streamKey: streamKey,
+      );
+    }
+    final subHeaders = {
+      'X-Plex-Token': token,
+      'Accept': '*/*',
+      'X-Plex-Product': PlixDeviceHelper.clientName,
+      'X-Plex-Version': '1.0.0',
+      'X-Plex-Client-Identifier': 'plix-flutter-client',
+    };
+
     // 1. If streamKey is provided, try direct fetch
     if (streamKey != null && streamKey.isNotEmpty) {
       try {
         final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
         final url = Uri.parse('$baseUrl$path?X-Plex-Token=$token');
-        final response = await http.get(url, headers: _headers);
+        final response = await http.get(url, headers: subHeaders);
         if (response.statusCode == 200) {
           final body = utf8.decode(response.bodyBytes, allowMalformed: true);
           if (_isSubtitleContent(body)) {
@@ -698,7 +715,7 @@ class PlexMediaService {
     if (subtitleStreamId.isNotEmpty && subtitleStreamId != '0') {
       try {
         final url = Uri.parse('$baseUrl/library/streams/$subtitleStreamId?X-Plex-Token=$token');
-        final response = await http.get(url, headers: _headers);
+        final response = await http.get(url, headers: subHeaders);
         if (response.statusCode == 200) {
           final body = utf8.decode(response.bodyBytes, allowMalformed: true);
           if (_isSubtitleContent(body)) {
@@ -719,7 +736,7 @@ class PlexMediaService {
         '&directStreamSubtitles=1'
         '&X-Plex-Token=$token',
       );
-      final response = await http.get(url, headers: _headers);
+      final response = await http.get(url, headers: subHeaders);
       if (response.statusCode == 200) {
         final body = utf8.decode(response.bodyBytes, allowMalformed: true);
         if (_isSubtitleContent(body)) {
@@ -738,7 +755,7 @@ class PlexMediaService {
         '&format=srt'
         '&X-Plex-Token=$token',
       );
-      final response = await http.get(url, headers: _headers);
+      final response = await http.get(url, headers: subHeaders);
       if (response.statusCode == 200) {
         final body = utf8.decode(response.bodyBytes, allowMalformed: true);
         if (_isSubtitleContent(body)) {
@@ -960,6 +977,28 @@ class PlexMediaService {
   }
 
   Future<String?> resolveDiscoverRatingKey(PlexMediaItem item, String userToken) async {
+    // 0. For episodes or seasons, try to get the parent show's Discover key directly
+    if (item.isEpisode || item.isSeason || item.grandparentRatingKey != null || item.parentRatingKey != null) {
+      if (item.grandparentGuid != null && item.grandparentGuid!.contains('plex://show/')) {
+        final seg = item.grandparentGuid!.split('?').first.split('/').last;
+        if (RegExp(r'^[a-f0-9]{24}$', caseSensitive: false).hasMatch(seg)) {
+          return seg;
+        }
+      }
+      final showKey = item.grandparentRatingKey ?? item.parentRatingKey;
+      if (showKey != null && showKey.isNotEmpty && !server.isJellyfin) {
+        try {
+          final showItem = await getItemMetadata(showKey);
+          if (showItem.guid != null && showItem.guid!.contains('plex://')) {
+            final seg = showItem.guid!.split('?').first.split('/').last;
+            if (RegExp(r'^[a-f0-9]{24}$', caseSensitive: false).hasMatch(seg)) {
+              return seg;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     // 1. If ratingKey is already a 24-character hex string (Discover ID), return directly
     // ONLY if item is NOT an episode or season (since Discover episodes cannot be watchlisted)
     if (!item.isEpisode && !item.isSeason && RegExp(r'^[a-f0-9]{24}$', caseSensitive: false).hasMatch(item.ratingKey)) {
@@ -993,7 +1032,7 @@ class PlexMediaService {
       try {
         final q = Uri.encodeComponent(searchTitle);
         final tokenParam = Uri.encodeComponent(t);
-        final typeParam = targetType != null ? '&type=$targetType' : '';
+        final typeParam = targetType == 'movie' ? '&type=1' : (targetType == 'show' ? '&type=2' : '');
         final url = Uri.parse('https://discover.provider.plex.tv/library/search?query=$q&X-Plex-Token=$tokenParam$typeParam');
         final res = await http.get(url, headers: {
           'Accept': 'application/json',
@@ -1023,7 +1062,7 @@ class PlexMediaService {
             final mTitle = map['title']?.toString().toLowerCase().trim();
             final mYear = (map['year'] is num) ? (map['year'] as num).toInt() : int.tryParse(map['year']?.toString() ?? '');
             if (mTitle == searchTitle.toLowerCase().trim()) {
-              if (item.year == null || mYear == null || item.year == mYear) {
+              if (item.isEpisode || item.year == null || mYear == null || item.year == mYear) {
                 final key = map['ratingKey']?.toString() ?? map['id']?.toString();
                 if (key != null && key.isNotEmpty) return key;
               }

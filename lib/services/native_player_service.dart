@@ -14,6 +14,9 @@ class NativePlayerService {
   final _endedController = StreamController<void>.broadcast();
   final _subtitleCueController = StreamController<String>.broadcast();
   final _subtitleBitmapCueController = StreamController<Uint8List?>.broadcast();
+  final _pipModeController = StreamController<bool>.broadcast();
+  final _physicalOrientationController = StreamController<String>.broadcast();
+  final _bufferingController = StreamController<bool>.broadcast();
 
   Stream<int> get onPositionUpdate => _positionController.stream;
   Stream<int> get onDurationReady => _durationController.stream;
@@ -22,6 +25,9 @@ class NativePlayerService {
   Stream<void> get onPlayerEnded => _endedController.stream;
   Stream<String> get onSubtitleCue => _subtitleCueController.stream;
   Stream<Uint8List?> get onSubtitleBitmapCue => _subtitleBitmapCueController.stream;
+  Stream<bool> get onPipModeChanged => _pipModeController.stream;
+  Stream<String> get onDevicePhysicalOrientationChanged => _physicalOrientationController.stream;
+  Stream<bool> get onBufferingChanged => _bufferingController.stream;
 
   Player? _windowsPlayer;
   VideoController? _windowsVideoController;
@@ -60,6 +66,10 @@ class NativePlayerService {
 
       _windowsSubscriptions.add(p.stream.playing.listen((playing) {
         _isPlayingController.add(playing);
+      }));
+
+      _windowsSubscriptions.add(p.stream.buffering.listen((buffering) {
+        _bufferingController.add(buffering);
       }));
 
       _windowsSubscriptions.add(p.stream.completed.listen((completed) {
@@ -121,6 +131,20 @@ class NativePlayerService {
       case 'onSubtitleBitmapCue':
         final bytes = call.arguments?['bytes'] as Uint8List?;
         _subtitleBitmapCueController.add(bytes);
+        break;
+      case 'onPipModeChanged':
+        final inPip = call.arguments?['isInPip'] as bool? ?? false;
+        _pipModeController.add(inPip);
+        break;
+      case 'onDevicePhysicalOrientationChanged':
+        final orientation = call.arguments?['orientation']?.toString() ?? '';
+        if (orientation.isNotEmpty) {
+          _physicalOrientationController.add(orientation);
+        }
+        break;
+      case 'onBufferingChanged':
+        final isBuffering = call.arguments?['isBuffering'] as bool? ?? false;
+        _bufferingController.add(isBuffering);
         break;
     }
   }
@@ -223,6 +247,40 @@ class NativePlayerService {
     } catch (_) {}
   }
 
+  Future<void> setPlaybackSpeed(double speed) async {
+    if (Platform.isWindows && _windowsPlayer != null) {
+      try {
+        await _windowsPlayer!.setRate(speed);
+      } catch (_) {}
+      return;
+    }
+    try {
+      await _channel.invokeMethod('setPlaybackSpeed', {'speed': speed});
+    } catch (_) {}
+  }
+
+  Future<void> setVideoBounds({int x = 0, int y = 0, int? width, int? height}) async {
+    if (Platform.isWindows) return;
+    try {
+      await _channel.invokeMethod('setVideoBounds', {
+        'x': x,
+        'y': y,
+        'width': width,
+        'height': height,
+      });
+    } catch (_) {}
+  }
+
+  Future<bool> enterPipMode() async {
+    if (Platform.isWindows) return false;
+    try {
+      final res = await _channel.invokeMethod<bool>('enterPipMode');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getState() async {
     if (Platform.isWindows && _windowsPlayer != null) {
       final p = _windowsPlayer!;
@@ -321,5 +379,7 @@ class NativePlayerService {
     _endedController.close();
     _subtitleCueController.close();
     _subtitleBitmapCueController.close();
+    _pipModeController.close();
+    _bufferingController.close();
   }
 }

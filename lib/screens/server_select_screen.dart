@@ -17,12 +17,14 @@ class ServerSelectScreen extends StatefulWidget {
   final List<PlexServer> servers;
   final PlexAuthService authService;
   final PlexServerService serverService;
+  final PlexServer? currentServer;
 
   const ServerSelectScreen({
     super.key,
     required this.servers,
     required this.authService,
     required this.serverService,
+    this.currentServer,
   });
 
   @override
@@ -31,6 +33,7 @@ class ServerSelectScreen extends StatefulWidget {
 
 class _ServerSelectScreenState extends State<ServerSelectScreen> {
   late List<PlexServer> _servers;
+  String? _activeServerId;
   bool _isConnecting = false;
   String? _connectingServerName;
   String? _errorMessage;
@@ -45,8 +48,16 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
   @override
   void initState() {
     super.initState();
+    _activeServerId = widget.currentServer?.clientIdentifier;
     _servers = List.from(widget.servers);
     _loadPinnedServers();
+    if (_activeServerId == null) {
+      widget.serverService.getActiveServerId().then((id) {
+        if (mounted && id != null) {
+          setState(() => _activeServerId = id);
+        }
+      });
+    }
   }
 
   @override
@@ -409,6 +420,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                   child: _ServerCard(
                     server: server,
                     isPinned: isPinnedSection,
+                    isCurrentlyActive: _activeServerId != null && server.clientIdentifier == _activeServerId,
                     autofocus: isPinnedSection && i == 0,
                     connectFocusNode: connectNode,
                     pinFocusNode: pinNode,
@@ -526,6 +538,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                     return _ServerCard(
                       server: server,
                       isPinned: isPinnedSection,
+                      isCurrentlyActive: _activeServerId != null && server.clientIdentifier == _activeServerId,
                       autofocus: isPinnedSection && index == 0,
                       connectFocusNode: connectNode,
                       pinFocusNode: pinNode,
@@ -690,6 +703,7 @@ class _SlimTopButtonState extends State<_SlimTopButton> {
 class _ServerCard extends StatefulWidget {
   final PlexServer server;
   final bool isPinned;
+  final bool isCurrentlyActive;
   final bool autofocus;
   final FocusNode connectFocusNode;
   final FocusNode pinFocusNode;
@@ -708,6 +722,7 @@ class _ServerCard extends StatefulWidget {
   const _ServerCard({
     required this.server,
     required this.isPinned,
+    this.isCurrentlyActive = false,
     required this.autofocus,
     required this.connectFocusNode,
     required this.pinFocusNode,
@@ -847,6 +862,33 @@ class _ServerCardState extends State<_ServerCard> {
                       : const PlexLogo(size: 20, color: Color(0xFFE5A00D)),
                 ),
                 const Spacer(),
+                if (widget.isCurrentlyActive) ...[
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.6), width: 1.0),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Color(0xFF4CAF50), size: 10),
+                        SizedBox(width: 4),
+                        Text(
+                          'Currently Active',
+                          style: TextStyle(
+                            color: Color(0xFF4CAF50),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(

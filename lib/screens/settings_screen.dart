@@ -64,10 +64,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    PlixTheme.currentThemeOption.addListener(_onThemeChanged);
     for (final opt in PlixTheme.colorOptions) {
       _colorFocusNodes[opt.id] = FocusNode();
     }
     _loadSettings();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadSettings() async {
@@ -191,6 +196,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    PlixTheme.currentThemeOption.removeListener(_onThemeChanged);
     _scrollController.dispose();
     _backButtonFocusNode.dispose();
     _autoplayFocusNode.dispose();
@@ -238,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     autofocus: false,
                     onDown: () {
                       _colorFocusNodes[PlixTheme.colorOptions.first.id]?.requestFocus();
-                      _scrollToTop();
+                      if (PlixDeviceHelper.isTelevision) _scrollToTop();
                     },
                   ),
                   const SizedBox(width: 20),
@@ -311,10 +317,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           option: opt,
                                           isSelected: opt.id == currentOption.id,
                                           focusNode: _colorFocusNodes[opt.id]!,
-                                          autofocus: !Platform.isWindows && index == 0,
+                                          autofocus: PlixDeviceHelper.isTelevision && index == 0,
                                           onSelect: () => PlixTheme.setTheme(opt),
                                           onFocusChange: (focused) {
-                                            if (focused && !Platform.isWindows) _scrollToTop();
+                                            if (focused && PlixDeviceHelper.isTelevision) _scrollToTop();
                                           },
                                           onUp: row == 0
                                               ? () => _backButtonFocusNode.requestFocus()
@@ -761,7 +767,7 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
       setState(() {
         _isFocused = _node.hasFocus;
       });
-      if (_isFocused && !Platform.isWindows) {
+      if (_isFocused && PlixDeviceHelper.isTelevision) {
         Scrollable.ensureVisible(
           context,
           alignment: 0.3,

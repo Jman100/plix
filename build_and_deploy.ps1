@@ -1,47 +1,95 @@
+$ErrorActionPreference = "Stop"
+
+$version = "1.2.0"
+$versionCode = 19
+
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
 $env:ANDROID_HOME = "$toolsDir\android-sdk"
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:PATH"
 
-Write-Host "Building Release APK (v1.1.2)..."
+$networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
+
+Write-Host "=== Building Stable Release APK (v$version, versionCode $versionCode) ===" -ForegroundColor Cyan
 & "$toolsDir\flutter\bin\flutter.bat" build apk --release
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Build failed"
+    Write-Error "Flutter APK build failed with code $LASTEXITCODE"
     exit $LASTEXITCODE
 }
 
 $apkSource = "build\app\outputs\flutter-apk\app-release.apk"
-$networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
+if (-not (Test-Path $apkSource)) {
+    Write-Error "APK output file not found at $apkSource"
+    exit 1
+}
 
-if (Test-Path $networkPlixDir) {
-    Write-Host "Publishing APK to network folder $networkPlixDir..."
-    Copy-Item $apkSource -Destination "$networkPlixDir\plix_android_tv.apk" -Force
-    if (Test-Path "web_site\index.html") {
-        Copy-Item "web_site\*" -Destination "$networkPlixDir" -Recurse -Force
+# Build Windows Release Installer
+$innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
+if (Test-Path $innoCompiler) {
+    Write-Host "`n=== Building Stable Windows Release (v$version) ===" -ForegroundColor Cyan
+    & "$toolsDir\flutter\bin\flutter.bat" build windows --release
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Flutter Windows build failed with code $LASTEXITCODE"
+        exit $LASTEXITCODE
     }
 
-    $manifestPath = "$networkPlixDir\plix.json"
+    Write-Host "Compiling Windows Installer with Inno Setup..." -ForegroundColor Cyan
+    & $innoCompiler "windows_installer.iss"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Inno Setup compiler failed with code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+} else {
+    Write-Warning "Inno Setup compiler not found at $innoCompiler, skipping Windows installer compilation."
+}
+
+if (Test-Path $networkPlixDir) {
+    Write-Host "`n=== Publishing to Network Folder $networkPlixDir ===" -ForegroundColor Green
+
+    # Publish Android APK (both plix_android_tv.apk and plix_android.apk for compatibility)
+    Copy-Item $apkSource -Destination "$networkPlixDir\plix_android_tv.apk" -Force
+    Copy-Item $apkSource -Destination "$networkPlixDir\plix_android.apk" -Force
+    $apkSize = (Get-Item "$networkPlixDir\plix_android_tv.apk").Length
+    Write-Host "Published plix_android_tv.apk ($apkSize bytes) successfully!" -ForegroundColor Green
+
+    # Publish Windows Installer
+    $installerSource = "build\installer\plix_windows.exe"
+    if (Test-Path $installerSource) {
+        Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force
+        $winSize = (Get-Item "$networkPlixDir\plix_windows.exe").Length
+        Write-Host "Published plix_windows.exe ($winSize bytes) successfully!" -ForegroundColor Green
+    }
+
+    # Publish Website
+    if (Test-Path "web_site\index.html") {
+        Copy-Item "web_site\*" -Destination "$networkPlixDir" -Recurse -Force
+        Write-Host "Published website index.html and assets successfully!" -ForegroundColor Green
+    }
+
+    # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Watchlist from Episode Details: Pressing "Add to Watchlist" on an episode details page now adds the entire show to the Watchlist across both Plex and Jellyfin servers, and correctly reflects the "In Watchlist" state
-- Recently Added Shows Tile Text: Show name is prominently displayed on the top line under each tile; the bottom line shows the episode title if a single episode was added, "Season X" if an entire season was added, or remains clean/blank if multiple seasons were added
-- HDR Badges on Jellyfin: Restored missing HDR icons and badges on Jellyfin servers for Continue Watching hero preview cards and all episodes under season listings
-- App Version Bump: Updated to v1.1.2 (versionCode 18)
+- Android Phone & Touch Support: Full portrait and landscape orientation support, touch-optimized controls, responsive 3-column media grids, and persistent bottom navigation bar
+- Picture-in-Picture (PiP) & Portrait Player: Background mini-player with pause controls and smooth expansion; portrait playback includes embedded media info, instant watchlist toggle, and interactive season episode picker
+- Playback Speed Controls: Variable speed adjustment (0.5x, 0.75x, 1x, 1.25x, 1.5x) with on-screen speed badge; enabled PCM audio decoding on Android TV for smooth pitch-corrected speed adjustment during Direct Play
+- Subtitle Reliability & VOBSUB Support: Auto Direct Stream transcode for VOBSUB and PGS bitmap subtitles prevents player stalling; resolved Plex subtitle track selection issues
+- TV & Desktop Polish: Play/Pause button automatically gains initial focus upon playback start, playback controls auto-hide seamlessly during episode transitions, search poster tiles match standard 2:3 proportions, and active server badge displayed on Switch Server screen
+- App Version Bump: Updated to v1.2.0 (versionCode 19)
 "@
 
     $manifest = [ordered]@{
-        version = "1.1.2"
-        versionCode = 18
-        apkUrl = "https://plix.jman100.com/plix_android_tv.apk?v=1.1.2"
-        windowsUrl = "https://plix.jman100.com/plix_windows.exe?v=1.1.2"
+        version = $version
+        versionCode = $versionCode
+        apkUrl = "https://plix.jman100.com/plix_android_tv.apk?v=$version"
+        windowsUrl = "https://plix.jman100.com/plix_windows.exe?v=$version"
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
 
-    Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
-    Write-Host "Published plix.json and plix_android_tv.apk successfully to $networkPlixDir"
-    Write-Host "Ready for in-app update testing on Android TV (no automatic sideloading)."
+    Set-Content -Path "$networkPlixDir\plix.json" -Value $manifest -Encoding UTF8
+    Write-Host "Published plix.json release manifest successfully!" -ForegroundColor Green
+
 } else {
     Write-Warning "Network directory $networkPlixDir not reachable."
 }
 
-Write-Host "Build and publish completed successfully!"
+Write-Host "`n=== Stable Build and Deploy Complete (v$version, versionCode $versionCode) ===" -ForegroundColor Green

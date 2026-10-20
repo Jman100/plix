@@ -16,6 +16,8 @@ class MediaCard extends StatefulWidget {
   final double width;
   final double aspectRatio;
   final bool autofocus;
+  final bool enableHighlight;
+  final bool isForcedHighlighted;
   final EdgeInsetsGeometry? margin;
 
   const MediaCard({
@@ -29,6 +31,8 @@ class MediaCard extends StatefulWidget {
     this.width = 140,
     this.aspectRatio = 2 / 3,
     this.autofocus = false,
+    this.enableHighlight = true,
+    this.isForcedHighlighted = false,
     this.margin,
     this.onLeft,
     this.onRight,
@@ -101,7 +105,7 @@ class _MediaCardState extends State<MediaCard> {
       height: (height * 2).toInt(),
     );
 
-    final isHighlighted = _isFocused || _isHovered;
+    final isHighlighted = widget.isForcedHighlighted || (widget.enableHighlight && (_isFocused || _isHovered));
 
     return Focus(
       focusNode: _focusNode,

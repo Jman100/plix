@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../app_theme.dart';
 import '../models/plex_library.dart';
 import '../models/plex_server.dart';
+import '../services/plix_device_helper.dart';
 
 enum NavDestination {
   home,
@@ -152,7 +153,11 @@ class _SidebarNavState extends State<SidebarNav> {
 
   @override
   Widget build(BuildContext context) {
-    final width = _isExpanded ? 245.0 : 72.0;
+    final isMobileLandscape = !Platform.isWindows &&
+        !PlixDeviceHelper.isTelevision &&
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final effectiveExpanded = isMobileLandscape || _isExpanded;
+    final width = effectiveExpanded ? 245.0 : 72.0;
 
     return MouseRegion(
       onEnter: (_) {
@@ -201,7 +206,7 @@ class _SidebarNavState extends State<SidebarNav> {
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
-                  if (!_isExpanded)
+                  if (!effectiveExpanded)
                     Container(
                       width: 38,
                       height: 38,
@@ -237,7 +242,7 @@ class _SidebarNavState extends State<SidebarNav> {
                         ),
                       ),
                     ),
-                  if (_isExpanded) ...[
+                  if (effectiveExpanded) ...[
                     RichText(
                       text: TextSpan(
                         children: [
@@ -316,7 +321,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.home_rounded,
                     label: 'Home',
                     isSelected: widget.activeDestination == NavDestination.home,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     blockUp: true,
                     onDown: () => _searchFocusNode.requestFocus(),
                     onFocusChange: (focused) {
@@ -331,7 +336,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.search_rounded,
                     label: 'Search',
                     isSelected: widget.activeDestination == NavDestination.search,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     onUp: () {
                       (widget.homeFocusNode ?? _itemFocusNodes['home'])?.requestFocus();
                       _scrollToTop();
@@ -346,7 +351,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.bookmark_rounded,
                     label: 'Watchlist',
                     isSelected: widget.activeDestination == NavDestination.watchlist,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     onUp: () => _searchFocusNode.requestFocus(),
                     onDown: () {
                       if (_orderedLibraries.isNotEmpty) {
@@ -384,7 +389,7 @@ class _SidebarNavState extends State<SidebarNav> {
                           child: Row(
                             key: ValueKey('lib_row_${_orderedLibraries[i].key}'),
                             children: [
-                              if (_isExpanded)
+                              if (effectiveExpanded)
                                 Draggable<int>(
                                   data: i,
                                   feedback: Material(
@@ -473,7 +478,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                   label: _orderedLibraries[i].title,
                                   isSelected: widget.activeDestination == NavDestination.library &&
                                       widget.selectedLibrary?.key == _orderedLibraries[i].key,
-                                  isExpanded: _isExpanded,
+                                  isExpanded: effectiveExpanded,
                                   onUp: () {
                                     if (i == 0) {
                                       _watchlistFocusNode.requestFocus();
@@ -488,7 +493,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                       _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
                                     }
                                   },
-                                  onNavigateLeft: _isExpanded ? () => _reorderFocusNodes[_orderedLibraries[i].key]?.requestFocus() : null,
+                                  onNavigateLeft: effectiveExpanded ? () => _reorderFocusNodes[_orderedLibraries[i].key]?.requestFocus() : null,
                                   onNavigateRight: widget.onNavigateRight,
                                   onTap: () => widget.onLibrarySelected(_orderedLibraries[i]),
                                 ),
@@ -506,7 +511,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.settings_rounded,
                     label: 'Settings',
                     isSelected: widget.activeDestination == NavDestination.settings,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     onUp: () {
                       if (_orderedLibraries.isNotEmpty) {
                         _itemFocusNodes[_orderedLibraries.last.key]?.requestFocus();
@@ -530,7 +535,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.swap_horiz_rounded,
                     label: 'Switch Server',
                     isSelected: widget.activeDestination == NavDestination.switchServer,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     onUp: () => _settingsFocusNode.requestFocus(),
                     onDown: () => _signOutFocusNode.requestFocus(),
                     onNavigateRight: widget.onNavigateRight,
@@ -542,7 +547,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     icon: Icons.logout_rounded,
                     label: 'Sign Out',
                     isSelected: widget.activeDestination == NavDestination.signOut,
-                    isExpanded: _isExpanded,
+                    isExpanded: effectiveExpanded,
                     onUp: () => _switchServerFocusNode.requestFocus(),
                     blockDown: true,
                     onNavigateRight: widget.onNavigateRight,

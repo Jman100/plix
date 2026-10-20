@@ -239,7 +239,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                 padding: EdgeInsets.only(
                                   left: isCompact ? 14 : 32,
                                   right: isCompact ? 14 : 32,
-                                  top: isCompact ? 68 : 88,
+                                  top: isCompact ? 88 : 88,
                                   bottom: isCompact ? 24 : 140,
                                 ),
                                 gridDelegate: isCompact
@@ -264,7 +264,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                         item: item,
                                         mediaService: _mediaService,
                                         focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                                        autofocus: index == (_lastSelectedIndex ?? 0),
+                                        autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
+                                        enableHighlight: !isCompact,
                                         width: constraints.maxWidth,
                                         margin: EdgeInsets.zero,
                                         onTap: () => _openDetails(item, index),

@@ -518,8 +518,8 @@ class JellyfinMediaService {
     return '$baseUrl$path$sep${query.join('&')}';
   }
 
-  String buildDirectPlayUrl(String partKeyOrId) {
-    String itemId = partKeyOrId;
+  String _extractCleanItemId(String raw) {
+    String itemId = raw;
     if (itemId.contains('/Videos/')) {
       final parts = itemId.split('/Videos/');
       if (parts.length > 1) {
@@ -531,7 +531,17 @@ class JellyfinMediaService {
         itemId = parts[1].split('/')[0].split('?')[0];
       }
     }
-    return '$baseUrl/Videos/$itemId/stream?static=true&api_key=$token';
+    return itemId;
+  }
+
+  String buildDirectPlayUrl(String partKeyOrId, {int offsetSeconds = 0, String? clientId}) {
+    final cleanId = _extractCleanItemId(partKeyOrId);
+    if (offsetSeconds > 0) {
+      final ticks = offsetSeconds * 10000000;
+      final devParam = clientId != null ? '&DeviceId=$clientId' : '';
+      return '$baseUrl/Videos/$cleanId/stream?api_key=$token$devParam&StartTimeTicks=$ticks&VideoCodec=copy&AudioCodec=copy';
+    }
+    return '$baseUrl/Videos/$cleanId/stream?static=true&api_key=$token';
   }
 
   String buildTranscodeUrl({
@@ -542,11 +552,11 @@ class JellyfinMediaService {
     required String clientId,
     bool directStreamVideo = false,
   }) {
-    final sep = itemId.contains('?') ? '&' : '?';
+    final cleanId = _extractCleanItemId(itemId);
     final params = <String>[
-      'static=true',
       'api_key=$token',
       'DeviceId=$clientId',
+      'MediaSourceId=$cleanId',
     ];
     if (offsetSeconds > 0) {
       params.add('StartTimeTicks=${offsetSeconds * 10000000}');
@@ -554,7 +564,51 @@ class JellyfinMediaService {
     if (maxBitrateKbps != null && maxBitrateKbps > 0) {
       params.add('VideoBitRate=${maxBitrateKbps * 1000}');
     }
-    return '$baseUrl/Videos/$itemId/stream$sep${params.join('&')}';
+    if (directStreamVideo) {
+      params.add('VideoCodec=copy');
+      params.add('AudioCodec=copy');
+    }
+    if (offsetSeconds == 0 && (maxBitrateKbps == null || maxBitrateKbps <= 0) && !directStreamVideo) {
+      params.add('static=true');
+    }
+    return '$baseUrl/Videos/$cleanId/stream?${params.join('&')}';
+  }
+
+  Future<String?> fetchSubtitleContent({
+    required String itemId,
+    required String subtitleIndex,
+    String? streamKey,
+  }) async {
+    final cleanId = _extractCleanItemId(itemId);
+    if (streamKey != null && streamKey.isNotEmpty) {
+      try {
+        final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
+        final delim = path.contains('?') ? '&' : '?';
+        final url = Uri.parse('$baseUrl$path${delim}api_key=$token');
+        final response = await http.get(url, headers: _headers);
+        if (response.statusCode == 200 && response.body.isNotEmpty) {
+          return response.body;
+        }
+      } catch (_) {}
+    }
+
+    try {
+      final url = Uri.parse('$baseUrl/Videos/$cleanId/$cleanId/Subtitles/$subtitleIndex/Stream.vtt?api_key=$token');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        return response.body;
+      }
+    } catch (_) {}
+
+    try {
+      final url = Uri.parse('$baseUrl/Videos/$cleanId/Subtitles/$subtitleIndex/Stream.vtt?api_key=$token');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        return response.body;
+      }
+    } catch (_) {}
+
+    return null;
   }
 
   Future<String?> fetchThemeMusicUrl(String itemId) async {

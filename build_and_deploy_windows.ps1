@@ -1,5 +1,5 @@
-$version = "1.1.2"
-$versionCode = 18
+$version = "1.2.0"
+$versionCode = 19
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -36,10 +36,12 @@ if (Test-Path $networkPlixDir) {
 
     $manifestPath = "$networkPlixDir\plix.json"
     $releaseNotes = @"
-- Watchlist from Episode Details: Pressing "Add to Watchlist" on an episode details page now adds the entire show to the Watchlist across both Plex and Jellyfin servers, and correctly reflects the "In Watchlist" state
-- Recently Added Shows Tile Text: Show name is prominently displayed on the top line under each tile; the bottom line shows the episode title if a single episode was added, "Season X" if an entire season was added, or remains clean/blank if multiple seasons were added
-- HDR Badges on Jellyfin: Restored missing HDR icons and badges on Jellyfin servers for Continue Watching hero preview cards and all episodes under season listings
-- App Version Bump: Updated to v1.1.2 (versionCode 18)
+- Android Phone & Touch Support: Full portrait and landscape orientation support, touch-optimized controls, responsive 3-column media grids, and persistent bottom navigation bar
+- Picture-in-Picture (PiP) & Portrait Player: Background mini-player with pause controls and smooth expansion; portrait playback includes embedded media info, instant watchlist toggle, and interactive season episode picker
+- Playback Speed Controls: Variable speed adjustment (0.5x, 0.75x, 1x, 1.25x, 1.5x) with on-screen speed badge; enabled PCM audio decoding on Android TV for smooth pitch-corrected speed adjustment during Direct Play
+- Subtitle Reliability & VOBSUB Support: Auto Direct Stream transcode for VOBSUB and PGS bitmap subtitles prevents player stalling; resolved Plex subtitle track selection issues
+- TV & Desktop Polish: Play/Pause button automatically gains initial focus upon playback start, playback controls auto-hide seamlessly during episode transitions, search poster tiles match standard 2:3 proportions, and active server badge displayed on Switch Server screen
+- App Version Bump: Updated to v1.2.0 (versionCode 19)
 "@
 
     $manifest = [ordered]@{

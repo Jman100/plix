@@ -38,6 +38,16 @@ class PlexSubtitleStream {
       streamIndex: streamIndex,
     );
   }
+
+  bool get isBitmapSubtitle {
+    final c = codec.toLowerCase();
+    return c == 'vobsub' ||
+        c == 'dvd_subtitle' ||
+        c == 'dvdsub' ||
+        c == 'pgs' ||
+        c == 'hdmv_pgs_subtitle' ||
+        c == 'sub';
+  }
 }
 
 class PlexAudioStream {
@@ -166,6 +176,7 @@ class PlexMediaItem {
   final String? hdrType;
   final List<PlexMarker> markers;
   final String? guid;
+  final String? grandparentGuid;
   final int? lastViewedAt;
   final String? subtype;
   final String? extraType;
@@ -224,6 +235,7 @@ class PlexMediaItem {
     this.hdrType,
     this.markers = const [],
     this.guid,
+    this.grandparentGuid,
     this.lastViewedAt,
     this.subtype,
     this.extraType,
@@ -751,6 +763,7 @@ class PlexMediaItem {
       hdrType: hType,
       markers: markers,
       guid: parsedGuid,
+      grandparentGuid: json['grandparentGuid']?.toString(),
       subtype: json['subtype']?.toString(),
       extraType: json['extraType']?.toString(),
       lastViewedAt: (json['lastViewedAt'] is num)
@@ -791,6 +804,7 @@ class PlexMediaItem {
     String? hdrType,
     List<PlexMarker>? markers,
     String? guid,
+    String? grandparentGuid,
     int? lastViewedAt,
     String? subtype,
     String? extraType,
@@ -849,6 +863,7 @@ class PlexMediaItem {
       targetType: targetType ?? this.targetType,
       targetSeasonKey: targetSeasonKey ?? this.targetSeasonKey,
       guid: guid ?? this.guid,
+      grandparentGuid: grandparentGuid ?? this.grandparentGuid,
       lastViewedAt: lastViewedAt ?? this.lastViewedAt,
       subtype: subtype ?? this.subtype,
       extraType: extraType ?? this.extraType,

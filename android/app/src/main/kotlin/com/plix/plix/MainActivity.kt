@@ -3,6 +3,8 @@ package com.plix.plix
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.hardware.SensorManager
 import android.media.MediaCodecList
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -12,11 +14,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
+import android.view.OrientationEventListener
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import androidx.lifecycle.Lifecycle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -27,12 +31,25 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.text.CueGroup
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.SubtitleView
 import android.widget.FrameLayout
 import android.view.Gravity
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.content.res.Configuration
+import android.graphics.drawable.Icon
+import android.util.Rational
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs
 import io.flutter.embedding.android.FlutterSurfaceView
@@ -69,6 +86,14 @@ class MainActivity: FlutterActivity() {
     private val SPEECH_REQUEST_CODE = 9912
     private var speechResultCallback: io.flutter.plugin.common.MethodChannel.Result? = null
 
+    private val PIP_PLAY_PAUSE_ACTION = "com.plix.plix.PIP_PLAY_PAUSE"
+    private var pipReceiver: BroadcastReceiver? = null
+    private var lastKnownVideoRatio: Float = 16f / 9f
+
+    private var orientationListener: OrientationEventListener? = null
+    private var lastPhysicalIsLandscape: Boolean? = null
+    private var currentPlaybackSpeed: Float = 1.0f
+
     override fun getBackgroundMode(): FlutterActivityLaunchConfigs.BackgroundMode {
         return FlutterActivityLaunchConfigs.BackgroundMode.transparent
     }
@@ -87,6 +112,8 @@ class MainActivity: FlutterActivity() {
 
         setupNativeSurfaceView()
         setupMediaSession()
+        registerPipReceiver()
+        setupOrientationListener()
     }
 
     override fun onFlutterSurfaceViewCreated(flutterSurfaceView: FlutterSurfaceView) {
@@ -124,7 +151,11 @@ class MainActivity: FlutterActivity() {
 
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     isSurfaceCreated = false
-                    exoPlayer?.clearVideoSurfaceHolder(holder)
+                    // Do not eagerly detach the surface from ExoPlayer during resize or PiP transitions,
+                    // as that forces MediaCodec to drop all non-keyframes until the next GOP IDR keyframe (4-5s freeze).
+                    if (isFinishing) {
+                        exoPlayer?.clearVideoSurfaceHolder(holder)
+                    }
                 }
             })
         }
@@ -283,6 +314,44 @@ class MainActivity: FlutterActivity() {
                     stopPlayback()
                     result.success(true)
                 }
+                "setPlaybackSpeed" -> {
+                    val speed = (call.argument<Number>("speed"))?.toFloat() ?: 1.0f
+                    currentPlaybackSpeed = speed
+                    mainHandler.post {
+                        exoPlayer?.let { p ->
+                            p.playbackParameters = androidx.media3.common.PlaybackParameters(speed)
+                        }
+                    }
+                    result.success(true)
+                }
+                "setVideoBounds" -> {
+                    val x = (call.argument<Number>("x"))?.toInt() ?: 0
+                    val y = (call.argument<Number>("y"))?.toInt() ?: 0
+                    val width = (call.argument<Number>("width"))?.toInt() ?: ViewGroup.LayoutParams.MATCH_PARENT
+                    val height = (call.argument<Number>("height"))?.toInt() ?: ViewGroup.LayoutParams.MATCH_PARENT
+                    val gravity = if (y > 0 || (height != ViewGroup.LayoutParams.MATCH_PARENT && height > 0)) (Gravity.TOP or Gravity.CENTER_HORIZONTAL) else Gravity.CENTER
+                    val updateRunnable = Runnable {
+                        aspectRatioFrameLayout?.let { layout ->
+                            val lp = FrameLayout.LayoutParams(width, height, gravity).apply {
+                                topMargin = y
+                                leftMargin = x
+                            }
+                            layout.layoutParams = lp
+                            layout.requestLayout()
+                        }
+                        updatePipParams(exoPlayer?.isPlaying == true)
+                    }
+                    if (Looper.myLooper() == Looper.getMainLooper()) {
+                        updateRunnable.run()
+                    } else {
+                        mainHandler.post(updateRunnable)
+                    }
+                    result.success(true)
+                }
+                "enterPipMode" -> {
+                    val entered = enterPictureInPictureIfSupported()
+                    result.success(entered)
+                }
                 "getState" -> {
                     val pos = exoPlayer?.currentPosition ?: 0L
                     val dur = exoPlayer?.duration ?: 0L
@@ -376,12 +445,17 @@ class MainActivity: FlutterActivity() {
                     if (group.type == C.TRACK_TYPE_TEXT) {
                         val mediaGroup = group.mediaTrackGroup
                         for (i in 0 until mediaGroup.length) {
+                            val format = mediaGroup.getFormat(i)
+                            val mime = format.sampleMimeType?.lowercase() ?: ""
+                            val isBitmapSub = mime.contains("vobsub") || mime.contains("pgs") || mime.contains("dvd") || (mime.contains("image") && !mime.contains("subrip"))
                             if (textTrackCounter == targetTrackIndex) {
-                                builder.setOverrideForType(
-                                    TrackSelectionOverride(mediaGroup, listOf(i))
-                                )
-                                selectedMediaGroup = mediaGroup
-                                overrideSet = true
+                                if (!isBitmapSub) {
+                                    builder.setOverrideForType(
+                                        TrackSelectionOverride(mediaGroup, listOf(i))
+                                    )
+                                    selectedMediaGroup = mediaGroup
+                                    overrideSet = true
+                                }
                                 break
                             }
                             textTrackCounter++
@@ -398,6 +472,10 @@ class MainActivity: FlutterActivity() {
                         val mediaGroup = group.mediaTrackGroup
                         for (i in 0 until mediaGroup.length) {
                             val format = mediaGroup.getFormat(i)
+                            val mime = format.sampleMimeType?.lowercase() ?: ""
+                            val isBitmapSub = mime.contains("vobsub") || mime.contains("pgs") || mime.contains("dvd") || (mime.contains("image") && !mime.contains("subrip"))
+                            if (isBitmapSub) continue
+
                             val langMatches = !lang.isNullOrEmpty() && (
                                 format.language?.equals(lang, ignoreCase = true) == true ||
                                 (lang.length >= 2 && format.language?.startsWith(lang.substring(0, 2), ignoreCase = true) == true)
@@ -421,19 +499,7 @@ class MainActivity: FlutterActivity() {
                 }
             }
 
-            // 3. Explicitly disable all other text track groups so ExoPlayer never plays multiple subtitle tracks at once
-            for (group in currentTracks.groups) {
-                if (group.type == C.TRACK_TYPE_TEXT) {
-                    val mediaGroup = group.mediaTrackGroup
-                    if (mediaGroup != selectedMediaGroup) {
-                        builder.setOverrideForType(
-                            TrackSelectionOverride(mediaGroup, emptyList())
-                        )
-                    }
-                }
-            }
-
-            if (!overrideSet && !lang.isNullOrEmpty()) {
+            if (!lang.isNullOrEmpty()) {
                 builder.setPreferredTextLanguage(lang)
             }
             player.trackSelectionParameters = builder.build()
@@ -547,71 +613,100 @@ class MainActivity: FlutterActivity() {
     private fun playMedia(url: String, headers: Map<String, String>?, positionMs: Long) {
         stopPlayback()
 
-        mainHandler.post {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    window.colorMode = ActivityInfo.COLOR_MODE_HDR
-                    videoSurfaceView?.holder?.setFormat(PixelFormat.RGBA_1010102)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                window.colorMode = ActivityInfo.COLOR_MODE_HDR
+                videoSurfaceView?.holder?.setFormat(PixelFormat.RGBA_1010102)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            videoSurfaceView?.visibility = View.VISIBLE
-            aspectRatioFrameLayout?.visibility = View.VISIBLE
+        }
+        videoSurfaceView?.visibility = View.VISIBLE
+        aspectRatioFrameLayout?.visibility = View.VISIBLE
 
-            val player = ExoPlayer.Builder(this).build().apply {
-                videoSurfaceView?.let { setVideoSurfaceView(it) }
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink {
+                return DefaultAudioSink.Builder(context)
+                    .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(false)
+                    .build()
+            }
+        }
 
-                val dataSourceFactory = DefaultHttpDataSource.Factory()
-                headers?.let {
-                    dataSourceFactory.setDefaultRequestProperties(it)
-                }
+        val player = ExoPlayer.Builder(this, renderersFactory).build().apply {
+            videoSurfaceView?.let { setVideoSurfaceView(it) }
 
-                val mediaItem = MediaItem.fromUri(Uri.parse(url))
-                val mediaSource = if (url.contains(".m3u8")) {
-                    HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
-                } else {
-                    ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
-                }
+            val dataSourceFactory = DefaultHttpDataSource.Factory()
+            headers?.let {
+                dataSourceFactory.setDefaultRequestProperties(it)
+            }
 
-                addListener(object : Player.Listener {
-                    override fun onVideoSizeChanged(videoSize: VideoSize) {
-                        if (videoSize.width > 0 && videoSize.height > 0) {
-                            val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
-                            mainHandler.post {
-                                aspectRatioFrameLayout?.setAspectRatio(ratio)
-                            }
+            val mediaItem = MediaItem.fromUri(Uri.parse(url))
+            val mediaSource = if (url.contains(".m3u8")) {
+                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+            } else {
+                ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+            }
+
+            addListener(object : Player.Listener {
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    if (videoSize.width > 0 && videoSize.height > 0) {
+                        val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
+                        lastKnownVideoRatio = ratio
+                        mainHandler.post {
+                            aspectRatioFrameLayout?.setAspectRatio(ratio)
                         }
+                        updatePipParams(exoPlayer?.isPlaying == true)
                     }
+                }
 
-                    override fun onPlaybackStateChanged(playbackState: Int) {
-                        if (playbackState == Player.STATE_READY) {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_BUFFERING) {
+                        mainHandler.post {
+                            nativePlayerChannel?.invokeMethod("onBufferingChanged", mapOf("isBuffering" to true))
+                        }
+                    } else if (playbackState == Player.STATE_READY) {
+                        mainHandler.post {
+                            nativePlayerChannel?.invokeMethod("onBufferingChanged", mapOf("isBuffering" to false))
                             nativePlayerChannel?.invokeMethod("onPlayerReady", mapOf(
                                 "duration" to (if (duration < 0) 0L else duration)
                             ))
-                        } else if (playbackState == Player.STATE_ENDED) {
+                        }
+                    } else if (playbackState == Player.STATE_ENDED) {
+                        mainHandler.post {
+                            nativePlayerChannel?.invokeMethod("onBufferingChanged", mapOf("isBuffering" to false))
                             nativePlayerChannel?.invokeMethod("onPlayerEnded", null)
                         }
                     }
+                }
 
-                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    mainHandler.post {
                         nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to isPlaying))
-                        updateMediaSessionActive(isPlaying)
                     }
+                    updateMediaSessionActive(isPlaying)
+                    updatePipParams(isPlaying)
+                }
 
-                    override fun onTracksChanged(tracks: Tracks) {
-                        if (!isSubtitleDisabled) {
-                            applySubtitleSelection()
-                        }
-                        applyAudioSelection()
+                override fun onTracksChanged(tracks: Tracks) {
+                    if (!isSubtitleDisabled) {
+                        applySubtitleSelection()
                     }
+                    applyAudioSelection()
+                }
 
-                    override fun onCues(cueGroup: CueGroup) {
+                override fun onCues(cueGroup: CueGroup) {
+                    mainHandler.post {
                         if (isSubtitleDisabled) {
-                            mainHandler.post { subtitleView?.setCues(emptyList()) }
+                            subtitleView?.setCues(emptyList())
                             nativePlayerChannel?.invokeMethod("onSubtitleCue", mapOf("text" to ""))
                             nativePlayerChannel?.invokeMethod("onSubtitleBitmapCue", null)
-                            return
+                            return@post
                         }
                         val bitmapCue = cueGroup.cues.firstOrNull { it.bitmap != null }
                         if (bitmapCue != null && bitmapCue.bitmap != null) {
@@ -619,41 +714,38 @@ class MainActivity: FlutterActivity() {
                                 val stream = java.io.ByteArrayOutputStream()
                                 bitmapCue.bitmap!!.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
                                 val bytes = stream.toByteArray()
-                                mainHandler.post {
-                                    nativePlayerChannel?.invokeMethod("onSubtitleBitmapCue", mapOf("bytes" to bytes))
-                                }
+                                nativePlayerChannel?.invokeMethod("onSubtitleBitmapCue", mapOf("bytes" to bytes))
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
                             nativePlayerChannel?.invokeMethod("onSubtitleCue", mapOf("text" to ""))
                         } else {
-                            mainHandler.post {
-                                subtitleView?.setCues(emptyList())
-                                nativePlayerChannel?.invokeMethod("onSubtitleBitmapCue", null)
-                            }
+                            subtitleView?.setCues(emptyList())
+                            nativePlayerChannel?.invokeMethod("onSubtitleBitmapCue", null)
                             val text = if (cueGroup.cues.isEmpty()) {
                                 ""
                             } else {
-                                val firstCue = cueGroup.cues.firstOrNull { !it.text.isNullOrBlank() }
-                                firstCue?.text?.toString()?.trim() ?: ""
+                                cueGroup.cues.mapNotNull { it.text?.toString()?.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
                             }
                             nativePlayerChannel?.invokeMethod("onSubtitleCue", mapOf("text" to text))
                         }
                     }
-                })
-
-                setMediaSource(mediaSource)
-                prepare()
-                applySubtitleSelection()
-                applyAudioSelection()
-                if (positionMs > 0) {
-                    seekTo(positionMs)
                 }
-                play()
+            })
+
+            setMediaSource(mediaSource)
+            prepare()
+            playbackParameters = androidx.media3.common.PlaybackParameters(currentPlaybackSpeed)
+            applySubtitleSelection()
+            applyAudioSelection()
+            if (positionMs > 0) {
+                seekTo(positionMs)
             }
-            exoPlayer = player
-            startPeriodicUpdates()
+            play()
+            updatePipParams(true)
         }
+        exoPlayer = player
+        startPeriodicUpdates()
     }
 
     private fun startPeriodicUpdates() {
@@ -664,11 +756,13 @@ class MainActivity: FlutterActivity() {
                     val pos = player.currentPosition
                     val dur = player.duration
                     val isPlaying = player.isPlaying
-                    nativePlayerChannel?.invokeMethod("onPositionUpdate", mapOf(
-                        "position" to pos,
-                        "duration" to (if (dur < 0) 0L else dur),
-                        "isPlaying" to isPlaying
-                    ))
+                    mainHandler.post {
+                        nativePlayerChannel?.invokeMethod("onPositionUpdate", mapOf(
+                            "position" to pos,
+                            "duration" to (if (dur < 0) 0L else dur),
+                            "isPlaying" to isPlaying
+                        ))
+                    }
                 }
                 mainHandler.postDelayed(this, 500)
             }
@@ -683,29 +777,249 @@ class MainActivity: FlutterActivity() {
 
     private fun stopPlayback() {
         stopPeriodicUpdates()
+        updatePipParams(false)
         selectedAudioIndex = null
         selectedAudioLanguage = null
         selectedAudioLabel = null
         exoPlayer?.let {
             it.stop()
+            it.clearMediaItems()
             it.release()
         }
         exoPlayer = null
+        subtitleView?.setCues(emptyList())
+        videoSurfaceView?.visibility = View.GONE
+        aspectRatioFrameLayout?.visibility = View.GONE
+    }
+
+    private fun registerPipReceiver() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (intent?.action == PIP_PLAY_PAUSE_ACTION) {
+                        val player = exoPlayer ?: return
+                        if (player.isPlaying) {
+                            player.pause()
+                        } else {
+                            player.play()
+                        }
+                        updatePipParams(player.isPlaying)
+                    }
+                }
+            }
+            pipReceiver = receiver
+            val filter = IntentFilter(PIP_PLAY_PAUSE_ACTION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(receiver, filter)
+            }
+        }
+    }
+
+    private fun unregisterPipReceiver() {
+        pipReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+            pipReceiver = null
+        }
+    }
+
+    private fun calculatePipRational(): Rational {
+        var ratio = lastKnownVideoRatio
+        if (ratio <= 0f || ratio.isNaN()) ratio = 16f / 9f
+        val clampedRatio = ratio.coerceIn(0.42f, 2.38f)
+        val num = (clampedRatio * 1000).toInt()
+        val den = 1000
+        return Rational(num, den)
+    }
+
+    private fun setupOrientationListener() {
+        val isTv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+        if (isTv) return
+
+        orientationListener = object : OrientationEventListener(this, SensorManager.SENSOR_DELAY_NORMAL) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                val isLandscape = (degrees in 60..120) || (degrees in 240..300)
+                val isPortrait = (degrees in 0..30) || (degrees in 330..360) || (degrees in 150..210)
+
+                if (isLandscape && lastPhysicalIsLandscape != true) {
+                    lastPhysicalIsLandscape = true
+                    mainHandler.post {
+                        nativePlayerChannel?.invokeMethod("onDevicePhysicalOrientationChanged", mapOf("orientation" to "landscape"))
+                    }
+                } else if (isPortrait && lastPhysicalIsLandscape != false) {
+                    lastPhysicalIsLandscape = false
+                    mainHandler.post {
+                        nativePlayerChannel?.invokeMethod("onDevicePhysicalOrientationChanged", mapOf("orientation" to "portrait"))
+                    }
+                }
+            }
+        }
+        if (orientationListener?.canDetectOrientation() == true) {
+            orientationListener?.enable()
+        }
+    }
+
+    private fun updatePipParams(isPlaying: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val isTv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                if (isTv) return
+
+                val intent = Intent(PIP_PLAY_PAUSE_ACTION).setPackage(packageName)
+                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+                val pendingIntent = PendingIntent.getBroadcast(this, 101, intent, flags)
+
+                val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                val title = if (isPlaying) "Pause" else "Play"
+                val action = RemoteAction(
+                    Icon.createWithResource(this, iconRes),
+                    title,
+                    title,
+                    pendingIntent
+                )
+
+                val builder = PictureInPictureParams.Builder()
+                    .setAspectRatio(calculatePipRational())
+                    .setActions(listOf(action))
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(isPlaying)
+                }
+
+                val rect = Rect()
+                val targetView = aspectRatioFrameLayout ?: videoSurfaceView
+                if (targetView != null && targetView.visibility == View.VISIBLE && targetView.getGlobalVisibleRect(rect)) {
+                    if (rect.width() > 0 && rect.height() > 0) {
+                        builder.setSourceRectHint(rect)
+                    }
+                }
+
+                setPictureInPictureParams(builder.build())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun enterPictureInPictureIfSupported(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val isTv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                if (isTv) return false
+
+                val isPlaying = exoPlayer?.isPlaying == true
+                val intent = Intent(PIP_PLAY_PAUSE_ACTION).setPackage(packageName)
+                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+                val pendingIntent = PendingIntent.getBroadcast(this, 101, intent, flags)
+                val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                val title = if (isPlaying) "Pause" else "Play"
+                val action = RemoteAction(
+                    Icon.createWithResource(this, iconRes),
+                    title,
+                    title,
+                    pendingIntent
+                )
+
+                val builder = PictureInPictureParams.Builder()
+                    .setAspectRatio(calculatePipRational())
+                    .setActions(listOf(action))
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(isPlaying)
+                }
+
+                val rect = Rect()
+                val targetView = aspectRatioFrameLayout ?: videoSurfaceView
+                if (targetView != null && targetView.visibility == View.VISIBLE && targetView.getGlobalVisibleRect(rect)) {
+                    if (rect.width() > 0 && rect.height() > 0) {
+                        builder.setSourceRectHint(rect)
+                    }
+                }
+
+                return enterPictureInPictureMode(builder.build())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return false
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val isTv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+            if (!isTv && exoPlayer?.isPlaying == true) {
+                enterPictureInPictureIfSupported()
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) {
+            aspectRatioFrameLayout?.let { layout ->
+                val lp = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    Gravity.CENTER
+                )
+                lp.topMargin = 0
+                lp.leftMargin = 0
+                layout.layoutParams = lp
+                layout.requestLayout()
+            }
+            subtitleView?.setFractionalTextSize(0.035f)
+        } else {
+            subtitleView?.setUserDefaultTextSize()
+            // When user taps 'X' (close) on the floating PiP window, activity is dismissed or not resumed
+            if (isFinishing) {
+                exoPlayer?.pause()
+                stopPlayback()
+                nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+            }
+        }
         mainHandler.post {
-            subtitleView?.setCues(emptyList())
-            videoSurfaceView?.visibility = View.GONE
-            aspectRatioFrameLayout?.visibility = View.GONE
+            nativePlayerChannel?.invokeMethod("onPipModeChanged", mapOf("isInPip" to isInPictureInPictureMode))
         }
     }
 
     override fun onPause() {
         super.onPause()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+            // Keep playback active while floating in PiP
+            return
+        }
+        // In Android 12+ (API 31+), auto-enter PiP may briefly transition through onPause while playing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
+            return
+        }
         exoPlayer?.pause()
         nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
     }
 
     override fun onStop() {
         super.onStop()
+        if (isFinishing) {
+            exoPlayer?.pause()
+            stopPlayback()
+            nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+            return
+        }
         exoPlayer?.pause()
         nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
     }
@@ -845,6 +1159,9 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onDestroy() {
+        orientationListener?.disable()
+        orientationListener = null
+        unregisterPipReceiver()
         stopPlayback()
         mediaSession?.release()
         mediaSession = null

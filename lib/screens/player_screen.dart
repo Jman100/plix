@@ -11,6 +11,7 @@ import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/media_button_service.dart';
 import '../services/native_player_service.dart';
+import '../services/plex_auth_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/plex_timeline_service.dart';
 import '../services/plix_device_helper.dart';
@@ -59,6 +60,8 @@ class VideoQualityOption {
     VideoQualityOption(label: '480p (1.5 Mbps)', resolution: '720x480', bitrateKbps: 1500),
   ];
 }
+
+enum _OrientationLock { none, lockedLandscape, lockedPortrait }
 
 class PlayerScreen extends StatefulWidget {
   final PlexMediaItem item;
@@ -177,6 +180,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final FocusNode _qualityBtnFocusNode = FocusNode();
   final FocusNode _seriesBtnFocusNode = FocusNode();
   final FocusNode _fullscreenBtnFocusNode = FocusNode();
+  final FocusNode _speedBtnFocusNode = FocusNode();
+  bool _isBuffering = false;
+  StreamSubscription<bool>? _bufferingSub;
+  Orientation? _lastAppliedOrientation;
+  bool _isInPip = false;
+  StreamSubscription<bool>? _pipSub;
+  _OrientationLock _orientationLock = _OrientationLock.none;
+  StreamSubscription<String>? _physicalOrientationSub;
+  double _playbackSpeed = 1.0;
+  List<PlexMediaItem> _portraitSeasonEpisodes = [];
+  bool _isLoadingPortraitEpisodes = false;
+  bool _isOnWatchlist = false;
+  bool _isUpdatingWatchlist = false;
   bool _isFullScreen = false;
   StreamSubscription<String?>? _serverStopSubscription;
 
@@ -238,6 +254,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted && _isPlaying != playing) {
         setState(() => _isPlaying = playing);
       }
+      if (mounted && playing && _showControls) {
+        _scheduleHideControls();
+      }
     });
     _errSub = _nativePlayer.onPlayerError.listen((err) {
       if (mounted) {
@@ -258,12 +277,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
     });
     _subCueSub = _nativePlayer.onSubtitleCue.listen((cueText) {
-      if (mounted && _selectedSubtitle != null) {
+      if (mounted && _selectedSubtitle != null && _subtitleCues.isEmpty) {
         if (_currentSubtitleText != cueText) {
           setState(() {
             _currentSubtitleText = cueText;
           });
         }
+      }
+    });
+    _bufferingSub = _nativePlayer.onBufferingChanged.listen((isBuffering) {
+      if (mounted && _isBuffering != isBuffering) {
+        setState(() {
+          _isBuffering = isBuffering;
+        });
       }
     });
     _subBitmapSub = _nativePlayer.onSubtitleBitmapCue.listen((bytes) {
@@ -281,16 +307,60 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
     });
 
+    _pipSub = _nativePlayer.onPipModeChanged.listen((inPip) {
+      if (mounted) {
+        setState(() {
+          _isInPip = inPip;
+          if (inPip) {
+            _showControls = false;
+          }
+        });
+      }
+    });
+
+    _physicalOrientationSub = _nativePlayer.onDevicePhysicalOrientationChanged.listen((orient) {
+      if (!mounted) return;
+      if (_orientationLock == _OrientationLock.lockedLandscape && orient == 'landscape') {
+        setState(() {
+          _orientationLock = _OrientationLock.none;
+        });
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } else if (_orientationLock == _OrientationLock.lockedPortrait && orient == 'portrait') {
+        setState(() {
+          _orientationLock = _OrientationLock.none;
+        });
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
+    });
     _initPlayer();
     _fetchAdjacentEpisodes();
+    _loadPortraitSeasonEpisodes();
+    _checkWatchlist();
 
     if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
       SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _showControls && _playPauseBtnFocusNode.canRequestFocus) {
+        _playPauseBtnFocusNode.requestFocus();
+      }
+    });
   }
 
   Future<void> _loadPlayerPreferences() async {
@@ -432,6 +502,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _nativePlayer.stop();
 
     setState(() {
+      _showControls = true;
       _isAutoplayCountdownActive = false;
       _nextEpisodeItem = null;
       _previousEpisodeItem = null;
@@ -455,15 +526,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _initPlayer();
     _fetchAdjacentEpisodes();
+    _loadPortraitSeasonEpisodes();
+    _checkWatchlist();
 
     if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
       SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
     _scheduleHideControls();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _showControls && _playPauseBtnFocusNode.canRequestFocus) {
+        _playPauseBtnFocusNode.requestFocus();
+      }
+    });
   }
 
   void _startNextEpisode() {
@@ -521,6 +600,168 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _checkWatchlist() async {
+    try {
+      final userToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
+      final target = _currentItem.isEpisode || _currentItem.isSeason
+          ? (_currentItem.grandparentRatingKey != null
+              ? PlexMediaItem(
+                  ratingKey: _currentItem.grandparentRatingKey!,
+                  key: '/library/metadata/${_currentItem.grandparentRatingKey}',
+                  title: _currentItem.grandparentTitle ?? _currentItem.title,
+                  type: 'show',
+                  grandparentRatingKey: _currentItem.grandparentRatingKey,
+                  grandparentGuid: _currentItem.grandparentGuid,
+                  guid: _currentItem.grandparentGuid,
+                )
+              : _currentItem)
+          : _currentItem;
+      final inList = await _mediaService.isInWatchlist(item: target, userToken: userToken);
+      if (mounted) setState(() => _isOnWatchlist = inList);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleWatchlist() async {
+    if (_isUpdatingWatchlist) return;
+    setState(() => _isUpdatingWatchlist = true);
+    try {
+      final userToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
+      final target = _currentItem.isEpisode || _currentItem.isSeason
+          ? (_currentItem.grandparentRatingKey != null
+              ? PlexMediaItem(
+                  ratingKey: _currentItem.grandparentRatingKey!,
+                  key: '/library/metadata/${_currentItem.grandparentRatingKey}',
+                  title: _currentItem.grandparentTitle ?? _currentItem.title,
+                  type: 'show',
+                  grandparentRatingKey: _currentItem.grandparentRatingKey,
+                  grandparentGuid: _currentItem.grandparentGuid,
+                  guid: _currentItem.grandparentGuid,
+                )
+              : _currentItem)
+          : _currentItem;
+      final willAdd = !_isOnWatchlist;
+      final success = willAdd
+          ? await _mediaService.addToWatchlist(item: target, userToken: userToken)
+          : await _mediaService.removeFromWatchlist(item: target, userToken: userToken);
+      if (mounted && success) {
+        setState(() {
+          _isOnWatchlist = willAdd;
+          _isUpdatingWatchlist = false;
+        });
+        _showToast(willAdd ? 'Added to Watchlist' : 'Removed from Watchlist');
+      } else if (mounted) {
+        setState(() => _isUpdatingWatchlist = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isUpdatingWatchlist = false);
+    }
+  }
+
+  Future<void> _loadPortraitSeasonEpisodes() async {
+    if (!_currentItem.isEpisode) {
+      if (mounted) setState(() => _portraitSeasonEpisodes = []);
+      return;
+    }
+    setState(() => _isLoadingPortraitEpisodes = true);
+    try {
+      final seasonKey = _currentItem.parentRatingKey ?? '';
+      final showKey = _currentItem.grandparentRatingKey;
+      final episodes = await _mediaService.getSeasonEpisodes(
+        seasonKey,
+        showRatingKey: showKey,
+      );
+      if (mounted) {
+        setState(() {
+          _portraitSeasonEpisodes = episodes;
+          _isLoadingPortraitEpisodes = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingPortraitEpisodes = false);
+    }
+  }
+
+  void _updateVideoBounds(BuildContext context, bool isPortrait) {
+    if (Platform.isWindows || PlixDeviceHelper.isTelevision) return;
+    if (_isInPip) return;
+
+    final currentOrientation = MediaQuery.of(context).orientation;
+    if (currentOrientation != _lastAppliedOrientation) {
+      _lastAppliedOrientation = currentOrientation;
+      if (isPortrait) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      }
+    }
+
+    if (isPortrait) {
+      final mq = MediaQuery.of(context);
+      final dpr = mq.devicePixelRatio;
+      final topPadding = mq.padding.top;
+      final screenWidth = mq.size.width;
+      final videoHeight = screenWidth / 1.77778;
+
+      final pxY = (topPadding * dpr).round();
+      final pxWidth = (screenWidth * dpr).round();
+      final pxHeight = (videoHeight * dpr).round();
+
+      _nativePlayer.setVideoBounds(
+        x: 0,
+        y: pxY,
+        width: pxWidth,
+        height: pxHeight,
+      );
+    } else {
+      _nativePlayer.setVideoBounds(
+        x: 0,
+        y: 0,
+        width: -1,
+        height: -1,
+      );
+    }
+  }
+
+  Future<void> _setPlaybackSpeed(double s) async {
+    setState(() {
+      _playbackSpeed = s;
+    });
+    await _nativePlayer.setPlaybackSpeed(s);
+  }
+
+  void _showSpeedSelector() {
+    _hideControlsTimer?.cancel();
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5];
+    final items = speeds.map((s) => _PlaybackOptionItem(
+      label: '${s == 1.0 ? '1.0' : s.toString()}x',
+      isSelected: (_playbackSpeed - s).abs() < 0.01,
+      onTap: () {
+        Navigator.of(context).pop();
+        _setPlaybackSpeed(s);
+        _scheduleHideControls();
+      },
+    )).toList();
+
+    int selectedIdx = speeds.indexWhere((s) => (_playbackSpeed - s).abs() < 0.01);
+    if (selectedIdx < 0) selectedIdx = 2;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: PlixTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return _PlaybackOptionSelector(
+          title: 'Playback Speed',
+          icon: Icons.speed_rounded,
+          items: items,
+          initialSelectedIndex: selectedIdx,
+        );
+      },
+    ).then((_) => _scheduleHideControls());
   }
 
   Future<void> _initPlayer() async {
@@ -617,6 +858,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _isInitialized = true;
           _isPlaying = true;
         });
+        if (_showControls && _playPauseBtnFocusNode.canRequestFocus) {
+          _playPauseBtnFocusNode.requestFocus();
+        }
         _scheduleHideControls();
       }
     } catch (e) {
@@ -630,6 +874,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Future<void> _selectSubtitle(PlexSubtitleStream? stream) async {
+    final isBitmap = stream != null && stream.isBitmapSubtitle;
+
     setState(() {
       _selectedSubtitle = stream;
       _subtitleCues = [];
@@ -639,7 +885,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (stream == null) {
       await _nativePlayer.setSubtitleTrack(enabled: false);
-    } else {
+    } else if (!isBitmap || Platform.isWindows) {
       String? subUrl;
       if (Platform.isWindows && stream.key.isNotEmpty && !widget.server.isJellyfin) {
         subUrl = '${_mediaService.baseUrl}${stream.key}?X-Plex-Token=${widget.server.accessToken}';
@@ -651,6 +897,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         trackIndex: stream.streamIndex,
         url: subUrl,
       );
+    } else {
+      // For bitmap subtitles on Android (VOBSUB / PGS):
+      // Disable ExoPlayer's text track override so ExoPlayer doesn't try to decode bitmap packets (which freezes playback).
+      await _nativePlayer.setSubtitleTrack(enabled: false);
     }
 
     if (_currentItem.partId != null) {
@@ -660,7 +910,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    if (!Platform.isWindows && stream != null) {
+    // On Android, bitmap subtitles (VOBSUB/PGS) cannot be decoded by ExoPlayer and must be burned in by transcoding.
+    // If we are currently Direct Playing and a bitmap subtitle is selected, automatically switch to Direct Stream.
+    if (!Platform.isWindows && isBitmap && _selectedQuality.isDirectPlay) {
+      await _changeQuality(VideoQualityOption.directStream, force: true);
+    } else if (!_selectedQuality.isDirectPlay) {
+      await _changeQuality(_selectedQuality, force: true);
+    }
+
+    // Only fetch text subtitle cues for text subtitles (SRT, VTT, etc.).
+    // Never attempt to fetch text cues for VOBSUB or PGS bitmap subtitles (which causes Plex endpoint to hang/fail).
+    if (!Platform.isWindows && stream != null && !isBitmap) {
       final content = await _mediaService.fetchSubtitleContent(
         ratingKey: _currentItem.ratingKey,
         subtitleStreamId: stream.id,
@@ -839,7 +1099,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _showControls = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _showControls) {
+      if (mounted && _showControls && _playPauseBtnFocusNode.canRequestFocus) {
         _playPauseBtnFocusNode.requestFocus();
       }
     });
@@ -849,7 +1109,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _scheduleHideControls() {
     _hideControlsTimer?.cancel();
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _isPlaying) {
+      if (mounted && (_isPlaying || _isInitialized)) {
         setState(() {
           _showControls = false;
         });
@@ -1301,11 +1561,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     ).then((_) => _scheduleHideControls());
   }
 
-  Future<void> _changeQuality(VideoQualityOption quality) async {
+  Future<void> _changeQuality(VideoQualityOption quality, {bool force = false}) async {
     if (_currentItem.isTrailer && quality.isDirectPlay) {
       quality = VideoQualityOption.directStream;
     }
-    if (_selectedQuality == quality) return;
+    if (!force && _selectedQuality == quality) return;
     setState(() {
       _selectedQuality = quality;
       _isSwitchingQuality = true;
@@ -1386,12 +1646,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _endedSub?.cancel();
     _subCueSub?.cancel();
     _subBitmapSub?.cancel();
+    _bufferingSub?.cancel();
     _hideControlsTimer?.cancel();
     _centerFeedbackTimer?.cancel();
     _seekDebounceTimer?.cancel();
     _quickSeekHideTimer?.cancel();
     _autoplayTimer?.cancel();
 
+    _pipSub?.cancel();
+    _physicalOrientationSub?.cancel();
+    _speedBtnFocusNode.dispose();
+    _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
     _timelineService.stop(_currentPositionMs);
     _timelineService.dispose();
     _serverStopSubscription?.cancel();
@@ -1427,6 +1692,595 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
+  Widget _buildPortraitLayout(BuildContext context, double progressMs, double maxMs) {
+    final mq = MediaQuery.of(context);
+    final videoHeight = mq.size.width / 1.77778;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          // Status bar background
+          Container(
+            height: mq.padding.top,
+            color: Colors.black,
+          ),
+          // Top Video Box (16:9 Aspect Ratio)
+            SizedBox(
+              width: double.infinity,
+              height: videoHeight,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _showControls = !_showControls;
+                      });
+                      if (_showControls) {
+                        _scheduleHideControls();
+                      }
+                    },
+                    child: const SizedBox.expand(),
+                  ),
+
+                  // Switching quality loading overlay
+                  if (_isSwitchingQuality)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              'Switching quality...',
+                              style: TextStyle(color: Colors.white, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Subtitles overlay on video
+                  if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
+                    Positioned(
+                      bottom: _showControls ? 48 : 8,
+                      left: 16,
+                      right: 16,
+                      child: Center(
+                        child: Image.memory(
+                          _subtitleBitmapBytes!,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    )
+                  else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
+                    Positioned(
+                      bottom: _isInPip ? 4 : (_showControls ? 48 : 8),
+                      left: _isInPip ? 8 : 16,
+                      right: _isInPip ? 8 : 16,
+                      child: Center(
+                        child: Text(
+                          _currentSubtitleText,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: _isInPip ? 10 : 15,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: _isInPip ? 2 : 4, offset: const Offset(1, 1)),
+                              Shadow(color: Colors.black, blurRadius: _isInPip ? 2 : 4, offset: const Offset(-1, -1)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Skip intro button
+                  if (_showSkipIntroButton)
+                    Positioned(
+                      bottom: _showControls ? 52 : 12,
+                      right: 12,
+                      child: PlixButton(
+                        label: 'Skip Intro',
+                        icon: const Icon(Icons.skip_next_rounded, size: 16),
+                        fontSize: 12,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        onPressed: _skipIntro,
+                      ),
+                    ),
+
+                  // Quick seek / play feedback
+                  if (_centerFeedbackIcon != null || _centerFeedbackText != null)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.75),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_centerFeedbackIcon != null)
+                              Icon(_centerFeedbackIcon, color: PlixTheme.plexGold, size: 36),
+                            if (_centerFeedbackText != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _centerFeedbackText!,
+                                style: TextStyle(
+                                  color: PlixTheme.plexGold,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Buffering indicator
+                  if (_isBuffering && !_isSwitchingQuality)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    ),
+
+                  // Controls Overlay
+                  AnimatedOpacity(
+                    opacity: _showControls ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: IgnorePointer(
+                      ignoring: !_showControls,
+                      child: Container(
+                        color: Colors.black45,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                                    onPressed: () {
+                                      _nativePlayer.stop();
+                                      _timelineService.stop(_currentPositionMs);
+                                      _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      _currentItem.isEpisode ? _currentItem.title : _currentItem.displayTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white, size: 22),
+                                    tooltip: 'Picture in Picture',
+                                    onPressed: () => _nativePlayer.enterPipMode(),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 26),
+                                    tooltip: 'Fullscreen',
+                                    onPressed: () {
+                                      setState(() {
+                                        _orientationLock = _OrientationLock.lockedLandscape;
+                                      });
+                                      SystemChrome.setPreferredOrientations([
+                                        DeviceOrientation.landscapeLeft,
+                                        DeviceOrientation.landscapeRight,
+                                      ]);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 36),
+                                  onPressed: () => _accumulateSeek(-_quickRewindSeconds),
+                                ),
+                                const SizedBox(width: 24),
+                                IconButton(
+                                  icon: Icon(
+                                    _isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                                    color: PlixTheme.plexGold,
+                                    size: 54,
+                                  ),
+                                  onPressed: _togglePlayPause,
+                                ),
+                                const SizedBox(width: 24),
+                                IconButton(
+                                  icon: const Icon(Icons.forward_30_rounded, color: Colors.white, size: 36),
+                                  onPressed: () => _accumulateSeek(_skipAheadSeconds),
+                                ),
+                              ],
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _formatDuration(Duration(milliseconds: progressMs.toInt())),
+                                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                        trackHeight: 3,
+                                        activeTrackColor: PlixTheme.plexGold,
+                                        thumbColor: PlixTheme.plexGold,
+                                        inactiveTrackColor: Colors.white24,
+                                      ),
+                                      child: Slider(
+                                        value: progressMs.clamp(0.0, maxMs),
+                                        min: 0.0,
+                                        max: maxMs,
+                                        onChanged: (val) {
+                                          _seekToTarget(val.toInt());
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDuration(Duration(milliseconds: maxMs.toInt())),
+                                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: Container(
+                color: PlixTheme.background,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentItem.isEpisode ? _currentItem.title : _currentItem.displayTitle,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (_currentItem.isEpisode && _currentItem.grandparentTitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_currentItem.grandparentTitle!} • S${_currentItem.parentIndex ?? 1} E${_currentItem.index ?? 1}',
+                        style: TextStyle(
+                          color: PlixTheme.plexGold,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 10),
+
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        if (_currentItem.formattedResolution.isNotEmpty)
+                          _buildMobileBadge(_currentItem.formattedResolution),
+                        if (_currentItem.isHdr)
+                          _buildMobileBadge(_currentItem.hdrType?.toUpperCase() ?? 'HDR', isGold: true),
+                        if (_currentItem.audioCodec != null && _currentItem.audioCodec!.isNotEmpty)
+                          _buildMobileBadge(_currentItem.audioCodec!.toUpperCase()),
+                        _buildMobileBadge(_selectedQuality.label),
+                        if ((_playbackSpeed - 1.0).abs() > 0.01)
+                          _buildMobileBadge('${_playbackSpeed}x', isGold: true),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildPortraitIconButton(
+                            icon: _isOnWatchlist ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                            iconColor: _isOnWatchlist ? PlixTheme.plexGold : Colors.white,
+                            tooltip: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                            onPressed: _toggleWatchlist,
+                          ),
+                          const SizedBox(width: 14),
+                          _buildPortraitIconButton(
+                            icon: Icons.speed_rounded,
+                            iconColor: (_playbackSpeed - 1.0).abs() > 0.01 ? PlixTheme.plexGold : Colors.white,
+                            tooltip: 'Speed (${_playbackSpeed == 1.0 ? '1.0' : _playbackSpeed}x)',
+                            badgeText: (_playbackSpeed - 1.0).abs() > 0.01 ? '${_playbackSpeed}x' : null,
+                            onPressed: _showSpeedSelector,
+                          ),
+                          const SizedBox(width: 14),
+                          _buildPortraitIconButton(
+                            icon: Icons.tune_rounded,
+                            iconColor: _selectedQuality.isDirectPlay ? Colors.white : PlixTheme.plexGold,
+                            tooltip: 'Quality (${_selectedQuality.label})',
+                            onPressed: _showQualitySelector,
+                          ),
+                          const SizedBox(width: 14),
+                          _buildPortraitIconButton(
+                            icon: Icons.audiotrack_rounded,
+                            iconColor: Colors.white,
+                            tooltip: 'Audio Track',
+                            onPressed: _showAudioSelector,
+                          ),
+                          const SizedBox(width: 14),
+                          _buildPortraitIconButton(
+                            icon: Icons.subtitles_rounded,
+                            iconColor: _selectedSubtitle != null ? PlixTheme.plexGold : Colors.white,
+                            tooltip: 'Subtitles',
+                            onPressed: _showSubtitleSelector,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    if (_currentItem.summary.isNotEmpty) ...[
+                      Text(
+                        _currentItem.summary,
+                        style: const TextStyle(
+                          color: PlixTheme.textSecondary,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (_currentItem.isEpisode) ...[
+                      Text(
+                        'Season ${_currentItem.parentIndex ?? 1} Episodes',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isLoadingPortraitEpisodes)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_portraitSeasonEpisodes.isEmpty)
+                        const Text(
+                          'No episodes available in this season.',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _portraitSeasonEpisodes.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (ctx, idx) {
+                            final ep = _portraitSeasonEpisodes[idx];
+                            final isCurrent = ep.ratingKey == _currentItem.ratingKey;
+                            return InkWell(
+                              onTap: () => _playEpisode(ep),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? PlixTheme.plexGold.withOpacity(0.15)
+                                      : PlixTheme.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isCurrent ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                                    width: isCurrent ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: SizedBox(
+                                        width: 80,
+                                        height: 48,
+                                        child: ep.thumb != null && ep.thumb!.isNotEmpty
+                                            ? Image.network(
+                                                _mediaService.buildImageUrl(ep.thumb, width: 240),
+                                                headers: _playHeaders,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => Container(
+                                                  color: Colors.black45,
+                                                  child: const Icon(Icons.movie, color: Colors.white24),
+                                                ),
+                                              )
+                                            : Container(
+                                                color: Colors.black45,
+                                                child: const Icon(Icons.movie, color: Colors.white24),
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${ep.index ?? idx + 1}. ${ep.title}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isCurrent ? PlixTheme.plexGold : Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                            ),
+                                          ),
+                                          if (ep.duration != null && ep.duration! > 0) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${(ep.duration! / 60000).round()} min',
+                                              style: const TextStyle(
+                                                color: PlixTheme.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    if (isCurrent)
+                                      Icon(Icons.play_arrow_rounded, color: PlixTheme.plexGold, size: 24),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              ),
+            ),
+          ],
+        ),
+    );
+  }
+
+  Widget _buildMobileBadge(String label, {bool isGold = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isGold ? PlixTheme.plexGold.withOpacity(0.2) : PlixTheme.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isGold ? PlixTheme.plexGold : PlixTheme.cardBorder,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isGold ? PlixTheme.plexGold : Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitIconButton({
+    required IconData icon,
+    required Color iconColor,
+    required String tooltip,
+    required VoidCallback onPressed,
+    String? badgeText,
+  }) {
+    Widget button = Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withOpacity(0.08),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: (badgeText != null || iconColor == PlixTheme.plexGold)
+                    ? PlixTheme.plexGold.withOpacity(0.5)
+                    : Colors.white12,
+                width: 1.2,
+              ),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+        ),
+      ),
+    );
+
+    if (badgeText != null) {
+      button = Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          button,
+          Positioned(
+            top: -12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                badgeText,
+                style: TextStyle(
+                  color: PlixTheme.plexGold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return button;
+  }
+
   @override
   Widget build(BuildContext context) {
     final curMs = _currentPositionMs.toDouble();
@@ -1437,17 +2291,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
         : curMs.clamp(0.0, maxMs);
     final progress = effectiveProgressMs;
 
+    final isMobile = !Platform.isWindows && !PlixDeviceHelper.isTelevision;
+    final isPortrait = isMobile && MediaQuery.of(context).orientation == Orientation.portrait;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateVideoBounds(context, isPortrait);
+      }
+    });
+
+
+
     return PopScope(
-      canPop: !_showControls,
+      canPop: isPortrait || !_showControls,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
+        if (didPop) {
+          _nativePlayer.stop();
+          _timelineService.stop(_currentPositionMs);
+          _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+        } else {
           setState(() {
             _showControls = false;
           });
           _playerFocusNode.requestFocus();
         }
       },
-      child: Scaffold(
+      child: isPortrait
+          ? _buildPortraitLayout(context, effectiveProgressMs, maxMs)
+          : Scaffold(
         backgroundColor: Colors.transparent,
         body: MouseRegion(
           cursor: (Platform.isWindows && !_showControls)
@@ -1516,28 +2387,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
 
-              // Subtitles overlay on video (Bitmap & Text) - Android TV only since MPV natively renders subtitles on Windows
+              // Buffering indicator
+              if (_isBuffering && !_isSwitchingQuality)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+
+              // Subtitles overlay on video (Bitmap & Text) - Android TV & Mobile
               if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
                 Positioned(
-                  bottom: _showControls ? 140 : 48,
-                  left: 48,
-                  right: 48,
+                  bottom: _isInPip ? 4 : (_showControls ? 140 : 48),
+                  left: _isInPip ? 8 : 48,
+                  right: _isInPip ? 8 : 48,
                   child: Center(
-                    child: Image.memory(
-                      _subtitleBitmapBytes!,
-                      fit: BoxFit.contain,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: _isInPip ? 30 : double.infinity),
+                      child: Image.memory(
+                        _subtitleBitmapBytes!,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 )
               else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
                 Positioned(
-                  bottom: _showControls ? 140 : 48,
-                  left: 48,
-                  right: 48,
+                  bottom: _isInPip ? 4 : (_showControls ? 140 : 48),
+                  left: _isInPip ? 8 : 48,
+                  right: _isInPip ? 8 : 48,
                   child: Align(
                     alignment: Alignment.bottomCenter,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: _isInPip ? 4 : 16, vertical: _isInPip ? 2 : 8),
                       child: Stack(
                         alignment: Alignment.bottomCenter,
                         children: [
@@ -1546,12 +2436,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             _currentSubtitleText,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: _isInPip ? 10 : 24,
                               fontWeight: FontWeight.bold,
-                              height: 1.3,
+                              height: 1.2,
                               foreground: Paint()
                                 ..style = PaintingStyle.stroke
-                                ..strokeWidth = 3.5
+                                ..strokeWidth = _isInPip ? 1.5 : 3.5
                                 ..color = Colors.black,
                             ),
                           ),
@@ -1559,11 +2449,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           Text(
                             _currentSubtitleText,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 24,
+                              fontSize: _isInPip ? 10 : 24,
                               fontWeight: FontWeight.bold,
-                              height: 1.3,
+                              height: 1.2,
                             ),
                           ),
                         ],
@@ -1768,7 +2658,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   children: [
                                     PlixBackButton(
                                       focusNode: _backBtnFocusNode,
-                                      onPressed: () => Navigator.of(context).pop(),
+                                      onPressed: () {
+                                        _nativePlayer.stop();
+                                        _timelineService.stop(_currentPositionMs);
+                                        _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                                        Navigator.of(context).pop();
+                                      },
                                       onDown: () => _scrubberFocusNode.requestFocus(),
                                       onRight: _scheduleHideControls,
                                     ),
@@ -1994,7 +2889,69 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              // 1. Previous Episode button (TV Shows only)
+                                              // Rotate button (Mobile only)
+                                              if (isMobile) ...[
+                                                _PlayerIconButton(
+                                                  icon: Icons.screen_rotation_rounded,
+                                                  iconColor: Colors.white,
+                                                  tooltip: 'Portrait Mode',
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _orientationLock = _OrientationLock.lockedPortrait;
+                                                    });
+                                                    SystemChrome.setPreferredOrientations([
+                                                      DeviceOrientation.portraitUp,
+                                                    ]);
+                                                  },
+                                                  onDown: _scheduleHideControls,
+                                                  onFocus: _scheduleHideControls,
+                                                ),
+                                                const SizedBox(width: 20),
+                                              ],
+
+                                              // Speed button (All platforms - on the left)
+                                              _PlayerIconButton(
+                                                focusNode: _speedBtnFocusNode,
+                                                icon: Icons.speed_rounded,
+                                                iconColor: (_playbackSpeed - 1.0).abs() > 0.01
+                                                    ? PlixTheme.plexGold
+                                                    : Colors.white70,
+                                                badgeText: (_playbackSpeed - 1.0).abs() > 0.01 ? '${_playbackSpeed}x' : null,
+                                                tooltip: 'Speed (${_playbackSpeed == 1.0 ? '1.0' : _playbackSpeed}x)',
+                                                onPressed: _showSpeedSelector,
+                                                onRight: () => (_currentItem.audioStreams.length > 1)
+                                                    ? _audioBtnFocusNode.requestFocus()
+                                                    : (_currentItem.isEpisode
+                                                        ? _prevEpBtnFocusNode.requestFocus()
+                                                        : _playPauseBtnFocusNode.requestFocus()),
+                                                onUp: () => _scrubberFocusNode.requestFocus(),
+                                                onDown: _scheduleHideControls,
+                                                onFocus: _scheduleHideControls,
+                                              ),
+                                              const SizedBox(width: 20),
+
+                                              // Audio button (when audio tracks > 1 - on the left)
+                                              if (_currentItem.audioStreams.length > 1) ...[
+                                                _PlayerIconButton(
+                                                  focusNode: _audioBtnFocusNode,
+                                                  icon: Icons.audiotrack_rounded,
+                                                  iconColor: _selectedAudio != null
+                                                      ? PlixTheme.plexGold
+                                                      : Colors.white70,
+                                                  tooltip: 'Audio Track',
+                                                  onPressed: _showAudioSelector,
+                                                  onLeft: () => _speedBtnFocusNode.requestFocus(),
+                                                  onRight: () => _currentItem.isEpisode
+                                                      ? _prevEpBtnFocusNode.requestFocus()
+                                                      : _playPauseBtnFocusNode.requestFocus(),
+                                                  onUp: () => _scrubberFocusNode.requestFocus(),
+                                                  onDown: _scheduleHideControls,
+                                                  onFocus: _scheduleHideControls,
+                                                ),
+                                                const SizedBox(width: 20),
+                                              ],
+
+                                              // Previous Episode button (TV Shows only)
                                               if (_currentItem.isEpisode) ...[
                                                 _PlayerIconButton(
                                                   focusNode: _prevEpBtnFocusNode,
@@ -2005,6 +2962,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                   onPressed: _previousEpisodeItem != null
                                                       ? () => _playEpisode(_previousEpisodeItem!)
                                                       : null,
+                                                  onLeft: () => (_currentItem.audioStreams.length > 1)
+                                                      ? _audioBtnFocusNode.requestFocus()
+                                                      : _speedBtnFocusNode.requestFocus(),
                                                   onRight: () => _playPauseBtnFocusNode.requestFocus(),
                                                   onUp: () => _scrubberFocusNode.requestFocus(),
                                                   onDown: _scheduleHideControls,
@@ -2013,7 +2973,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                 const SizedBox(width: 24),
                                               ],
 
-                                              // 2. Play/Pause button
+                                              // Play/Pause button (Centered)
                                               _PlayerIconButton(
                                                 focusNode: _playPauseBtnFocusNode,
                                                 icon: _isPlaying
@@ -2022,18 +2982,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                 isPrimary: true,
                                                 tooltip: 'Play/Pause',
                                                 onPressed: _togglePlayPause,
-                                                onLeft: _currentItem.isEpisode
-                                                    ? () => _prevEpBtnFocusNode.requestFocus()
-                                                    : null,
-                                                onRight: _currentItem.isEpisode
-                                                    ? () => _nextEpBtnFocusNode.requestFocus()
-                                                    : () => _subtitleBtnFocusNode.requestFocus(),
+                                                onLeft: () => _currentItem.isEpisode
+                                                    ? _prevEpBtnFocusNode.requestFocus()
+                                                    : ((_currentItem.audioStreams.length > 1)
+                                                        ? _audioBtnFocusNode.requestFocus()
+                                                        : _speedBtnFocusNode.requestFocus()),
+                                                onRight: () => _currentItem.isEpisode
+                                                    ? _nextEpBtnFocusNode.requestFocus()
+                                                    : _subtitleBtnFocusNode.requestFocus(),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
                                                 onDown: _scheduleHideControls,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
-                                              // 3. Next Episode button (TV Shows only)
+                                              // Next Episode button (TV Shows only)
                                               if (_currentItem.isEpisode) ...[
                                                 const SizedBox(width: 24),
                                                 _PlayerIconButton(
@@ -2055,7 +3017,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
                                               const SizedBox(width: 28),
 
-                                              // 4. Subtitle button
+                                              // Subtitle button
                                               _PlayerIconButton(
                                                 focusNode: _subtitleBtnFocusNode,
                                                 icon: _selectedSubtitle != null
@@ -2069,36 +3031,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                 onLeft: () => _currentItem.isEpisode
                                                     ? _nextEpBtnFocusNode.requestFocus()
                                                     : _playPauseBtnFocusNode.requestFocus(),
-                                                onRight: () => (_currentItem.audioStreams.length > 1)
-                                                    ? _audioBtnFocusNode.requestFocus()
-                                                    : _qualityBtnFocusNode.requestFocus(),
+                                                onRight: () => _qualityBtnFocusNode.requestFocus(),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
                                                 onDown: _scheduleHideControls,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
-                                              // 5. Audio button (when audio tracks > 1)
-                                              if (_currentItem.audioStreams.length > 1) ...[
-                                                const SizedBox(width: 24),
-                                                _PlayerIconButton(
-                                                  focusNode: _audioBtnFocusNode,
-                                                  icon: Icons.audiotrack_rounded,
-                                                  iconColor: _selectedAudio != null
-                                                      ? PlixTheme.plexGold
-                                                      : Colors.white70,
-                                                  tooltip: 'Audio Track',
-                                                  onPressed: _showAudioSelector,
-                                                  onLeft: () => _subtitleBtnFocusNode.requestFocus(),
-                                                  onRight: () => _qualityBtnFocusNode.requestFocus(),
-                                                  onUp: () => _scrubberFocusNode.requestFocus(),
-                                                  onDown: _scheduleHideControls,
-                                                  onFocus: _scheduleHideControls,
-                                                ),
-                                              ],
-
                                               const SizedBox(width: 24),
 
-                                              // 6. Quality button
+                                              // Quality button
                                               _PlayerIconButton(
                                                 focusNode: _qualityBtnFocusNode,
                                                 icon: Icons.tune_rounded,
@@ -2107,20 +3048,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                     : PlixTheme.plexGold,
                                                 tooltip: 'Quality',
                                                 onPressed: _showQualitySelector,
-                                                onLeft: () => (_currentItem.audioStreams.length > 1)
-                                                    ? _audioBtnFocusNode.requestFocus()
-                                                    : _subtitleBtnFocusNode.requestFocus(),
-                                                onRight: Platform.isWindows
-                                                    ? () => _fullscreenBtnFocusNode.requestFocus()
+                                                onLeft: () => _subtitleBtnFocusNode.requestFocus(),
+                                                onRight: () => Platform.isWindows
+                                                    ? _fullscreenBtnFocusNode.requestFocus()
                                                     : ((_currentItem.isEpisode && _currentItem.grandparentRatingKey != null)
-                                                        ? () => _seriesBtnFocusNode.requestFocus()
+                                                        ? _seriesBtnFocusNode.requestFocus()
                                                         : null),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
                                                 onDown: _scheduleHideControls,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
-                                              // 7. Fullscreen button (Windows)
+                                              // Fullscreen button (Windows)
                                               if (Platform.isWindows) ...[
                                                 const SizedBox(width: 24),
                                                 _PlayerIconButton(
@@ -2157,7 +3096,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                 if (Platform.isWindows) {
                                                   _fullscreenBtnFocusNode.requestFocus();
                                                 } else {
-                                                  _qualityBtnFocusNode.requestFocus();
+                                                  _speedBtnFocusNode.requestFocus();
                                                 }
                                               },
                                               onRight: () {},
@@ -2376,6 +3315,7 @@ class _PlayerIconButton extends StatefulWidget {
   final VoidCallback? onUp;
   final VoidCallback? onDown;
   final VoidCallback? onFocus;
+  final String? badgeText;
 
   const _PlayerIconButton({
     required this.icon,
@@ -2389,6 +3329,7 @@ class _PlayerIconButton extends StatefulWidget {
     this.onUp,
     this.onDown,
     this.onFocus,
+    this.badgeText,
   });
 
   @override
@@ -2546,7 +3487,7 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
     );
 
     if (widget.tooltip.isNotEmpty) {
-      return Tooltip(
+      content = Tooltip(
         message: widget.tooltip,
         waitDuration: const Duration(milliseconds: 200),
         textStyle: const TextStyle(
@@ -2560,6 +3501,35 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
           border: Border.all(color: PlixTheme.plexGold.withOpacity(0.4), width: 1.0),
         ),
         child: content,
+      );
+    }
+
+    if (widget.badgeText != null) {
+      content = Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          content,
+          Positioned(
+            top: -14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                widget.badgeText!,
+                style: TextStyle(
+                  color: PlixTheme.plexGold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -2767,19 +3737,22 @@ class _PlaybackOptionSelector extends StatefulWidget {
 }
 
 class _PlaybackOptionSelectorState extends State<_PlaybackOptionSelector> {
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   bool _canScrollDown = false;
 
   @override
   void initState() {
     super.initState();
+    final initialOffset = widget.initialSelectedIndex > 1 ? (widget.initialSelectedIndex * 56.0) : 0.0;
+    _scrollController = ScrollController(initialScrollOffset: initialOffset);
     _scrollController.addListener(_updateScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateScroll();
-      if (widget.initialSelectedIndex > 2 && _scrollController.hasClients) {
+      if (widget.initialSelectedIndex > 1 && _scrollController.hasClients) {
+        final targetOffset = (widget.initialSelectedIndex * 56.0).clamp(0.0, _scrollController.position.maxScrollExtent);
         _scrollController.animateTo(
-          (widget.initialSelectedIndex * 50.0).clamp(0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 200),
+          targetOffset,
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
         );
       }

@@ -239,7 +239,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
                               width: constraints.maxWidth,
                               margin: EdgeInsets.zero,
-                              autofocus: index == (_lastSelectedIndex ?? 0),
+                              autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
+                              enableHighlight: !isCompact,
                               onTap: () => _onItemTap(item, index),
                             );
                           },
