@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plix — Modern Media Client for Plex & Jellyfin</title>
+  <meta name="description" content="Plix is a sleek, modern, unified media client for Plex and Jellyfin servers, crafted for Android TV and Windows with native 4K HDR direct playback.">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="app_icon.png">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+          },
+          colors: {
+            brand: {
+              gold: '#E5A00D',       /* Plex Gold */
+              goldLight: '#F3B83D',
+              purple: '#8C44F7',     /* Jellyfin Purple */
+              purpleDark: '#6222C9',
+              cyan: '#00C7FF',
+              darkBg: '#06080D',
+              cardBg: 'rgba(15, 20, 31, 0.65)',
+              cardHover: 'rgba(23, 31, 48, 0.85)',
+              borderSubtle: 'rgba(255, 255, 255, 0.08)',
+              borderGlow: 'rgba(229, 160, 13, 0.35)',
+            }
+          },
+          animation: {
+            'glow-drift': 'drift 14s ease-in-out infinite alternate',
+            'pulse-subtle': 'pulseSubtle 3s ease-in-out infinite',
+          },
+          keyframes: {
+            drift: {
+              '0%': { transform: 'translate(0, 0) scale(1)' },
+              '50%': { transform: 'translate(25px, -20px) scale(1.08)' },
+              '100%': { transform: 'translate(-20px, 15px) scale(0.96)' }
+            },
+            pulseSubtle: {
+              '0%, 100%': { opacity: '0.85', transform: 'scale(1)' },
+              '50%': { opacity: '1', transform: 'scale(1.02)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #06080D;
+      color: #E2E8F0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(140, 68, 247, 0.14) 0%, transparent 55%),
+        radial-gradient(circle at 12% 25%, rgba(229, 160, 13, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 88% 65%, rgba(0, 199, 255, 0.07) 0%, transparent 40%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+    }
+
+    /* Gradient texts */
+    .text-gradient-gold {
+      background: linear-gradient(135deg, #FAD77A 0%, #E5A00D 50%, #C38202 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .text-gradient-purple {
+      background: linear-gradient(135deg, #C798FF 0%, #8C44F7 50%, #5F1AC9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .text-gradient-hero {
+      background: linear-gradient(135deg, #FFFFFF 20%, #F5F7FA 40%, #E5A00D 75%, #A259FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Glow shadows */
+    .glow-gold {
+      box-shadow: 0 8px 32px -4px rgba(229, 160, 13, 0.35);
+    }
+    .glow-gold:hover {
+      box-shadow: 0 12px 42px -2px rgba(229, 160, 13, 0.55);
+    }
+
+    .glow-purple {
+      box-shadow: 0 8px 32px -4px rgba(140, 68, 247, 0.35);
+    }
+    .glow-purple:hover {
+      box-shadow: 0 12px 42px -2px rgba(140, 68, 247, 0.55);
+    }
+
+    /* Glass card border */
+    .glass-card {
+      background: rgba(14, 18, 28, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #06080D;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1F2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+  </style>
+</head>
+<body class="selection:bg-brand-gold selection:text-neutral-950 flex flex-col justify-between min-h-screen">
+
+  <!-- Ambient Cinematic Background Lighting -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-32 left-1/4 w-[640px] h-[380px] bg-gradient-to-br from-brand-gold/15 via-brand-purple/15 to-transparent rounded-full blur-[140px] animate-glow-drift"></div>
+    <div class="absolute top-1/2 -right-32 w-[580px] h-[440px] bg-gradient-to-bl from-brand-purple/15 via-brand-cyan/10 to-transparent rounded-full blur-[150px]"></div>
+    <div class="absolute bottom-10 -left-20 w-[450px] h-[350px] bg-gradient-to-tr from-brand-gold/10 to-transparent rounded-full blur-[130px]"></div>
+  </div>
+
+  <!-- Sticky Navbar -->
+  <header class="sticky top-0 z-50 w-full backdrop-blur-xl bg-[#06080D]/80 border-b border-white/[0.06] transition-all">
+    <div class="max-w-7xl mx-auto px-5 sm:px-8 py-3.5 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="#" class="flex items-center gap-3.5 group">
+        <div class="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-purple-600 to-cyan-400 p-[1.5px] shadow-lg shadow-black/50 group-hover:scale-105 transition-transform">
+          <div class="w-full h-full bg-[#0A0D15] rounded-[10px] flex items-center justify-center">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M5 4L18 12L5 20V4Z" fill="url(#plix-nav-logo)" />
+              <defs>
+                <linearGradient id="plix-nav-logo" x1="5" y1="4" x2="18" y2="20" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#E5A00D" />
+                  <stop offset="0.6" stop-color="#A259FF" />
+                  <stop offset="1" stop-color="#00C7FF" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-black tracking-tight text-white">PLIX</span>
+            <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
+              v1.1.2
+            </span>
+          </div>
+          <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
+        </div>
+      </a>
+
+      <!-- Desktop Nav Links -->
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-300">
+        <a href="#downloads" class="hover:text-white transition-colors">Downloads</a>
+        <a href="#showcase" class="hover:text-white transition-colors">Interface</a>
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#changelog" class="hover:text-white transition-colors flex items-center gap-1.5">
+          <span>What's New</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        </a>
+        <a href="#install" class="hover:text-white transition-colors">Install Guide</a>
+        <a href="#faq" class="hover:text-white transition-colors">FAQ</a>
+      </nav>
+
+      <!-- Header Action -->
+      <div class="flex items-center gap-3">
+        <a href="#downloads" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-neutral-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 active:scale-95 transition-all glow-gold flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+          </svg>
+          <span>Get Plix</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Hero Section -->
+  <main class="relative z-10 flex-1">
+    
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 pt-12 sm:pt-20 pb-16 text-center flex flex-col items-center">
+      
+      <!-- Announcement Pill -->
+      <div class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-md text-xs sm:text-sm text-neutral-300 mb-8 hover:border-brand-gold/40 transition-colors">
+        <span class="flex h-2 w-2 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+        </span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.1.2</strong> is now live</span>
+        <span class="text-neutral-500">•</span>
+        <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
+          <span>Release Notes</span>
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+
+      <!-- Main Headline -->
+      <h1 class="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] mb-6">
+        A Sleek, Modern Media Client for <br class="hidden sm:inline" />
+        <span class="text-gradient-gold">Plex</span> <span class="text-neutral-400">&amp;</span> <span class="text-gradient-purple">Jellyfin</span>.
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="text-lg sm:text-xl md:text-2xl font-normal text-neutral-300 max-w-3xl mx-auto leading-relaxed mb-12">
+        Engineered specifically for remote controls on <strong>Android TV</strong> and high-performance desktop playback on <strong>Windows</strong>. Pure direct play, zero clutter, instant server switching.
+      </p>
+
+      <!-- Direct Download Action Cards -->
+      <div id="downloads" class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-5 mb-14">
+        
+        <!-- Windows Download Card -->
+        <div class="glass-card rounded-2xl p-6 text-left relative overflow-hidden group border-amber-500/20 hover:border-amber-400/50">
+          <div class="absolute -right-12 -top-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
+          
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.951"/>
+              </svg>
+            </div>
+            <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20">
+              Desktop Edition
+            </span>
+          </div>
+
+          <h3 class="text-xl font-bold text-white mb-1">Plix for Windows</h3>
+          <p class="text-xs text-neutral-400 mb-6">
+            Optimized for Windows 10 & 11 (64-bit). Full hardware accelerated libmpv playback, mouse & keyboard navigation, and theme music.
+          </p>
+
+          <a id="btnDownloadWindows" 
+             href="plix_windows.exe" 
+             download="plix_windows.exe"
+             class="glow-gold w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-neutral-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-amber-200/50">
+            <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            <span class="truncate">Download for Windows (.exe)</span>
+          </a>
+
+          <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
+            <span id="winVersionLabel">Version 1.1.2</span>
+            <span>Installer • ~24.9 MB</span>
+          </div>
+        </div>
+
+        <!-- Android TV Download Card -->
+        <div class="glass-card rounded-2xl p-6 text-left relative overflow-hidden group border-purple-500/20 hover:border-purple-400/50">
+          <div class="absolute -right-12 -top-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
+          
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center text-purple-400">
+              <svg class="w-6 h-6 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-purple-400/10 text-purple-300 border border-purple-400/20">
+              Android TV Edition
+            </span>
+          </div>
+
+          <h3 class="text-xl font-bold text-white mb-1">Plix for Android TV</h3>
+          <p class="text-xs text-neutral-400 mb-6">
+            Crafted for Google TV, Android TV, Fire TV, and NVIDIA Shield. Remote-first layout, HDR badges, and mobile Quick Connect.
+          </p>
+
+          <a id="btnDownloadAndroid" 
+             href="plix_android_tv.apk" 
+             download="plix_android_tv.apk"
+             class="glow-purple w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-purple-400/30">
+            <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            <span class="truncate">Download for Android TV (.apk)</span>
+          </a>
+
+          <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
+            <span id="androidVersionLabel">Version 1.1.2</span>
+            <span>Direct APK • ~25.3 MB</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Trust Badges & Supported Ecosystems -->
+      <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-neutral-400 font-medium pt-2">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5">
+          <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Plex &amp; Jellyfin Dual Support</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5">
+          <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>4K UHD • HDR10 • Dolby Vision</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5">
+          <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Built-In In-App Updater</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5">
+          <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>No Ads • No Subscription</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- UI Screenshot & App Showcase -->
+    <section id="showcase" class="max-w-6xl mx-auto px-5 sm:px-8 py-10">
+      <div class="text-center mb-8">
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Modern Interface</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold text-white">Built for the Living Room &amp; Desktop.</p>
+      </div>
+
+      <!-- App Preview Frame with Real Interface Screenshot -->
+      <div class="relative mx-auto rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden group">
+        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#080B13] aspect-[1024/609]">
+          <img src="app_preview.png" 
+               alt="Plix Application Interface" 
+               class="w-full h-full object-cover rounded-2xl block transition-transform duration-500 group-hover:scale-[1.01]" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Features Grid -->
+    <section id="features" class="max-w-6xl mx-auto px-5 sm:px-8 py-16">
+      <div class="text-center mb-14">
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Designed Without Compromise</h2>
+        <p class="text-3xl sm:text-4xl font-extrabold text-white">Why Media Enthusiasts Choose Plix.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Feature 1 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M4 6h16V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Plex &amp; Jellyfin Dual Server Support</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Connect to your home Plex server, remote Jellyfin instance, or friends' shares. Switch between them instantly with 3-wide server grids, custom server pinning, and automatic LAN detection.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
+            <span>Seamless Multi-Server</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-brand-purple flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Pure Direct Play (libmpv)</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Never let your server choke on unnecessary transcoding. Native libmpv backend delivers direct hardware-accelerated playback of 4K UHD, HEVC, AV1, Dolby Vision, HDR10+, and lossless audio.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
+            <span>Zero Quality Loss</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-brand-cyan flex items-center justify-center mb-5">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="7" y="2" width="10" height="20" rx="2" ry="2"></rect>
+                <circle cx="12" cy="14" r="1"></circle>
+                <line x1="12" y1="6" x2="12.01" y2="6"></line>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Remote-First TV Experience</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Engineered exclusively for D-Pad traversal with high-contrast active outlines, seamless scrolling, modal cursor locking, and fluid transitions that feel right at home on television remotes.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
+            <span>Living Room Optimized</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Ambient Series Theme Music</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Immerse yourself as you browse. Series themes play smoothly as you explore show and episode pages, seamlessly continuing across transitions and fading out gently when navigating away.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
+            <span>Cinematic Immersion</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-brand-purple flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Universal Watchlist Sync</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Bookmark shows or movies directly to your Plex or Jellyfin Watchlist. Pressing "Add to Watchlist" on any episode automatically adds the whole series so your queue stays effortlessly synchronized.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
+            <span>Always in Sync</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 11a9 9 0 0 1 9 9"></path>
+                <path d="M4 4a16 16 0 0 1 16 16"></path>
+                <circle cx="5" cy="19" r="1"></circle>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Frictionless Quick Connect</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              No more painful password typing on television remotes. Sign in to Jellyfin using Quick Connect codes on your phone, or link your Plex account in seconds via a 4-digit code.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
+            <span>Zero Remote Typing</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Latest Release & Changelog Section (Live from plix.json) -->
+    <section id="changelog" class="max-w-5xl mx-auto px-5 sm:px-8 py-14">
+      <div class="glass-card rounded-3xl p-6 sm:p-10 border-brand-gold/30 relative overflow-hidden">
+        
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-white/10 gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.1.2</span></h2>
+                <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
+              </div>
+              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">October 20, 2026</span></p>
+            </div>
+          </div>
+
+          <!-- Quick Download Pills -->
+          <div class="flex items-center gap-2.5">
+            <a href="plix_windows.exe" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition-colors">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Windows</span>
+            </a>
+            <a href="plix_android_tv.apk" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 transition-colors">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Android TV</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Release Notes Content List -->
+        <div>
+          <h3 class="text-xs font-bold tracking-wider text-neutral-400 uppercase mb-4">What's New in this Release:</h3>
+          <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">Watchlist from Episode Details:</strong> Pressing "Add to Watchlist" on an episode details page now adds the entire show to the Watchlist across both Plex and Jellyfin servers, and correctly reflects the "In Watchlist" state.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">Recently Added Shows Tile Text:</strong> Show name is prominently displayed on the top line under each tile; the bottom line shows the episode title if a single episode was added, "Season X" if an entire season was added, or remains clean/blank if multiple seasons were added.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">HDR Badges on Jellyfin:</strong> Restored missing HDR icons and badges on Jellyfin servers for Continue Watching hero preview cards and all episodes under season listings.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">Continuous Stability:</strong> Updated to v1.1.2 with smooth in-app update notifications.</div>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Installation Guide Section -->
+    <section id="install" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+      <div class="text-center mb-12">
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Getting Started</h2>
+        <p class="text-3xl sm:text-4xl font-extrabold text-white">How to Install Plix</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Windows Guide -->
+        <div class="glass-card rounded-2xl p-7 border-amber-500/20">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Installing on Windows</h3>
+              <p class="text-xs text-neutral-400">Windows 10 / 11 (64-bit)</p>
+            </div>
+          </div>
+
+          <ol class="space-y-4 text-sm text-neutral-300">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div>Click the <strong>Download for Windows</strong> button above to download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-amber-300">plix_windows.exe</code>.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div>Run the installer. It installs per-user directly into your local app directory without requiring administrator permissions.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <div>Launch Plix from the desktop shortcut or Start Menu, and select whether you want to sign in to <strong>Plex</strong> or <strong>Jellyfin</strong>.</div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Android TV Guide -->
+        <div class="glass-card rounded-2xl p-7 border-purple-500/20">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Installing on Android TV / Fire TV</h3>
+              <p class="text-xs text-neutral-400">Google TV • Fire OS • NVIDIA Shield</p>
+            </div>
+          </div>
+
+          <ol class="space-y-4 text-sm text-neutral-300">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div>On your TV, open the <strong>Downloader</strong> app (available in the Play Store / Fire TV store) or open your TV web browser.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div>Enter this webpage URL or download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">plix_android_tv.apk</code> directly.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <div>Click Install. Once launched, sign in effortlessly using the displayed <strong>Quick Connect</strong> or Plex TV link code.</div>
+            </li>
+          </ol>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="max-w-4xl mx-auto px-5 sm:px-8 py-14">
+      <div class="text-center mb-12">
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Got Questions?</h2>
+        <p class="text-3xl sm:text-4xl font-extrabold text-white">Frequently Asked Questions</p>
+      </div>
+
+      <div class="space-y-4">
+        
+        <details class="glass-card rounded-2xl p-6 group cursor-pointer">
+          <summary class="flex items-center justify-between font-bold text-white text-base sm:text-lg list-none">
+            <span>Can I use both Plex and Jellyfin servers at the same time?</span>
+            <span class="transition-transform group-open:rotate-180 text-brand-gold font-mono">▼</span>
+          </summary>
+          <p class="mt-4 text-sm text-neutral-300 leading-relaxed border-t border-white/5 pt-4">
+            Yes! Plix was built specifically to accommodate multi-server setups. You can add any number of Plex and Jellyfin servers, pin your preferred favorites to the top, and switch between servers with just two clicks or D-Pad presses on your remote.
+          </p>
+        </details>
+
+        <details class="glass-card rounded-2xl p-6 group cursor-pointer">
+          <summary class="flex items-center justify-between font-bold text-white text-base sm:text-lg list-none">
+            <span>How do application updates work?</span>
+            <span class="transition-transform group-open:rotate-180 text-brand-gold font-mono">▼</span>
+          </summary>
+          <p class="mt-4 text-sm text-neutral-300 leading-relaxed border-t border-white/5 pt-4">
+            Plix includes an integrated automatic update checker that reads the official release manifest in the background. When a new version is released, you will be prompted with full release notes and a one-click download &amp; install button directly within the app.
+          </p>
+        </details>
+
+        <details class="glass-card rounded-2xl p-6 group cursor-pointer">
+          <summary class="flex items-center justify-between font-bold text-white text-base sm:text-lg list-none">
+            <span>Does Plix require a paid Plex Pass or Jellyfin subscription?</span>
+            <span class="transition-transform group-open:rotate-180 text-brand-gold font-mono">▼</span>
+          </summary>
+          <p class="mt-4 text-sm text-neutral-300 leading-relaxed border-t border-white/5 pt-4">
+            No. Plix is completely free and works with standard, free Plex accounts and open-source Jellyfin servers. There are no paywalls, subscriptions, tracking, or advertisements.
+          </p>
+        </details>
+
+        <details class="glass-card rounded-2xl p-6 group cursor-pointer">
+          <summary class="flex items-center justify-between font-bold text-white text-base sm:text-lg list-none">
+            <span>What video formats and audio pass-through are supported?</span>
+            <span class="transition-transform group-open:rotate-180 text-brand-gold font-mono">▼</span>
+          </summary>
+          <p class="mt-4 text-sm text-neutral-300 leading-relaxed border-t border-white/5 pt-4">
+            Because Plix uses a native libmpv engine, it supports direct play for virtually every modern container and codec: MKV, MP4, WebM, HEVC/H.265, H.264, VP9, AV1, Dolby Vision, HDR10, and HDR10+. It also supports TrueHD, DTS-HD MA, EAC3, AC3, Opus, and FLAC multi-channel audio pass-through.
+          </p>
+        </details>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Sleek Footer -->
+  <footer class="relative z-10 w-full border-t border-white/[0.08] bg-[#05060A] py-10 mt-16 text-neutral-400 text-xs">
+    <div class="max-w-6xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      
+      <!-- Logo & Copyright -->
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-purple-600 p-[1px] flex items-center justify-center">
+          <span class="text-xs font-black text-white">P</span>
+        </div>
+        <div>
+          <span class="text-white font-bold text-sm tracking-tight">PLIX</span>
+          <span class="text-neutral-500 text-xs ml-1.5">© 2026. All rights reserved.</span>
+        </div>
+      </div>
+
+      <!-- Center Links (No direct link to JSON file) -->
+      <div class="flex flex-wrap items-center justify-center gap-6 text-neutral-400 font-medium">
+        <a href="#downloads" class="hover:text-white transition-colors">Downloads</a>
+        <a href="#showcase" class="hover:text-white transition-colors">Interface</a>
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#changelog" class="hover:text-white transition-colors">Changelog</a>
+        <a href="#install" class="hover:text-white transition-colors">Install Guide</a>
+      </div>
+
+      <!-- Direct Binaries -->
+      <div class="flex items-center gap-4 text-[11px] text-neutral-500">
+        <a href="plix_windows.exe" class="hover:text-amber-400 transition-colors">Windows (.exe)</a>
+        <span>•</span>
+        <a href="plix_android_tv.apk" class="hover:text-purple-400 transition-colors">Android TV (.apk)</a>
+      </div>
+
+    </div>
+
+    <div class="max-w-6xl mx-auto px-5 sm:px-8 mt-6 pt-6 border-t border-white/[0.04] text-[11px] text-neutral-400 text-center">
+      Plix is an independent, third-party media client. It is not affiliated with, endorsed by, or sponsored by Plex Inc. or the Jellyfin project.
+    </div>
+  </footer>
+
+  <!-- Dynamic Release Metadata Reader Script -->
+  <script>
+    (async function loadReleaseMetadata() {
+      try {
+        // Fetch plix.json in background with cache buster to guarantee freshest release info
+        const response = await fetch('plix.json?t=' + Date.now(), {
+          cache: 'no-store'
+        });
+
+        if (!response.ok) {
+          console.warn('Could not load release manifest automatically. Retaining pre-rendered fallback metadata.');
+          return;
+        }
+
+        const data = await response.json();
+
+        // 1. Version
+        const version = data.version || '1.1.2';
+        const versionString = 'v' + version;
+
+        // Update Nav Badge
+        const navVersionBadge = document.getElementById('navVersionBadge');
+        if (navVersionBadge) navVersionBadge.textContent = versionString;
+
+        // Update Hero Version
+        const heroVersionText = document.getElementById('heroVersionText');
+        if (heroVersionText) heroVersionText.textContent = versionString;
+
+        // Update Changelog Version
+        const changelogVersion = document.getElementById('changelogVersion');
+        if (changelogVersion) changelogVersion.textContent = versionString;
+
+        // Update Button Sublabels
+        const winVersionLabel = document.getElementById('winVersionLabel');
+        if (winVersionLabel) winVersionLabel.textContent = `Version ${version}`;
+
+        const androidVersionLabel = document.getElementById('androidVersionLabel');
+        if (androidVersionLabel) androidVersionLabel.textContent = `Version ${version}`;
+
+        // 2. Download URLs
+        const btnDownloadWindows = document.getElementById('btnDownloadWindows');
+        if (btnDownloadWindows && data.windowsUrl) {
+          btnDownloadWindows.href = data.windowsUrl;
+        }
+
+        const btnDownloadAndroid = document.getElementById('btnDownloadAndroid');
+        if (btnDownloadAndroid && data.apkUrl) {
+          btnDownloadAndroid.href = data.apkUrl;
+        }
+
+        // 3. Release Date
+        const changelogDate = document.getElementById('changelogDate');
+        if (changelogDate && data.releaseDate) {
+          try {
+            const dateObj = new Date(data.releaseDate + 'T12:00:00Z');
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            changelogDate.textContent = dateObj.toLocaleDateString('en-US', options);
+          } catch (_) {
+            changelogDate.textContent = data.releaseDate;
+          }
+        }
+
+        // 4. Release Notes
+        const changelogList = document.getElementById('changelogList');
+        if (changelogList && data.releaseNotes && data.releaseNotes.trim().length > 0) {
+          const lines = data.releaseNotes
+            .split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 0);
+
+          if (lines.length > 0) {
+            changelogList.innerHTML = '';
+            lines.forEach(line => {
+              // Strip bullet dash and any internal versionCode references
+              let cleaned = line.replace(/^-\s*/, '').replace(/\s*\(versionCode\s*\d+\)/i, '');
+              const li = document.createElement('li');
+              li.className = 'flex items-start gap-3';
+
+              // If line has a colon, bold the prefix
+              let contentHtml = '';
+              const colonIndex = cleaned.indexOf(':');
+              if (colonIndex > 0) {
+                const titlePart = cleaned.substring(0, colonIndex);
+                const restPart = cleaned.substring(colonIndex + 1);
+                contentHtml = `<strong class="text-white">${escapeHtml(titlePart)}:</strong>${escapeHtml(restPart)}`;
+              } else {
+                contentHtml = escapeHtml(cleaned);
+              }
+
+              li.innerHTML = `
+                <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+                <div>${contentHtml}</div>
+              `;
+              changelogList.appendChild(li);
+            });
+          }
+        }
+
+      } catch (err) {
+        console.warn('Error reading release metadata:', err);
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    })();
+  </script>
+
+</body>
+</html>
