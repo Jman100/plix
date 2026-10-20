@@ -11,6 +11,7 @@ import 'home_screen.dart';
 import 'jellyfin_connect_screen.dart';
 import 'login_screen.dart';
 import '../widgets/brand_logo.dart';
+import '../services/plix_device_helper.dart';
 
 class ServerSelectScreen extends StatefulWidget {
   final List<PlexServer> servers;
@@ -172,6 +173,8 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
   @override
   Widget build(BuildContext context) {
     final canGoBack = Navigator.of(context).canPop();
+    final isCompact = PlixDeviceHelper.isCompact(context);
+    final isPhone = PlixDeviceHelper.isPhone(context);
     final pinnedServers = _servers.where((s) => _pinnedServerIds.contains(s.clientIdentifier)).toList();
     final unpinnedServers = _servers.where((s) => !_pinnedServerIds.contains(s.clientIdentifier)).toList();
 
@@ -184,7 +187,8 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
       body: Center(
         child: SingleChildScrollView(
           controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 16 : 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -210,36 +214,66 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
               // Top Slim Buttons for connecting new instances
               if (!_isConnecting) ...[
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 752),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _SlimTopButton(
-                          title: 'Connect to New Jellyfin',
-                          logo: const JellyfinLogo(size: 20, color: Color(0xFF8E51DC)),
-                          accentColor: const Color(0xFF8E51DC),
-                          onPressed: _openJellyfinSignIn,
-                          focusNode: _jellyfinBtnFocusNode,
-                          onFocus: _scrollToTop,
-                          onDown: _focusFirstAvailable,
-                          onRight: () => _plexBtnFocusNode.requestFocus(),
+                  constraints: BoxConstraints(maxWidth: isCompact ? 420 : 752),
+                  child: isCompact
+                      ? Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: _SlimTopButton(
+                                title: 'Connect to New Jellyfin',
+                                logo: const JellyfinLogo(size: 20, color: Color(0xFF8E51DC)),
+                                accentColor: const Color(0xFF8E51DC),
+                                onPressed: _openJellyfinSignIn,
+                                focusNode: _jellyfinBtnFocusNode,
+                                onFocus: _scrollToTop,
+                                onDown: _focusFirstAvailable,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: _SlimTopButton(
+                                title: 'Connect to New Plex',
+                                logo: const PlexLogo(size: 20, color: Color(0xFFE5A00D)),
+                                accentColor: const Color(0xFFE5A00D),
+                                onPressed: _openPlexSignIn,
+                                focusNode: _plexBtnFocusNode,
+                                onFocus: _scrollToTop,
+                                onDown: _focusFirstAvailable,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: _SlimTopButton(
+                                title: 'Connect to New Jellyfin',
+                                logo: const JellyfinLogo(size: 20, color: Color(0xFF8E51DC)),
+                                accentColor: const Color(0xFF8E51DC),
+                                onPressed: _openJellyfinSignIn,
+                                focusNode: _jellyfinBtnFocusNode,
+                                onFocus: _scrollToTop,
+                                onDown: _focusFirstAvailable,
+                                onRight: () => _plexBtnFocusNode.requestFocus(),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _SlimTopButton(
+                                title: 'Connect to New Plex',
+                                logo: const PlexLogo(size: 20, color: Color(0xFFE5A00D)),
+                                accentColor: const Color(0xFFE5A00D),
+                                onPressed: _openPlexSignIn,
+                                focusNode: _plexBtnFocusNode,
+                                onFocus: _scrollToTop,
+                                onDown: _focusFirstAvailable,
+                                onLeft: () => _jellyfinBtnFocusNode.requestFocus(),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _SlimTopButton(
-                          title: 'Connect to New Plex',
-                          logo: const PlexLogo(size: 20, color: Color(0xFFE5A00D)),
-                          accentColor: const Color(0xFFE5A00D),
-                          onPressed: _openPlexSignIn,
-                          focusNode: _plexBtnFocusNode,
-                          onFocus: _scrollToTop,
-                          onDown: _focusFirstAvailable,
-                          onLeft: () => _jellyfinBtnFocusNode.requestFocus(),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -298,6 +332,8 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                     servers: pinnedServers,
                     isPinnedSection: true,
                     otherSectionServers: unpinnedServers,
+                    isCompact: isCompact,
+                    isPhone: isPhone,
                   ),
                   const SizedBox(height: 28),
                 ],
@@ -332,6 +368,8 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                     servers: unpinnedServers,
                     isPinnedSection: false,
                     otherSectionServers: pinnedServers,
+                    isCompact: isCompact,
+                    isPhone: isPhone,
                   ),
                 ],
               ],
@@ -346,7 +384,48 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
     required List<PlexServer> servers,
     required bool isPinnedSection,
     required List<PlexServer> otherSectionServers,
+    required bool isCompact,
+    required bool isPhone,
   }) {
+    if (isCompact) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < servers.length; i++) ...[
+            Builder(
+              builder: (context) {
+                final server = servers[i];
+                final connectNode = _connectFocusNodes.putIfAbsent(
+                  server.clientIdentifier,
+                  () => FocusNode(debugLabel: 'connect_${server.name}'),
+                );
+                final pinNode = _pinFocusNodes.putIfAbsent(
+                  server.clientIdentifier,
+                  () => FocusNode(debugLabel: 'pin_${server.name}'),
+                );
+                return Container(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _ServerCard(
+                    server: server,
+                    isPinned: isPinnedSection,
+                    autofocus: isPinnedSection && i == 0,
+                    connectFocusNode: connectNode,
+                    pinFocusNode: pinNode,
+                    cardWidth: double.infinity,
+                    isPhone: isPhone,
+                    onTogglePin: () => _togglePin(server.clientIdentifier),
+                    onSelect: () => _selectServer(server),
+                    onScrollTop: _scrollToTop,
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      );
+    }
+
     final rowCount = (servers.length / 3).ceil();
     const double cardWidth = 240.0;
     const double spacing = 16.0;
@@ -397,7 +476,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                     VoidCallback? onConnectUp;
                     if (r > 0) {
                       final aboveServer = servers[(r - 1) * 3 + c];
-                      if (Platform.isAndroid) {
+                      if (Platform.isAndroid && !isPhone) {
                         onConnectUp = () => _pinFocusNodes[aboveServer.clientIdentifier]?.requestFocus();
                       } else {
                         onConnectUp = () => _connectFocusNodes[aboveServer.clientIdentifier]?.requestFocus();
@@ -414,7 +493,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                               ? c
                               : (otherSectionServers.length - 1 - lastRowStart);
                           final targetPinned = otherSectionServers[lastRowStart + targetCol];
-                          if (Platform.isAndroid) {
+                          if (Platform.isAndroid && !isPhone) {
                             onConnectUp = () => _pinFocusNodes[targetPinned.clientIdentifier]?.requestFocus();
                           } else {
                             onConnectUp = () => _connectFocusNodes[targetPinned.clientIdentifier]?.requestFocus();
@@ -425,7 +504,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                       }
                     }
 
-                    // 4. Down from Pin button (Android) or Connect button (Windows)
+                    // 4. Down from Pin button (Android TV) or Connect button (Windows/Phone)
                     VoidCallback? onSectionDown;
                     if (r < rowCount - 1) {
                       final nextRowIndex = (r + 1) * 3 + c;
@@ -451,6 +530,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                       connectFocusNode: connectNode,
                       pinFocusNode: pinNode,
                       cardWidth: cardWidth,
+                      isPhone: isPhone,
                       onTogglePin: () => _togglePin(server.clientIdentifier),
                       onSelect: () => _selectServer(server),
                       onConnectUp: onConnectUp,
@@ -614,6 +694,7 @@ class _ServerCard extends StatefulWidget {
   final FocusNode connectFocusNode;
   final FocusNode pinFocusNode;
   final double cardWidth;
+  final bool isPhone;
   final VoidCallback onSelect;
   final VoidCallback onTogglePin;
   final VoidCallback? onConnectUp;
@@ -631,6 +712,7 @@ class _ServerCard extends StatefulWidget {
     required this.connectFocusNode,
     required this.pinFocusNode,
     required this.cardWidth,
+    this.isPhone = false,
     required this.onSelect,
     required this.onTogglePin,
     this.onConnectUp,
@@ -781,8 +863,8 @@ class _ServerCardState extends State<_ServerCard> {
                     ),
                   ),
                 ),
-                // On Windows: keep pin button in top right corner for mouse users
-                if (Platform.isWindows) ...[
+                // On Windows or Phone: keep pin button in top right corner
+                if (Platform.isWindows || widget.isPhone) ...[
                   const SizedBox(width: 8),
                   InkWell(
                     canRequestFocus: false,
@@ -868,7 +950,7 @@ class _ServerCardState extends State<_ServerCard> {
                 textColor: brandTextColor,
                 onPressed: widget.onSelect,
                 onUp: widget.onConnectUp,
-                onDown: Platform.isAndroid
+                onDown: (Platform.isAndroid && !widget.isPhone)
                     ? () => widget.pinFocusNode.requestFocus()
                     : widget.onDown,
                 onLeft: widget.onLeft,
@@ -877,7 +959,7 @@ class _ServerCardState extends State<_ServerCard> {
             ),
 
             // On Android TV: move Pin button to a dedicated button below Connect
-            if (Platform.isAndroid) ...[
+            if (Platform.isAndroid && !widget.isPhone) ...[
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,

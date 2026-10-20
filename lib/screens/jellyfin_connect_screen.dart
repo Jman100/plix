@@ -223,6 +223,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     return Scaffold(
       backgroundColor: PlixTheme.background,
       body: SafeArea(
@@ -244,7 +245,8 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
             ),
             Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 20 : 30),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 580),
                   child: _isStep2QuickConnect
@@ -501,43 +503,54 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         const SizedBox(height: 24),
 
         // Big Quick Connect Code Box
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          decoration: BoxDecoration(
-            color: PlixTheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF00A4DC).withOpacity(0.6), width: 2.0),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00A4DC).withOpacity(0.25),
-                blurRadius: 20,
-                spreadRadius: 2,
+        Builder(
+          builder: (context) {
+            final isCompact = PlixDeviceHelper.isCompact(context);
+            return Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 16 : 28,
+                vertical: isCompact ? 16 : 20,
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              const Text(
-                'QUICK CONNECT CODE',
-                style: TextStyle(
-                  color: PlixTheme.textSecondary,
-                  fontSize: 12,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.bold,
-                ),
+              decoration: BoxDecoration(
+                color: PlixTheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF00A4DC).withOpacity(0.6), width: 2.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00A4DC).withOpacity(0.25),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                _quickConnectCode.split('').join('  '),
-                style: TextStyle(
-                  color: PlixTheme.plexGold,
-                  fontSize: 42,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 6,
-                ),
+              child: Column(
+                children: [
+                  const Text(
+                    'QUICK CONNECT CODE',
+                    style: TextStyle(
+                      color: PlixTheme.textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _quickConnectCode.split('').join('  '),
+                      style: TextStyle(
+                        color: PlixTheme.plexGold,
+                        fontSize: isCompact ? 30 : 42,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: isCompact ? 3 : 6,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
         const SizedBox(height: 28),
 

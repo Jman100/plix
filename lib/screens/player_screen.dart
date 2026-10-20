@@ -283,6 +283,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _initPlayer();
     _fetchAdjacentEpisodes();
+
+    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
   }
 
   Future<void> _loadPlayerPreferences() async {
@@ -447,6 +454,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _initPlayer();
     _fetchAdjacentEpisodes();
+
+    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _scheduleHideControls();
   }
 
@@ -1399,6 +1413,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (Platform.isWindows && _isFullScreen) {
       windowManager.setFullScreen(false);
     }
+    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     super.dispose();
   }
 
@@ -1442,7 +1464,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
               onDoubleTap: Platform.isWindows ? _toggleFullScreen : null,
               onTap: () {
                 if (_showControls) {
-                  _togglePlayPause();
+                  setState(() {
+                    _showControls = false;
+                  });
+                  _playerFocusNode.requestFocus();
                 } else {
                   _showControlsTemporarily();
                 }

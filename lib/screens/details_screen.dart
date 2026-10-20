@@ -11,6 +11,7 @@ import '../services/plex_media_service.dart';
 import '../services/theme_music_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_button.dart';
+import '../services/plix_device_helper.dart';
 import 'player_screen.dart';
 
 class DetailsScreen extends StatefulWidget {
@@ -556,8 +557,248 @@ class _DetailsScreenState extends State<DetailsScreen> {
     });
   }
 
+  Widget _buildMobileOverview(String posterUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Center Poster
+        Center(
+          child: Container(
+            width: 140,
+            height: 210,
+            decoration: BoxDecoration(
+              color: PlixTheme.card,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: posterUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: posterUrl,
+                      fit: BoxFit.cover,
+                    )
+                  : const Center(
+                      child: Icon(Icons.movie, size: 48, color: PlixTheme.textMuted),
+                    ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        // Title
+        Text(
+          _item.title,
+          style: const TextStyle(
+            color: PlixTheme.textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            height: 1.2,
+          ),
+        ),
+
+        if (_item.grandparentTitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _item.grandparentTitle!,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 10),
+
+        // Metadata Badges
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (_item.formattedAirDate.isNotEmpty)
+              _Badge(label: _item.formattedAirDate),
+            if (_item.duration != null && _item.duration! > 0)
+              _Badge(label: _item.formattedDuration),
+            if (_item.contentRating != null)
+              _Badge(label: _item.contentRating!),
+            if (_item.formattedResolution.isNotEmpty)
+              _Badge(
+                label: _item.formattedResolution,
+                isHighlight: true,
+              ),
+            if (_item.isHdr)
+              _Badge(
+                label: _item.hdrBadge.isNotEmpty ? _item.hdrBadge : 'HDR',
+                isHighlight: true,
+              ),
+            if (_item.videoCodec != null)
+              _Badge(label: _item.videoCodec!.toUpperCase()),
+            if (_item.audioCodec != null)
+              _Badge(label: _item.audioCodec!.toUpperCase()),
+            if (_item.formattedBitrate.isNotEmpty)
+              _Badge(label: _item.formattedBitrate),
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        // Action buttons
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (!_item.isShow) ...[
+              if (_item.isInProgress) ...[
+                PlixButton(
+                  autofocus: true,
+                  focusNode: _firstActionFocusNode,
+                  isPrimary: true,
+                  fontSize: 13.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: 'Resume',
+                  onPressed: () => _playMedia(
+                    item: _item,
+                    resumeMs: _item.viewOffset!,
+                  ),
+                ),
+                PlixButton(
+                  isPrimary: false,
+                  fontSize: 12.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  icon: const Icon(Icons.replay_rounded, size: 16),
+                  label: 'Restart',
+                  onPressed: () => _playMedia(item: _item, resumeMs: 0),
+                ),
+              ] else if (_item.partKey != null || _item.duration != null) ...[
+                PlixButton(
+                  autofocus: true,
+                  focusNode: _firstActionFocusNode,
+                  isPrimary: true,
+                  fontSize: 13.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: 'Play',
+                  onPressed: () => _playMedia(item: _item, resumeMs: 0),
+                ),
+              ],
+              if (_trailerItem != null)
+                PlixButton(
+                  isPrimary: false,
+                  fontSize: 12.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  icon: const Icon(Icons.theaters_rounded, size: 16),
+                  label: 'Trailer',
+                  onPressed: _playTrailer,
+                ),
+              PlixButton(
+                isPrimary: false,
+                fontSize: 12.0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                icon: _isUpdatingWatchlist
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                      )
+                    : Icon(
+                        _isOnWatchlist
+                            ? Icons.bookmark_added_rounded
+                            : Icons.bookmark_add_outlined,
+                        size: 16,
+                        color: _isOnWatchlist ? PlixTheme.plexGold : null,
+                      ),
+                label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                onPressed: _toggleWatchlist,
+              ),
+              PlixButton(
+                isPrimary: false,
+                fontSize: 12.0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                icon: Icon(
+                  _item.isWatched
+                      ? Icons.remove_done_rounded
+                      : Icons.check_rounded,
+                  size: 16,
+                ),
+                label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
+                onPressed: _toggleWatched,
+              ),
+              if (_item.isEpisode &&
+                  _item.grandparentRatingKey != null &&
+                  _item.grandparentRatingKey!.isNotEmpty)
+                PlixButton(
+                  isPrimary: false,
+                  fontSize: 12.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  icon: const Icon(Icons.tv_rounded, size: 16),
+                  label: 'Series',
+                  onPressed: _goToSeries,
+                ),
+            ] else ...[
+              PlixButton(
+                autofocus: true,
+                focusNode: _showPlayFocusNode,
+                isPrimary: true,
+                fontSize: 13.0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                label: 'Play',
+                onPressed: _playShow,
+              ),
+              PlixButton(
+                isPrimary: false,
+                fontSize: 12.0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                icon: _isUpdatingWatchlist
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                      )
+                    : Icon(
+                        _isOnWatchlist
+                            ? Icons.bookmark_added_rounded
+                            : Icons.bookmark_add_outlined,
+                        size: 16,
+                        color: _isOnWatchlist ? PlixTheme.plexGold : null,
+                      ),
+                label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                onPressed: _toggleWatchlist,
+              ),
+            ],
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        // Summary
+        Text(
+          _item.summary.isNotEmpty ? _item.summary : 'No summary available.',
+          maxLines: 5,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: PlixTheme.textSecondary,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     final backdropUrl = _mediaService.buildImageUrl(
       _item.art ?? _item.thumb,
       width: 1920,
@@ -640,8 +881,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 children: [
                   SingleChildScrollView(
                     controller: _scrollController,
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     clipBehavior: Clip.none,
-                    padding: const EdgeInsets.only(left: 40, right: 40, top: 24, bottom: 48),
+                    padding: EdgeInsets.only(
+                      left: isCompact ? 16 : 40,
+                      right: isCompact ? 16 : 40,
+                      top: isCompact ? 16 : 24,
+                      bottom: 48,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -660,7 +907,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           ),
                         ),
                         // Top Overview Block (Poster + Info + Actions)
-                        Row(
+                        if (isCompact)
+                          _buildMobileOverview(posterUrl)
+                        else
+                          Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Poster
@@ -996,6 +1246,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                         height: 48,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
                           itemCount: _seasons.length,
                           separatorBuilder: (_, __) => const SizedBox(width: 10),
                           itemBuilder: (context, index) {

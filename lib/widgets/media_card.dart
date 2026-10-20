@@ -158,8 +158,8 @@ class _MediaCardState extends State<MediaCard> {
           },
           focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          splashColor: Colors.transparent,
+          highlightColor: Colors.white.withOpacity(0.05),
+          splashColor: PlixTheme.plexGold.withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: widget.width,

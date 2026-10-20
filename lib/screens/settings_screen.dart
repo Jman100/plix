@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../models/plex_server.dart';
 import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../services/plix_device_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
   final PlexServer? server;
@@ -191,6 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     return Scaffold(
       backgroundColor: PlixTheme.background,
       body: SafeArea(
@@ -199,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // Top Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: isCompact ? 12 : 20),
               child: Row(
                 children: [
                   PlixBackButton(
@@ -232,7 +234,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Expanded(
               child: ListView(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 12),
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 36, vertical: 12),
                 children: [
                   // Section 1: Theme Color
                   Row(
@@ -259,17 +262,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ValueListenableBuilder<ThemeColorOption>(
                     valueListenable: PlixTheme.currentThemeOption,
                     builder: (context, currentOption, _) {
-                      // 3 rows of 5 colors each (15 total)
+                      final cols = isCompact ? 3 : 5;
+                      final rows = (PlixTheme.colorOptions.length / cols).ceil();
                       return Column(
                         children: [
-                          for (int row = 0; row < 3; row++) ...[
+                          for (int row = 0; row < rows; row++) ...[
                             Row(
                               children: [
-                                for (int col = 0; col < 5; col++) ...[
+                                for (int col = 0; col < cols; col++) ...[
                                   Expanded(
                                     child: Builder(
                                       builder: (context) {
-                                        final index = row * 5 + col;
+                                        final index = row * cols + col;
                                         if (index >= PlixTheme.colorOptions.length) {
                                           return const SizedBox();
                                         }
@@ -286,24 +290,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           onUp: row == 0
                                               ? () => _backButtonFocusNode.requestFocus()
                                               : () {
-                                                  final prevOpt = PlixTheme.colorOptions[(row - 1) * 5 + col];
-                                                  _colorFocusNodes[prevOpt.id]?.requestFocus();
+                                                  final prevIndex = (row - 1) * cols + col;
+                                                  if (prevIndex >= 0 && prevIndex < PlixTheme.colorOptions.length) {
+                                                    _colorFocusNodes[PlixTheme.colorOptions[prevIndex].id]?.requestFocus();
+                                                  }
                                                 },
-                                          onDown: row == 2
+                                          onDown: row == rows - 1
                                               ? () => _autoplayFocusNode.requestFocus()
                                               : () {
-                                                  final nextOpt = PlixTheme.colorOptions[(row + 1) * 5 + col];
-                                                  _colorFocusNodes[nextOpt.id]?.requestFocus();
+                                                  final nextIndex = (row + 1) * cols + col;
+                                                  if (nextIndex < PlixTheme.colorOptions.length) {
+                                                    _colorFocusNodes[PlixTheme.colorOptions[nextIndex].id]?.requestFocus();
+                                                  } else {
+                                                    _colorFocusNodes[PlixTheme.colorOptions.last.id]?.requestFocus();
+                                                  }
                                                 },
                                         );
                                       },
                                     ),
                                   ),
-                                  if (col < 4) const SizedBox(width: 12),
+                                  if (col < cols - 1) const SizedBox(width: 10),
                                 ],
                               ],
                             ),
-                            if (row < 2) const SizedBox(height: 12),
+                            if (row < rows - 1) const SizedBox(height: 10),
                           ],
                         ],
                       );

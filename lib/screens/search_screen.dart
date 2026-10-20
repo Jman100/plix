@@ -7,6 +7,7 @@ import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/native_player_service.dart';
 import '../services/plex_media_service.dart';
+import '../services/plix_device_helper.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import 'details_screen.dart';
@@ -72,7 +73,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (mounted) {
         if (Platform.isWindows) {
           _textFieldFocusNode.requestFocus();
-        } else {
+        } else if (PlixDeviceHelper.isTelevision) {
           // Default TV cursor to the first letter 'Q'
           _keyFocusNodes['Q']?.requestFocus();
         }
@@ -222,22 +223,25 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isTv = PlixDeviceHelper.isTelevision && !Platform.isWindows;
+    final isCompact = PlixDeviceHelper.isCompact(context);
+
     return Scaffold(
       backgroundColor: PlixTheme.background,
       body: SafeArea(
         child: Column(
           children: [
             // Top Bar: Back button, Search Query Box, Clear, Voice Mic
-            _buildTopBar(),
+            _buildTopBar(isTv: isTv, isCompact: isCompact),
 
             const SizedBox(height: 12),
 
-            // Content: On Windows, full-width results; On TV, keyboard + results
-            if (Platform.isWindows)
+            // Content: On TV, keyboard + results; On phone/desktop, full-width results
+            if (!isTv)
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: _buildResultsSection(isWindowsFullWidth: true),
+                  padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32),
+                  child: _buildResultsSection(isFullWidth: true),
                 ),
               )
             else
@@ -260,7 +264,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
                     // Right: Search Results Grid in rows of 3 (2.5 rows visible)
                     Expanded(
-                      child: _buildResultsSection(isWindowsFullWidth: false),
+                      child: _buildResultsSection(isFullWidth: false),
                     ),
                   ],
                 ),
@@ -271,16 +275,16 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar({required bool isTv, required bool isCompact}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 12),
       child: Row(
         children: [
           PlixBackButton(
             focusNode: _backButtonFocus,
             onDown: () => _keyFocusNodes['1']?.requestFocus(),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: isCompact ? 12 : 20),
 
           // Search Bar display
           Expanded(
@@ -301,11 +305,12 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Platform.isWindows
+                    child: !isTv
                         ? TextField(
                             controller: _textController,
                             focusNode: _textFieldFocusNode,
                             cursorColor: PlixTheme.plexGold,
+                            autofocus: false,
                             style: const TextStyle(
                               color: PlixTheme.textPrimary,
                               fontSize: 16,
@@ -352,7 +357,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
 
           if (!Platform.isWindows) ...[
-            const SizedBox(width: 14),
+            SizedBox(width: isCompact ? 8 : 14),
 
             // Voice Search Mic Button
             _TvIconButton(
@@ -494,7 +499,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildResultsSection({bool isWindowsFullWidth = false}) {
+  Widget _buildResultsSection({bool isFullWidth = false}) {
     if (_isSearching) {
       return Center(
         child: Column(
@@ -534,7 +539,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              isWindowsFullWidth
+              isFullWidth
                   ? 'Type in the search box above to search movies, TV shows, and episodes.'
                   : 'Type using the on-screen keyboard or press the microphone to search by voice.',
               style: const TextStyle(color: PlixTheme.textMuted, fontSize: 13),
@@ -574,7 +579,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return Padding(
-      padding: EdgeInsets.only(right: isWindowsFullWidth ? 0 : 28, bottom: 16),
+      padding: EdgeInsets.only(right: isFullWidth ? 0 : 28, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -593,9 +598,9 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                if (isWindowsFullWidth) {
+                if (isFullWidth) {
                   final availableWidth = constraints.maxWidth;
-                  final crossAxisCount = (availableWidth / 160).floor().clamp(4, 10);
+                  final crossAxisCount = (availableWidth / 150).floor().clamp(2, 10);
                   const spacing = 16.0;
                   final cellWidth = (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
                   final cellHeight = cellWidth * 1.5 + 65.0;
@@ -603,6 +608,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
                   return GridView.builder(
                     padding: const EdgeInsets.only(bottom: 40),
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
                       childAspectRatio: childAspectRatio,
@@ -640,6 +646,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
                 return GridView.builder(
                   padding: const EdgeInsets.only(bottom: 40),
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
                     childAspectRatio: childAspectRatio,

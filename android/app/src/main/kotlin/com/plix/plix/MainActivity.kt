@@ -165,6 +165,16 @@ class MainActivity: FlutterActivity() {
                 "getCacheDir" -> {
                     result.success(cacheDir.absolutePath)
                 }
+                "isTelevision" -> {
+                    var isTv = false
+                    try {
+                        val uiModeManager = getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+                        val isTvMode = uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+                        val isLeanback = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                        isTv = isTvMode || isLeanback
+                    } catch (_: Exception) {}
+                    result.success(isTv)
+                }
                 "getDeviceName" -> {
                     var name: String? = null
                     try {
@@ -176,7 +186,8 @@ class MainActivity: FlutterActivity() {
                         } catch (_: Exception) {}
                     }
                     if (name.isNullOrBlank()) {
-                        name = "Android TV"
+                        val isLeanback = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                        name = if (isLeanback) "Android TV" else "Android Phone"
                     }
                     result.success(name)
                 }

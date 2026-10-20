@@ -23,7 +23,9 @@ import 'search_screen.dart';
 import 'server_select_screen.dart';
 import 'settings_screen.dart';
 import 'watchlist_screen.dart';
+import '../services/plix_device_helper.dart';
 import '../services/update_service.dart';
+import '../widgets/brand_logo.dart';
 
 class HomeScreen extends StatefulWidget {
   final PlexServer server;
@@ -64,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   FocusNode? _lastFocusedContentNode;
   String? _lastFocusedRowId;
   bool _isSidebarFocused = false;
+  int _mobileNavIndex = 0;
   Timer? _heroMetadataDebounceTimer;
   Timer? _heroHoverTimer;
 
@@ -100,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DateTime? _lastBackPressTime;
 
   bool _handleBackPress() {
-    if (!_isSidebarFocused) {
+    if (!PlixDeviceHelper.isCompact(context) && !_isSidebarFocused) {
       _sidebarHomeFocusNode.requestFocus();
       return true;
     }
@@ -591,8 +594,609 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+
+  Widget _buildMobileTopHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: PlixTheme.background,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: PlixTheme.plexGold,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: Icon(Icons.play_arrow_rounded, color: Colors.black, size: 22),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'PLIX',
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const Spacer(),
+          // Server switcher pill
+          InkWell(
+            onTap: _switchServer,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: PlixTheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: widget.server.isJellyfin ? const Color(0xFF8E51DC) : const Color(0xFFE5A00D),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.server.isJellyfin)
+                    const JellyfinLogo(size: 14, color: Color(0xFF8E51DC))
+                  else
+                    const PlexLogo(size: 14, color: Color(0xFFE5A00D)),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(
+                      widget.server.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.swap_horiz_rounded, size: 14, color: Colors.white70),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.search_rounded, color: Colors.white),
+            tooltip: 'Search',
+            onPressed: _openSearch,
+            iconSize: 22,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhoneBottomNav() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: PlixTheme.surface,
+        border: Border(
+          top: BorderSide(color: PlixTheme.cardBorder, width: 0.8),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: BottomNavigationBar(
+          currentIndex: _mobileNavIndex,
+          onTap: (index) {
+            setState(() => _mobileNavIndex = index);
+            if (index == 0) {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            } else if (index == 1) {
+              _openWatchlist();
+            } else if (index == 2) {
+              _openSearch();
+            } else if (index == 3) {
+              _showLibrariesSheet();
+            } else if (index == 4) {
+              _openSettings();
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          selectedItemColor: PlixTheme.plexGold,
+          unselectedItemColor: Colors.white60,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bookmark_rounded),
+              label: 'Watchlist',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.search_rounded),
+              label: 'Search',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.video_library_rounded),
+              label: 'Libraries',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_rounded),
+              label: 'Settings',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLibrariesSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: PlixTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.video_library_rounded, color: PlixTheme.plexGold, size: 22),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Libraries',
+                      style: TextStyle(
+                        color: PlixTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: PlixTheme.cardBorder, height: 1),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _libraries.length,
+                  separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                  itemBuilder: (ctx, i) {
+                    final lib = _libraries[i];
+                    IconData icon = Icons.folder_rounded;
+                    if (lib.type == 'movie') icon = Icons.movie_outlined;
+                    if (lib.type == 'show') icon = Icons.tv_rounded;
+                    if (lib.type == 'artist') icon = Icons.music_note_rounded;
+                    return ListTile(
+                      leading: Icon(icon, color: PlixTheme.plexGold),
+                      title: Text(
+                        lib.title,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _openLibrary(lib);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileHero(String heroBackdropUrl) {
+    if (_heroItem == null) return const SizedBox.shrink();
+    final item = _heroItem!;
+    final posterUrl = _mediaService.buildImageUrl(
+      item.thumb ?? item.art,
+      width: 400,
+      height: 225,
+    );
+    final bgUrl = heroBackdropUrl.isNotEmpty ? heroBackdropUrl : posterUrl;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: PlixTheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          if (bgUrl.isNotEmpty)
+            Positioned.fill(
+              child: CachedNetworkImage(
+                imageUrl: bgUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
+            ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.2),
+                    Colors.black.withOpacity(0.7),
+                    Colors.black.withOpacity(0.95),
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 70),
+                if (item.grandparentTitle != null) ...[
+                  Text(
+                    item.grandparentTitle!,
+                    style: TextStyle(
+                      color: PlixTheme.plexGold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                Text(
+                  item.displayTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: PlixTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (item.year != null)
+                      Text(
+                        item.year.toString(),
+                        style: const TextStyle(
+                          color: PlixTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    if (item.contentRating != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: PlixTheme.cardBorder),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          item.contentRating!,
+                          style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 10),
+                        ),
+                      ),
+                    if (item.formattedResolution.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: PlixTheme.plexGold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          item.formattedResolution,
+                          style: TextStyle(
+                            color: PlixTheme.plexGold,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    if (item.isHdr)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: PlixTheme.plexGold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: PlixTheme.plexGold.withOpacity(0.6)),
+                        ),
+                        child: Text(
+                          item.hdrBadge.isNotEmpty ? item.hdrBadge : 'HDR',
+                          style: TextStyle(
+                            color: PlixTheme.plexGold,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (item.summary.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    item.summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PlixTheme.textSecondary,
+                      fontSize: 12,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PlixTheme.plexGold,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                        label: Text(
+                          item.isInProgress ? 'Resume' : 'Watch Now',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        onPressed: () => _quickPlay(item),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.15),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.info_outline_rounded, size: 18),
+                      label: const Text('Details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      onPressed: () => _openDetails(item),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTvHero() {
+    if (_heroItem == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 0),
+        child: SizedBox(
+          height: 165,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 20,
+                child: Visibility(
+                  visible: _heroItem!.grandparentTitle != null,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: Text(
+                    _heroItem!.grandparentTitle ?? '',
+                    style: TextStyle(
+                      color: PlixTheme.plexGold,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              SizedBox(
+                height: 36,
+                child: Text(
+                  _heroItem!.displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: PlixTheme.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 20,
+                child: Row(
+                  children: [
+                    if (_heroItem!.year != null) ...[
+                      Text(
+                        _heroItem!.year.toString(),
+                        style: const TextStyle(
+                          color: PlixTheme.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (_heroItem!.contentRating != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: PlixTheme.cardBorder),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          _heroItem!.contentRating!,
+                          style: const TextStyle(
+                            color: PlixTheme.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (_heroItem!.formattedResolution.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: PlixTheme.plexGold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          _heroItem!.formattedResolution,
+                          style: TextStyle(
+                            color: PlixTheme.plexGold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    if (_heroItem!.isHdr) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: PlixTheme.plexGold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color: PlixTheme.plexGold.withOpacity(0.6),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          _heroItem!.hdrBadge.isNotEmpty ? _heroItem!.hdrBadge : 'HDR',
+                          style: TextStyle(
+                            color: PlixTheme.plexGold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: SizedBox(
+                  height: 32,
+                  child: Text(
+                    _heroItem!.summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PlixTheme.textSecondary,
+                      fontSize: 13,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: Row(
+                  children: [
+                    PlixButton(
+                      focusNode: _heroPlayFocusNode,
+                      autofocus: _continueWatching.isNotEmpty,
+                      isPrimary: false,
+                      padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                      label: _heroItem!.isInProgress
+                          ? 'Resume'
+                          : 'Watch Now',
+                      blockUp: true,
+                      onUp: () {},
+                      onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                      onRight: () => _heroDetailsFocusNode.requestFocus(),
+                      onDown: _navigateFromHeroDown,
+                      onPressed: () => _quickPlay(_heroItem!),
+                    ),
+                    const SizedBox(width: 14),
+                    PlixButton(
+                      focusNode: _heroDetailsFocusNode,
+                      isPrimary: false,
+                      padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
+                      icon: const Icon(Icons.info_outline_rounded, size: 20),
+                      label: 'Details',
+                      blockUp: true,
+                      onUp: () {},
+                      onLeft: () => _heroPlayFocusNode.requestFocus(),
+                      onDown: _navigateFromHeroDown,
+                      onPressed: () => _openDetails(_heroItem!),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     final heroBackdropUrl = _heroItem != null
         ? _mediaService.buildImageUrl(
             _heroItem!.art ?? _heroItem!.thumb,
@@ -601,81 +1205,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           )
         : '';
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _handleBackPress();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: PlixTheme.background,
-        body: Focus(
-          canRequestFocus: false,
-          skipTraversal: true,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.escape ||
-                 event.logicalKey == LogicalKeyboardKey.goBack)) {
-              _handleBackPress();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Row(
-            children: [
-              // Left TV Navigation Sidebar
-              SidebarNav(
-                currentServer: widget.server,
-                libraries: _libraries,
-                activeDestination: NavDestination.home,
-                homeFocusNode: _sidebarHomeFocusNode,
-                onLibrariesReordered: _saveLibraryOrder,
-                onFocusChange: (focused) => setState(() => _isSidebarFocused = focused),
-                onOpenSettings: _openSettings,
-                onDestinationSelected: (dest) {
-                  if (dest == NavDestination.home) {
-                    _refreshContinueWatching(forceFocusFirst: false);
-                    if (_lastFocusedContentNode != null &&
-                        _lastFocusedContentNode!.canRequestFocus) {
-                      _lastFocusedContentNode!.requestFocus();
-                    } else if (_heroPlayFocusNode.canRequestFocus) {
-                      _heroPlayFocusNode.requestFocus();
-                    }
-                  } else if (dest == NavDestination.search) {
-                    _openSearch();
-                  } else if (dest == NavDestination.watchlist) {
-                    _openWatchlist();
-                  }
-                },
-                onLibrarySelected: _openLibrary,
-                onSwitchServer: _switchServer,
-                onSignOut: _signOut,
-                onNavigateRight: () {
-                  // Return cursor back to exactly where user was before moving to left nav!
-                  if (_lastFocusedContentNode != null &&
-                      _lastFocusedContentNode!.canRequestFocus &&
-                      _lastFocusedContentNode!.context != null &&
-                      _lastFocusedContentNode!.context!.mounted) {
-                    _lastFocusedContentNode!.requestFocus();
-                    return;
-                  }
-                  if (_heroPlayFocusNode.canRequestFocus &&
-                      _heroPlayFocusNode.context != null &&
-                      _heroPlayFocusNode.context!.mounted) {
-                    _heroPlayFocusNode.requestFocus();
-                    return;
-                  }
-                },
-              ),
-
-          // Main Home Content Area
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                  // Top Hero Backdrop Art
-                  if (heroBackdropUrl.isNotEmpty)
+    Widget mainContentArea = Stack(
+      fit: StackFit.expand,
+      children: [
+        // Top Hero Backdrop Art (TV / Desktop landscape only; mobile uses featured card)
+        if (!isCompact && heroBackdropUrl.isNotEmpty)
                     Positioned(
                       top: 0,
                       left: 0,
@@ -749,201 +1283,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     )
                   else
-                    SingleChildScrollView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.only(top: 16, bottom: 48),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Hero Content Block
-                          if (_heroItem != null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 16, bottom: 0),
-                                child: SizedBox(
-                                  height: 165,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        height: 20,
-                                        child: Visibility(
-                                          visible: _heroItem!.grandparentTitle != null,
-                                          maintainSize: true,
-                                          maintainAnimation: true,
-                                          maintainState: true,
-                                          child: Text(
-                                            _heroItem!.grandparentTitle ?? '',
-                                            style: TextStyle(
-                                              color: PlixTheme.plexGold,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      SizedBox(
-                                        height: 36,
-                                        child: Text(
-                                          _heroItem!.displayTitle,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: PlixTheme.textPrimary,
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 20,
-                                        child: Row(
-                                          children: [
-                                            if (_heroItem!.year != null) ...[
-                                              Text(
-                                                '${_heroItem!.year}',
-                                                style: const TextStyle(
-                                                  color: PlixTheme.textSecondary,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                            ],
-                                            if (_heroItem!.contentRating != null) ...[
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(color: PlixTheme.cardBorder),
-                                                  borderRadius: BorderRadius.circular(3),
-                                                ),
-                                                child: Text(
-                                                  _heroItem!.contentRating!,
-                                                  style: const TextStyle(
-                                                    color: PlixTheme.textSecondary,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                            ],
-                                            if (_heroItem!.formattedResolution.isNotEmpty)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: PlixTheme.plexGold.withOpacity(0.2),
-                                                  borderRadius: BorderRadius.circular(3),
-                                                ),
-                                                child: Text(
-                                                  _heroItem!.formattedResolution,
-                                                  style: TextStyle(
-                                                    color: PlixTheme.plexGold,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            if (_heroItem!.isHdr) ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: PlixTheme.plexGold.withOpacity(0.2),
-                                                  borderRadius: BorderRadius.circular(3),
-                                                  border: Border.all(
-                                                    color: PlixTheme.plexGold.withOpacity(0.6),
-                                                    width: 1.0,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  _heroItem!.hdrBadge.isNotEmpty ? _heroItem!.hdrBadge : 'HDR',
-                                                  style: TextStyle(
-                                                    color: PlixTheme.plexGold,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      ConstrainedBox(
-                                        constraints: const BoxConstraints(maxWidth: 620),
-                                        child: SizedBox(
-                                          height: 32,
-                                          child: Text(
-                                            _heroItem!.summary,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: PlixTheme.textSecondary,
-                                              fontSize: 13,
-                                              height: 1.25,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      SizedBox(
-                                        height: 40,
-                                        child: Row(
-                                          children: [
-                                            PlixButton(
-                                              focusNode: _heroPlayFocusNode,
-                                              autofocus: _continueWatching.isNotEmpty,
-                                              isPrimary: false,
-                                              padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
-                                              icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                                              label: _heroItem!.isInProgress
-                                                  ? 'Resume'
-                                                  : 'Watch Now',
-                                              blockUp: true,
-                                              onUp: () {},
-                                              onLeft: () => _sidebarHomeFocusNode.requestFocus(),
-                                              onRight: () => _heroDetailsFocusNode.requestFocus(),
-                                              onDown: _navigateFromHeroDown,
-                                              onPressed: () => _quickPlay(_heroItem!),
-                                            ),
-                                            const SizedBox(width: 14),
-                                            PlixButton(
-                                              focusNode: _heroDetailsFocusNode,
-                                              isPrimary: false,
-                                              padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
-                                              icon: const Icon(Icons.info_outline_rounded, size: 20),
-                                              label: 'Details',
-                                              blockUp: true,
-                                              onUp: () {},
-                                              onLeft: () => _heroPlayFocusNode.requestFocus(),
-                                              onDown: _navigateFromHeroDown,
-                                              onPressed: () => _openDetails(_heroItem!),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                    RefreshIndicator(
+                      onRefresh: _initData,
+                      color: PlixTheme.plexGold,
+                      backgroundColor: PlixTheme.surface,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        padding: EdgeInsets.only(
+                          top: isCompact ? 0 : 16,
+                          bottom: isCompact ? 80 : 48,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isCompact)
+                              _buildMobileHero(heroBackdropUrl)
+                            else if (_heroItem != null)
+                              _buildTvHero(),
 
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
 
-                          // Row 1: Continue Watching
+                            // Row 1: Continue Watching
                           if (_continueWatching.isNotEmpty)
                             _HomeRowSection(
                               key: _rowSectionKeys.putIfAbsent('continue_watching', () => GlobalKey<_HomeRowSectionState>()),
@@ -1012,14 +1373,105 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
+                  ),
                 ],
-              ),
+              );
+
+    if (isCompact) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            _handleBackPress();
+          }
+        },
+        child: Scaffold(
+          backgroundColor: PlixTheme.background,
+          bottomNavigationBar: _buildPhoneBottomNav(),
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _buildMobileTopHeader(),
+                Expanded(child: mainContentArea),
+              ],
             ),
-          ],
+          ),
+        ),
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _handleBackPress();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: PlixTheme.background,
+        body: Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.escape ||
+                 event.logicalKey == LogicalKeyboardKey.goBack)) {
+              _handleBackPress();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Row(
+            children: [
+              SidebarNav(
+                currentServer: widget.server,
+                libraries: _libraries,
+                activeDestination: NavDestination.home,
+                homeFocusNode: _sidebarHomeFocusNode,
+                onLibrariesReordered: _saveLibraryOrder,
+                onFocusChange: (focused) => setState(() => _isSidebarFocused = focused),
+                onOpenSettings: _openSettings,
+                onDestinationSelected: (dest) {
+                  if (dest == NavDestination.home) {
+                    _refreshContinueWatching(forceFocusFirst: false);
+                    if (_lastFocusedContentNode != null &&
+                        _lastFocusedContentNode!.canRequestFocus) {
+                      _lastFocusedContentNode!.requestFocus();
+                    } else if (_heroPlayFocusNode.canRequestFocus) {
+                      _heroPlayFocusNode.requestFocus();
+                    }
+                  } else if (dest == NavDestination.search) {
+                    _openSearch();
+                  } else if (dest == NavDestination.watchlist) {
+                    _openWatchlist();
+                  }
+                },
+                onLibrarySelected: _openLibrary,
+                onSwitchServer: _switchServer,
+                onSignOut: _signOut,
+                onNavigateRight: () {
+                  if (_lastFocusedContentNode != null &&
+                      _lastFocusedContentNode!.canRequestFocus &&
+                      _lastFocusedContentNode!.context != null &&
+                      _lastFocusedContentNode!.context!.mounted) {
+                    _lastFocusedContentNode!.requestFocus();
+                    return;
+                  }
+                  if (_heroPlayFocusNode.canRequestFocus &&
+                      _heroPlayFocusNode.context != null &&
+                      _heroPlayFocusNode.context!.mounted) {
+                    _heroPlayFocusNode.requestFocus();
+                    return;
+                  }
+                },
+              ),
+              Expanded(child: mainContentArea),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -1152,6 +1604,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     final hasViewMore = widget.onViewMore != null;
     final totalCount = widget.items.length + (hasViewMore ? 1 : 0);
 
@@ -1161,7 +1614,10 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 16 : 40,
+                vertical: 8,
+              ),
               child: Row(
                 children: [
                   Icon(widget.icon, color: PlixTheme.plexGold, size: 20),
@@ -1174,17 +1630,43 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (hasViewMore) ...[
+                    const Spacer(),
+                    InkWell(
+                      onTap: widget.onViewMore,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'See all',
+                              style: TextStyle(
+                                color: PlixTheme.plexGold,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(Icons.chevron_right_rounded, color: PlixTheme.plexGold, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             SizedBox(
-              height: 255,
+              height: isCompact ? 245 : 255,
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                 cacheExtent: 3500,
                 clipBehavior: Clip.none,
-                padding: const EdgeInsets.symmetric(horizontal: 32),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32),
                 itemCount: totalCount,
                 itemBuilder: (context, index) {
                   if (index < widget.items.length) {
@@ -1198,7 +1680,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                       mediaService: widget.mediaService,
                       autofocus: widget.autofocusFirst && isFirst,
                       focusNode: itemNode,
-                      width: 130,
+                      width: isCompact ? 120 : 130,
                       onLeft: isFirst ? widget.onLeftAtFirst : () => _focusNodeAt(index - 1).requestFocus(),
                       onRight: isLast ? () {} : () => _focusNodeAt(index + 1).requestFocus(),
                       onUp: widget.onRowUp,
@@ -1220,7 +1702,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                     final viewMoreNode = _focusNodeAt(widget.items.length);
                     return _ViewMoreCard(
                       focusNode: viewMoreNode,
-                      width: 130,
+                      width: isCompact ? 120 : 130,
                       aspectRatio: 2 / 3,
                       blockRight: true,
                       blockDown: widget.isLastRow,

@@ -5,6 +5,7 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import 'jellyfin_connect_screen.dart';
 import 'login_screen.dart';
+import '../services/plix_device_helper.dart';
 
 class AuthChooserScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -55,11 +56,13 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
     return Scaffold(
       backgroundColor: PlixTheme.background,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 20 : 30),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -234,8 +237,13 @@ class _ProviderCardState extends State<_ProviderCard> {
           borderRadius: BorderRadius.circular(16),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 300,
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            width: PlixDeviceHelper.isCompact(context)
+                ? (MediaQuery.of(context).size.width - 32).clamp(260.0, 340.0)
+                : 300,
+            padding: EdgeInsets.symmetric(
+              horizontal: PlixDeviceHelper.isCompact(context) ? 20 : 28,
+              vertical: PlixDeviceHelper.isCompact(context) ? 24 : 32,
+            ),
             decoration: BoxDecoration(
               color: activeGlow ? PlixTheme.cardFocused : PlixTheme.surface,
               borderRadius: BorderRadius.circular(16),
