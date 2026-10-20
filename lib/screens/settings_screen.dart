@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../models/plex_server.dart';
 import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -47,6 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _aboutServerFocusNode = FocusNode();
   final FocusNode _aboutClientFocusNode = FocusNode();
   final FocusNode _aboutVersionFocusNode = FocusNode();
+  final FocusNode _aboutWebsiteFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   void _scrollToTop() {
@@ -87,6 +89,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newVal = !_autoCheckUpdates;
     setState(() => _autoCheckUpdates = newVal);
     await UpdateService.setAutoCheckEnabled(newVal);
+  }
+
+  Future<void> _openWebsite(String url) async {
+    try {
+      if (Platform.isWindows) {
+        Process.run('cmd', ['/c', 'start', '', url]);
+      } else if (Platform.isAndroid) {
+        const channel = MethodChannel('com.plix.plix/updater');
+        await channel.invokeMethod('openUrl', {'url': url});
+      }
+    } catch (_) {}
+    try {
+      Clipboard.setData(ClipboardData(text: url));
+      _showToast('Opening $url');
+    } catch (_) {
+      _showToast(url);
+    }
   }
 
   void _showToast(String message) {
@@ -184,6 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _aboutServerFocusNode.dispose();
     _aboutClientFocusNode.dispose();
     _aboutVersionFocusNode.dispose();
+    _aboutWebsiteFocusNode.dispose();
     for (final node in _colorFocusNodes.values) {
       node.dispose();
     }
@@ -193,8 +213,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
+    final isTv = PlixDeviceHelper.isTelevision;
+
     return Scaffold(
       backgroundColor: PlixTheme.background,
+      bottomNavigationBar: (isCompact && !isTv && widget.server != null)
+          ? PlixBottomNav(
+              currentIndex: 4,
+              server: widget.server!,
+              clientId: widget.clientId,
+            )
+          : null,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,6 +509,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           (widget.server!.connections.isNotEmpty
                               ? widget.server!.connections.first.address
                               : 'Connected'),
+                      trailingBelow: isCompact,
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -496,11 +526,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _aboutVersionFocusNode,
                     onUp: () => _aboutClientFocusNode.requestFocus(),
+                    onDown: () => _aboutWebsiteFocusNode.requestFocus(),
                     title: 'App Version',
                     subtitle: Platform.isWindows
                         ? 'Plix for Windows (MediaKit mpv)'
-                        : 'Plix for Android TV (Media3 ExoPlayer)',
+                        : (PlixDeviceHelper.isTelevision
+                            ? 'Plix for Android TV (Media3 ExoPlayer)'
+                            : 'Plix for Android (Media3 ExoPlayer)'),
                     trailing: 'v${UpdateService.currentVersion}',
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsActionTile(
+                    focusNode: _aboutWebsiteFocusNode,
+                    onUp: () => _aboutVersionFocusNode.requestFocus(),
+                    title: 'Official Website',
+                    subtitle: 'Visit plix.jman100.com for downloads & updates',
+                    trailing: 'https://plix.jman100.com',
+                    trailingBelow: isCompact,
+                    isInteractive: true,
+                    onTap: () => _openWebsite('https://plix.jman100.com'),
                   ),
 
                   const SizedBox(height: 48),
@@ -649,14 +693,17 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  widget.option.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.option.name,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                      fontSize: 10,
+                      fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -678,6 +725,7 @@ class _SettingsActionTile extends StatefulWidget {
   final VoidCallback? onTap;
   final bool isInteractive;
   final bool isLoading;
+  final bool trailingBelow;
 
   const _SettingsActionTile({
     required this.title,
@@ -689,6 +737,7 @@ class _SettingsActionTile extends StatefulWidget {
     this.onTap,
     this.isInteractive = false,
     this.isLoading = false,
+    this.trailingBelow = false,
   });
 
   @override
@@ -791,35 +840,13 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                   ]
                 : null,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: TextStyle(
-                        color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.subtitle,
-                      style: const TextStyle(
-                        color: PlixTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.trailing != null && widget.trailing!.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Builder(
+            builder: (ctx) {
+              final showBelow = widget.trailingBelow || (PlixDeviceHelper.isCompact(ctx) && (widget.trailing?.length ?? 0) > 16);
+              Widget? trailingWidget;
+              if (widget.trailing != null && widget.trailing!.isNotEmpty) {
+                trailingWidget = Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: widget.isInteractive && isHighlighted
                         ? PlixTheme.plexGold.withOpacity(0.25)
@@ -844,27 +871,67 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      Text(
-                        widget.trailing!,
-                        style: TextStyle(
-                          color: PlixTheme.plexGold,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          widget.trailing!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: PlixTheme.plexGold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       if (widget.isInteractive) ...[
                         const SizedBox(width: 6),
                         Icon(
-                          Icons.swap_horiz_rounded,
-                          size: 16,
+                          widget.trailing!.startsWith('http') ? Icons.open_in_new_rounded : Icons.swap_horiz_rounded,
+                          size: 15,
                           color: PlixTheme.plexGold.withOpacity(0.8),
                         ),
                       ],
                     ],
                   ),
-                ),
-              ],
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: TextStyle(
+                            color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.subtitle,
+                          style: const TextStyle(
+                            color: PlixTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (showBelow && trailingWidget != null) ...[
+                          const SizedBox(height: 8),
+                          trailingWidget,
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (!showBelow && trailingWidget != null) ...[
+                    const SizedBox(width: 12),
+                    trailingWidget,
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),

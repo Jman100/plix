@@ -162,6 +162,21 @@ class MainActivity: FlutterActivity() {
         updaterChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL)
         updaterChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
+                "openUrl" -> {
+                    val url = call.argument<String>("url")
+                    if (!url.isNullOrBlank()) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("OPEN_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_URL", "URL was empty", null)
+                    }
+                }
                 "getCacheDir" -> {
                     result.success(cacheDir.absolutePath)
                 }

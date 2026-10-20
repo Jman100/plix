@@ -11,6 +11,7 @@ import '../services/plix_device_helper.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import 'details_screen.dart';
+import '../widgets/plix_bottom_nav.dart';
 
 class SearchScreen extends StatefulWidget {
   final PlexServer server;
@@ -228,6 +229,13 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return Scaffold(
       backgroundColor: PlixTheme.background,
+      bottomNavigationBar: (isCompact && !isTv)
+          ? PlixBottomNav(
+              currentIndex: 2,
+              server: widget.server,
+              clientId: widget.clientId,
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [
@@ -520,60 +528,72 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (_query.trim().isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_rounded,
-              size: 64,
-              color: PlixTheme.textMuted.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Search Movies & TV Shows',
-              style: TextStyle(
-                color: PlixTheme.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_rounded,
+                size: 64,
+                color: PlixTheme.textMuted.withOpacity(0.5),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isFullWidth
-                  ? 'Type in the search box above to search movies, TV shows, and episodes.'
-                  : 'Type using the on-screen keyboard or press the microphone to search by voice.',
-              style: const TextStyle(color: PlixTheme.textMuted, fontSize: 13),
-            ),
-          ],
+              const SizedBox(height: 16),
+              const Text(
+                'Search Movies & TV Shows',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: PlixTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isFullWidth
+                    ? 'Type in the search box above to search movies, TV shows, and episodes.'
+                    : 'Type using the on-screen keyboard or press the microphone to search by voice.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: PlixTheme.textMuted, fontSize: 13),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (_results.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.movie_filter_outlined,
-              size: 56,
-              color: PlixTheme.textMuted.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No results found for "$_query"',
-              style: const TextStyle(
-                color: PlixTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.movie_filter_outlined,
+                size: 56,
+                color: PlixTheme.textMuted.withOpacity(0.5),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Check the spelling or try searching for another title.',
-              style: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                'No results found for "$_query"',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: PlixTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Check the spelling or try searching for another title.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
+              ),
+            ],
+          ),
         ),
       );
     }

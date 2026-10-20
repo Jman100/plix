@@ -9,6 +9,8 @@ import '../services/plex_server_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import 'details_screen.dart';
+import '../services/plix_device_helper.dart';
+import '../widgets/plix_bottom_nav.dart';
 
 class WatchlistScreen extends StatefulWidget {
   final PlexServer server;
@@ -146,150 +148,190 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
+    final isTv = PlixDeviceHelper.isTelevision;
+
     return Scaffold(
       backgroundColor: PlixTheme.background,
-      body: Focus(
-        canRequestFocus: false,
-        skipTraversal: true,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.escape ||
-               event.logicalKey == LogicalKeyboardKey.goBack)) {
-            Navigator.of(context).maybePop();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-        child: Stack(
-          children: [
-            // Content Grid
-            Positioned.fill(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
-                      ),
-                    )
-                  : _errorMessage != null
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-                              const SizedBox(height: 12),
-                              Text(_errorMessage!, style: const TextStyle(color: Colors.white70)),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _loadWatchlist,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: PlixTheme.plexGold,
-                                  foregroundColor: Colors.black,
+      bottomNavigationBar: (isCompact && !isTv)
+          ? PlixBottomNav(
+              currentIndex: 1,
+              server: widget.server,
+              authService: widget.authService,
+              serverService: widget.serverService,
+              clientId: widget.clientId,
+              onWatchlistTap: _loadWatchlist,
+            )
+          : null,
+      body: SafeArea(
+        child: Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.escape ||
+                 event.logicalKey == LogicalKeyboardKey.goBack)) {
+              Navigator.of(context).maybePop();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Stack(
+            children: [
+              // Content Grid
+              Positioned.fill(
+                child: _isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                        ),
+                      )
+                    : _errorMessage != null
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                                const SizedBox(height: 12),
+                                Text(_errorMessage!, style: const TextStyle(color: Colors.white70)),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _loadWatchlist,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: PlixTheme.plexGold,
+                                    foregroundColor: Colors.black,
+                                  ),
+                                  child: const Text('Retry'),
                                 ),
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _items.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.bookmark_border_rounded, size: 56, color: PlixTheme.textSecondary.withOpacity(0.4)),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    widget.server.isJellyfin
-                                        ? 'Your Jellyfin Watchlist is empty.'
-                                        : 'Your Plex Watchlist is empty.',
-                                    style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    widget.server.isJellyfin
-                                        ? 'Add movies and shows to your Watchlist on Jellyfin to see them here.'
-                                        : 'Add movies and shows to your Watchlist on Plex to see them here.',
-                                    style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : GridView.builder(
-                              clipBehavior: Clip.hardEdge,
-                              padding: const EdgeInsets.only(left: 32, right: 32, top: 92, bottom: 140),
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 165,
-                                childAspectRatio: 2 / 3.7,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 18,
-                              ),
-                              itemCount: _items.length,
-                              itemBuilder: (context, index) {
-                                final item = _items[index];
-                                return MediaCard(
-                                  item: item,
-                                  mediaService: _mediaService,
-                                  focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                                  autofocus: index == (_lastSelectedIndex ?? 0),
-                                  width: 140,
-                                  onTap: () => _openDetails(item, index),
-                                );
-                              },
+                              ],
                             ),
-            ),
+                          )
+                        : _items.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.bookmark_border_rounded, size: 56, color: PlixTheme.textSecondary.withOpacity(0.4)),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        widget.server.isJellyfin
+                                            ? 'Your Jellyfin Watchlist is empty.'
+                                            : 'Your Plex Watchlist is empty.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        widget.server.isJellyfin
+                                            ? 'Add movies and shows to your Watchlist on Jellyfin to see them here.'
+                                            : 'Add movies and shows to your Watchlist on Plex to see them here.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : GridView.builder(
+                                clipBehavior: Clip.hardEdge,
+                                padding: EdgeInsets.only(
+                                  left: isCompact ? 14 : 32,
+                                  right: isCompact ? 14 : 32,
+                                  top: isCompact ? 68 : 88,
+                                  bottom: isCompact ? 24 : 140,
+                                ),
+                                gridDelegate: isCompact
+                                    ? const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 12,
+                                        childAspectRatio: 0.52,
+                                      )
+                                    : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 165,
+                                        childAspectRatio: 0.56,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 18,
+                                      ),
+                                itemCount: _items.length,
+                                itemBuilder: (context, index) {
+                                  final item = _items[index];
+                                  return LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return MediaCard(
+                                        item: item,
+                                        mediaService: _mediaService,
+                                        focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
+                                        autofocus: index == (_lastSelectedIndex ?? 0),
+                                        width: constraints.maxWidth,
+                                        margin: EdgeInsets.zero,
+                                        onTap: () => _openDetails(item, index),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+              ),
 
-            // Pinned Top Bar
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: PlixTheme.background,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                child: Row(
-                  children: [
-                    PlixBackButton(
-                      focusNode: _backButtonFocusNode,
-                      onDown: () {
-                        if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
-                          _focusNodes[0]?.requestFocus();
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(Icons.bookmark_rounded, color: PlixTheme.plexGold, size: 24),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Watchlist',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+              // Pinned Top Bar
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: PlixTheme.background,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 16 : 32,
+                    vertical: isCompact ? 12 : 16,
+                  ),
+                  child: Row(
+                    children: [
+                      PlixBackButton(
+                        focusNode: _backButtonFocusNode,
+                        onDown: () {
+                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                            _focusNodes[0]?.requestFocus();
+                          }
+                        },
                       ),
-                    ),
-                    if (!_isLoading && _items.isNotEmpty) ...[
-                      const SizedBox(width: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: PlixTheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white12),
+                      SizedBox(width: isCompact ? 12 : 16),
+                      Icon(Icons.bookmark_rounded, color: PlixTheme.plexGold, size: isCompact ? 22 : 24),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Watchlist',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isCompact ? 18 : 22,
+                          fontWeight: FontWeight.bold,
                         ),
-                        child: Text(
-                          '${_items.length} items',
-                          style: const TextStyle(
-                            color: PlixTheme.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      if (!_isLoading && _items.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: PlixTheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Text(
+                            '${_items.length}',
+                            style: const TextStyle(
+                              color: PlixTheme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

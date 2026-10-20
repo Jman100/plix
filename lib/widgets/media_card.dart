@@ -16,6 +16,7 @@ class MediaCard extends StatefulWidget {
   final double width;
   final double aspectRatio;
   final bool autofocus;
+  final EdgeInsetsGeometry? margin;
 
   const MediaCard({
     super.key,
@@ -28,6 +29,7 @@ class MediaCard extends StatefulWidget {
     this.width = 140,
     this.aspectRatio = 2 / 3,
     this.autofocus = false,
+    this.margin,
     this.onLeft,
     this.onRight,
     this.onUp,
@@ -163,7 +165,7 @@ class _MediaCardState extends State<MediaCard> {
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: widget.width,
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            margin: widget.margin ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

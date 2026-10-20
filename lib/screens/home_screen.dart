@@ -26,6 +26,7 @@ import 'watchlist_screen.dart';
 import '../services/plix_device_helper.dart';
 import '../services/update_service.dart';
 import '../widgets/brand_logo.dart';
+import '../widgets/plix_bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
   final PlexServer server;
@@ -66,7 +67,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   FocusNode? _lastFocusedContentNode;
   String? _lastFocusedRowId;
   bool _isSidebarFocused = false;
-  int _mobileNavIndex = 0;
   Timer? _heroMetadataDebounceTimer;
   Timer? _heroHoverTimer;
 
@@ -678,135 +678,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   Widget _buildPhoneBottomNav() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: PlixTheme.surface,
-        border: Border(
-          top: BorderSide(color: PlixTheme.cardBorder, width: 0.8),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: BottomNavigationBar(
-          currentIndex: _mobileNavIndex,
-          onTap: (index) {
-            setState(() => _mobileNavIndex = index);
-            if (index == 0) {
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(
-                  0.0,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            } else if (index == 1) {
-              _openWatchlist();
-            } else if (index == 2) {
-              _openSearch();
-            } else if (index == 3) {
-              _showLibrariesSheet();
-            } else if (index == 4) {
-              _openSettings();
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          selectedItemColor: PlixTheme.plexGold,
-          unselectedItemColor: Colors.white60,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bookmark_rounded),
-              label: 'Watchlist',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.search_rounded),
-              label: 'Search',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.video_library_rounded),
-              label: 'Libraries',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded),
-              label: 'Settings',
-            ),
-          ],
-        ),
-      ),
+    return PlixBottomNav(
+      currentIndex: 0,
+      server: widget.server,
+      authService: widget.authService,
+      serverService: widget.serverService,
+      clientId: _clientId,
+      libraries: _libraries,
+      onLibrariesReordered: _saveLibraryOrder,
+      onHomeTap: _scrollToTop,
+      onWatchlistTap: _openWatchlist,
+      onSearchTap: _openSearch,
+      onLibrariesTap: _showLibrariesSheet,
+      onSettingsTap: _openSettings,
     );
   }
 
   void _showLibrariesSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: PlixTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-                child: Row(
-                  children: [
-                    Icon(Icons.video_library_rounded, color: PlixTheme.plexGold, size: 22),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Libraries',
-                      style: TextStyle(
-                        color: PlixTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: PlixTheme.cardBorder, height: 1),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _libraries.length,
-                  separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
-                  itemBuilder: (ctx, i) {
-                    final lib = _libraries[i];
-                    IconData icon = Icons.folder_rounded;
-                    if (lib.type == 'movie') icon = Icons.movie_outlined;
-                    if (lib.type == 'show') icon = Icons.tv_rounded;
-                    if (lib.type == 'artist') icon = Icons.music_note_rounded;
-                    return ListTile(
-                      leading: Icon(icon, color: PlixTheme.plexGold),
-                      title: Text(
-                        lib.title,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        _openLibrary(lib);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    PlixBottomNav(
+      currentIndex: 3,
+      server: widget.server,
+      authService: widget.authService,
+      serverService: widget.serverService,
+      clientId: _clientId,
+      libraries: _libraries,
+      onLibrariesReordered: _saveLibraryOrder,
+    ).showLibrariesModal(context);
   }
 
   Widget _buildMobileHero(String heroBackdropUrl) {

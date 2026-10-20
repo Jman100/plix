@@ -11,6 +11,7 @@ import '../services/plex_media_service.dart';
 import '../services/theme_music_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_button.dart';
+import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
 import 'player_screen.dart';
 
@@ -798,6 +799,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isTv = PlixDeviceHelper.isTelevision;
     final isCompact = PlixDeviceHelper.isCompact(context);
     final backdropUrl = _mediaService.buildImageUrl(
       _item.art ?? _item.thumb,
@@ -825,6 +827,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
       },
       child: Scaffold(
         backgroundColor: PlixTheme.background,
+        bottomNavigationBar: (isCompact && !isTv)
+            ? PlixBottomNav(
+                currentIndex: -1,
+                server: widget.server,
+                clientId: widget.clientId,
+              )
+            : null,
         body: Stack(
           fit: StackFit.expand,
           children: [
@@ -1708,98 +1717,154 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            'S${ep.parentIndex ?? widget.seasonIndex ?? 1}:E${ep.index ?? widget.episodeIndex}',
-                            style: TextStyle(
-                              color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (ep.formattedAirDate.isNotEmpty || (ep.duration != null && ep.duration! > 0) || ep.formattedResolution.isNotEmpty)
-                            const Text(
-                              '  •  ',
-                              style: TextStyle(
-                                color: PlixTheme.textMuted,
-                                fontSize: 12,
+                      Builder(
+                        builder: (ctx) {
+                          final isPortraitMode = PlixDeviceHelper.isPortrait(ctx) || PlixDeviceHelper.isCompact(ctx);
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'S${ep.parentIndex ?? widget.seasonIndex ?? 1}:E${ep.index ?? widget.episodeIndex}',
+                                    style: TextStyle(
+                                      color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (ep.formattedAirDate.isNotEmpty || (ep.duration != null && ep.duration! > 0) || (!isPortraitMode && ep.formattedResolution.isNotEmpty))
+                                    const Text(
+                                      '  •  ',
+                                      style: TextStyle(
+                                        color: PlixTheme.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  if (ep.formattedAirDate.isNotEmpty) ...[
+                                    Text(
+                                      ep.formattedAirDate,
+                                      style: const TextStyle(
+                                        color: PlixTheme.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (ep.duration != null && ep.duration! > 0)
+                                      const Text(
+                                        '  •  ',
+                                        style: TextStyle(
+                                          color: PlixTheme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                  ],
+                                  if (ep.duration != null && ep.duration! > 0) ...[
+                                    Text(
+                                      ep.formattedDuration,
+                                      style: const TextStyle(
+                                        color: PlixTheme.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                  if (!isPortraitMode && ep.formattedResolution.isNotEmpty) ...[
+                                    if (ep.formattedAirDate.isNotEmpty || (ep.duration != null && ep.duration! > 0))
+                                      const Text(
+                                        '  •  ',
+                                        style: TextStyle(
+                                          color: PlixTheme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white12,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        ep.formattedResolution,
+                                        style: const TextStyle(
+                                          color: PlixTheme.textSecondary,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (!isPortraitMode && ep.isHdr) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: PlixTheme.plexGold.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(3),
+                                        border: Border.all(
+                                          color: PlixTheme.plexGold.withOpacity(0.6),
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR',
+                                        style: TextStyle(
+                                          color: PlixTheme.plexGold,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                            ),
-                          if (ep.formattedAirDate.isNotEmpty) ...[
-                            Text(
-                              ep.formattedAirDate,
-                              style: const TextStyle(
-                                color: PlixTheme.textMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                            if (ep.duration != null && ep.duration! > 0)
-                              const Text(
-                                '  •  ',
-                                style: TextStyle(
-                                  color: PlixTheme.textMuted,
-                                  fontSize: 12,
+                              if (isPortraitMode && (ep.formattedResolution.isNotEmpty || ep.isHdr)) ...[
+                                const SizedBox(height: 5),
+                                Row(
+                                  children: [
+                                    if (ep.formattedResolution.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white12,
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: Text(
+                                          ep.formattedResolution,
+                                          style: const TextStyle(
+                                            color: PlixTheme.textSecondary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    if (ep.isHdr) ...[
+                                      if (ep.formattedResolution.isNotEmpty) const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: PlixTheme.plexGold.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(3),
+                                          border: Border.all(
+                                            color: PlixTheme.plexGold.withOpacity(0.6),
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR',
+                                          style: TextStyle(
+                                            color: PlixTheme.plexGold,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ),
-                          ],
-                          if (ep.duration != null && ep.duration! > 0) ...[
-                            Text(
-                              ep.formattedDuration,
-                              style: const TextStyle(
-                                color: PlixTheme.textMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                          if (ep.formattedResolution.isNotEmpty) ...[
-                            if (ep.formattedAirDate.isNotEmpty || (ep.duration != null && ep.duration! > 0))
-                              const Text(
-                                '  •  ',
-                                style: TextStyle(
-                                  color: PlixTheme.textMuted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.white12,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                ep.formattedResolution,
-                                style: const TextStyle(
-                                  color: PlixTheme.textSecondary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                          if (ep.isHdr) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: PlixTheme.plexGold.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(3),
-                                border: Border.all(
-                                  color: PlixTheme.plexGold.withOpacity(0.6),
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Text(
-                                ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR',
-                                style: TextStyle(
-                                  color: PlixTheme.plexGold,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                              ],
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 6),
                       Text(

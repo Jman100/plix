@@ -7,6 +7,8 @@ import '../services/plex_media_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import 'details_screen.dart';
+import '../services/plix_device_helper.dart';
+import '../widgets/plix_bottom_nav.dart';
 
 class RecentlyAddedScreen extends StatefulWidget {
   final PlexLibrary library;
@@ -124,8 +126,18 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
+    final isTv = PlixDeviceHelper.isTelevision;
+
     return Scaffold(
       backgroundColor: PlixTheme.background,
+      bottomNavigationBar: (isCompact && !isTv)
+          ? PlixBottomNav(
+              currentIndex: 3,
+              server: widget.server,
+              clientId: widget.clientId,
+            )
+          : null,
       body: SafeArea(
         child: Stack(
           children: [
@@ -166,23 +178,40 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                             )
                           : GridView.builder(
                               clipBehavior: Clip.hardEdge,
-                              padding: const EdgeInsets.only(left: 32, right: 32, top: 92, bottom: 140),
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 165,
-                                childAspectRatio: 2 / 3.7,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 18,
+                              padding: EdgeInsets.only(
+                                left: isCompact ? 14 : 32,
+                                right: isCompact ? 14 : 32,
+                                top: isCompact ? 68 : 92,
+                                bottom: isCompact ? 24 : 140,
                               ),
+                              gridDelegate: isCompact
+                                  ? const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 3,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 12,
+                                      childAspectRatio: 0.52,
+                                    )
+                                  : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 165,
+                                      childAspectRatio: 0.56,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 18,
+                                    ),
                               itemCount: _items.length,
                               itemBuilder: (context, index) {
                                 final item = _items[index];
-                                return MediaCard(
-                                  item: item,
-                                  mediaService: _mediaService,
-                                  focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                                  autofocus: index == (_lastSelectedIndex ?? 0),
-                                  width: 140,
-                                  onTap: () => _openDetails(item, index),
+                                return LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return MediaCard(
+                                      item: item,
+                                      mediaService: _mediaService,
+                                      focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
+                                      autofocus: index == (_lastSelectedIndex ?? 0),
+                                      width: constraints.maxWidth,
+                                      margin: EdgeInsets.zero,
+                                      onTap: () => _openDetails(item, index),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -195,43 +224,51 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
               right: 0,
               child: Container(
                 color: PlixTheme.background,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 16 : 32,
+                  vertical: isCompact ? 12 : 16,
+                ),
                 child: Row(
                   children: [
                     const PlixBackButton(autofocus: false),
-                    const SizedBox(width: 20),
+                    SizedBox(width: isCompact ? 10 : 20),
                     Icon(
                       widget.library.isMovie ? Icons.movie_outlined : Icons.tv_outlined,
                       color: PlixTheme.plexGold,
-                      size: 26,
+                      size: isCompact ? 22 : 26,
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Recently Added in ${widget.library.title}',
-                      style: const TextStyle(
-                        color: PlixTheme.textPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Recently Added in ${widget.library.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: PlixTheme.textPrimary,
+                          fontSize: isCompact ? 16 : 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    if (!_isLoading && _items.isNotEmpty)
+                    if (!_isLoading && _items.isNotEmpty) ...[
+                      const SizedBox(width: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: PlixTheme.card,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: PlixTheme.cardBorder),
                         ),
                         child: Text(
-                          '${_items.length} items',
+                          '${_items.length}',
                           style: const TextStyle(
                             color: PlixTheme.textSecondary,
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
