@@ -57,6 +57,7 @@ class _SidebarNavState extends State<SidebarNav> {
   bool _isExpanded = false;
   late List<PlexLibrary> _orderedLibraries;
   String? _activeReorderKey;
+  bool _isReorderMode = false;
   final Map<String, FocusNode> _reorderFocusNodes = {};
   final Map<String, FocusNode> _itemFocusNodes = {};
 
@@ -364,6 +365,42 @@ class _SidebarNavState extends State<SidebarNav> {
                     onTap: () => widget.onDestinationSelected(NavDestination.watchlist),
                   ),
 
+                  // Libraries section header
+                  if (_orderedLibraries.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 2),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'LIBRARIES',
+                            style: TextStyle(
+                              color: PlixTheme.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Divider(
+                              color: PlixTheme.cardBorder,
+                              height: 1,
+                              thickness: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => setState(() => _isReorderMode = !_isReorderMode),
+                            child: Icon(
+                              Icons.reorder_rounded,
+                              size: 16,
+                              color: _isReorderMode ? PlixTheme.plexGold : PlixTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // Dynamic library entries (Movies, TV Shows) with drag-and-drop & reorder handle
                   for (int i = 0; i < _orderedLibraries.length; i++)
                     DragTarget<int>(
@@ -389,7 +426,7 @@ class _SidebarNavState extends State<SidebarNav> {
                           child: Row(
                             key: ValueKey('lib_row_${_orderedLibraries[i].key}'),
                             children: [
-                              if (effectiveExpanded)
+                              if (effectiveExpanded && _isReorderMode)
                                 Draggable<int>(
                                   data: i,
                                   feedback: Material(
@@ -475,6 +512,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                   key: ValueKey('nav_${_orderedLibraries[i].key}'),
                                   focusNode: _itemFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
                                   icon: _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
+                                  showIcon: _isReorderMode,
                                   label: _orderedLibraries[i].title,
                                   isSelected: widget.activeDestination == NavDestination.library &&
                                       widget.selectedLibrary?.key == _orderedLibraries[i].key,
@@ -493,7 +531,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                       _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
                                     }
                                   },
-                                  onNavigateLeft: effectiveExpanded ? () => _reorderFocusNodes[_orderedLibraries[i].key]?.requestFocus() : null,
+                                  onNavigateLeft: (effectiveExpanded && _isReorderMode) ? () => _reorderFocusNodes[_orderedLibraries[i].key]?.requestFocus() : null,
                                   onNavigateRight: widget.onNavigateRight,
                                   onTap: () => widget.onLibrarySelected(_orderedLibraries[i]),
                                 ),
@@ -578,6 +616,7 @@ class _NavItem extends StatefulWidget {
   final VoidCallback? onUp;
   final VoidCallback? onDown;
   final ValueChanged<bool>? onFocusChange;
+  final bool showIcon;
 
   const _NavItem({
     super.key,
@@ -594,6 +633,7 @@ class _NavItem extends StatefulWidget {
     this.onUp,
     this.onDown,
     this.onFocusChange,
+    this.showIcon = true,
   });
 
   @override
@@ -743,11 +783,14 @@ class _NavItemState extends State<_NavItem> {
           ),
           child: Row(
             children: [
-              Icon(
-                widget.icon,
-                size: 22,
-                color: fgColor,
-              ),
+              if (widget.showIcon)
+                Icon(
+                  widget.icon,
+                  size: 22,
+                  color: fgColor,
+                )
+              else
+                const SizedBox(width: 22),
               if (widget.isExpanded) ...[
                 const SizedBox(width: 16),
                 Expanded(

@@ -1163,13 +1163,28 @@ class PlexMediaService {
         '$baseUrl/library/sections/watchlist/all?X-Plex-Token=$tokenParam',
       ];
 
-      for (final urlStr in candidateUrls) {
+      for (final urlBase in candidateUrls) {
         try {
-          final url = Uri.parse(urlStr);
-          final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 6));
-          if (response.statusCode == 200) {
+          const int pageSize = 100;
+          int start = 0;
+          int? totalSize;
+          final List<PlexMediaItem> allParsed = [];
+
+          while (true) {
+            // Append pagination params; urlBase already has '?' so use '&'
+            final separator = urlBase.contains('?') ? '&' : '?';
+            final pagedUrl = Uri.parse(
+              '$urlBase${separator}X-Plex-Container-Start=$start&X-Plex-Container-Size=$pageSize',
+            );
+            final response = await http.get(pagedUrl, headers: headers).timeout(const Duration(seconds: 10));
+            if (response.statusCode != 200) break;
+
             final data = jsonDecode(response.body) as Map<String, dynamic>;
             final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+
+            // Capture totalSize from first page
+            totalSize ??= (container['totalSize'] as num?)?.toInt() ??
+                (container['size'] as num?)?.toInt();
 
             final List<dynamic> rawList = [];
             if (container['Metadata'] is List) {
@@ -1195,32 +1210,37 @@ class PlexMediaService {
               }
             }
 
-            if (rawList.isNotEmpty) {
-              final List<PlexMediaItem> parsed = [];
-              for (final m in rawList) {
-                try {
-                  if (m is Map<String, dynamic>) {
-                    final map = Map<String, dynamic>.from(m);
-                    final thumbStr = map['thumb']?.toString();
-                    if (thumbStr != null && thumbStr.isNotEmpty && !thumbStr.startsWith('http')) {
-                      map['thumb'] = 'https://discover.provider.plex.tv$thumbStr?X-Plex-Token=$tokenParam';
-                    }
-                    final artStr = map['art']?.toString();
-                    if (artStr != null && artStr.isNotEmpty && !artStr.startsWith('http')) {
-                      map['art'] = 'https://discover.provider.plex.tv$artStr?X-Plex-Token=$tokenParam';
-                    }
-                    final gpThumb = map['grandparentThumb']?.toString();
-                    if (gpThumb != null && gpThumb.isNotEmpty && !gpThumb.startsWith('http')) {
-                      map['grandparentThumb'] = 'https://discover.provider.plex.tv$gpThumb?X-Plex-Token=$tokenParam';
-                    }
-                    parsed.add(PlexMediaItem.fromJson(map));
+            for (final m in rawList) {
+              try {
+                if (m is Map<String, dynamic>) {
+                  final map = Map<String, dynamic>.from(m);
+                  final thumbStr = map['thumb']?.toString();
+                  if (thumbStr != null && thumbStr.isNotEmpty && !thumbStr.startsWith('http')) {
+                    map['thumb'] = 'https://discover.provider.plex.tv$thumbStr?X-Plex-Token=$tokenParam';
                   }
-                } catch (_) {}
-              }
-              if (parsed.isNotEmpty) {
-                return parsed;
-              }
+                  final artStr = map['art']?.toString();
+                  if (artStr != null && artStr.isNotEmpty && !artStr.startsWith('http')) {
+                    map['art'] = 'https://discover.provider.plex.tv$artStr?X-Plex-Token=$tokenParam';
+                  }
+                  final gpThumb = map['grandparentThumb']?.toString();
+                  if (gpThumb != null && gpThumb.isNotEmpty && !gpThumb.startsWith('http')) {
+                    map['grandparentThumb'] = 'https://discover.provider.plex.tv$gpThumb?X-Plex-Token=$tokenParam';
+                  }
+                  allParsed.add(PlexMediaItem.fromJson(map));
+                }
+              } catch (_) {}
             }
+
+            // Stop if this page returned fewer items than requested (last page)
+            // or if we've reached/exceeded the known total
+            if (rawList.length < pageSize) break;
+            if (totalSize != null && allParsed.length >= totalSize) break;
+
+            start += pageSize;
+          }
+
+          if (allParsed.isNotEmpty) {
+            return allParsed;
           }
         } catch (_) {}
       }
