@@ -185,8 +185,8 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                                 bottom: isCompact ? 24 : 140,
                               ),
                               gridDelegate: isCompact
-                                  ? const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 3,
+                              ? SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: (MediaQuery.of(context).size.width / 130).floor().clamp(3, 7),
                                       crossAxisSpacing: 10,
                                       mainAxisSpacing: 12,
                                       childAspectRatio: 0.52,
