@@ -104,10 +104,8 @@ class NativePlayerService {
       case 'onPositionUpdate':
         final pos = (call.arguments['position'] as num?)?.toInt() ?? 0;
         final dur = (call.arguments['duration'] as num?)?.toInt() ?? 0;
-        final isPlaying = call.arguments['isPlaying'] as bool? ?? false;
         _positionController.add(pos);
         if (dur > 0) _durationController.add(dur);
-        _isPlayingController.add(isPlaying);
         break;
       case 'onPlayerReady':
         final dur = (call.arguments['duration'] as num?)?.toInt() ?? 0;

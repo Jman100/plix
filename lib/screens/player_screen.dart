@@ -118,6 +118,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   bool _isInitialized = false;
   bool _isPlaying = false;
+  bool _isPaused = false;
   int _currentPositionMs = 0;
   int _durationMs = 0;
   int _streamOffsetMs = 0;
@@ -250,12 +251,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
       }
     });
-    _playSub = _nativePlayer.onIsPlayingChanged.listen((playing) {
-      if (mounted && _isPlaying != playing) {
-        setState(() => _isPlaying = playing);
-      }
-      if (mounted && playing && _showControls) {
-        _scheduleHideControls();
+    _playSub = _nativePlayer.onIsPlayingChanged.distinct().listen((playing) {
+      if (mounted) {
+        if (_isPlaying != playing) {
+          setState(() {
+            _isPlaying = playing;
+            if (playing) {
+              _isPaused = false;
+            }
+          });
+        }
+        if (playing && !_isPaused && _showControls) {
+          _scheduleHideControls();
+        }
       }
     });
     _errSub = _nativePlayer.onPlayerError.listen((err) {
@@ -511,6 +519,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _streamOffsetMs = 0;
       _durationMs = ep.duration ?? 0;
       _isInitialized = false;
+      _isPlaying = true;
+      _isPaused = false;
       _hasError = false;
       _errorMessage = '';
       _selectedSubtitle = null;
@@ -728,6 +738,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {
       _playbackSpeed = s;
     });
+
+    // On Android Direct Play, ExoPlayer may not time-stretch compressed audio
+    // passthrough (AC3/EAC3/DTS). Force a directStream transcode when speed != 1x
+    // so the server encodes the audio at the requested speed. Return to directPlay
+    // when the user resets to 1x.
+    if (!Platform.isWindows) {
+      final needsTranscode = (s - 1.0).abs() > 0.01;
+      if (needsTranscode && _selectedQuality.isDirectPlay) {
+        await _changeQuality(VideoQualityOption.directStream, force: true);
+        // _changeQuality restarts the player; then set speed on the new stream
+        await _nativePlayer.setPlaybackSpeed(s);
+        return;
+      } else if (!needsTranscode && !_selectedQuality.isDirectPlay) {
+        // Back to 1x — restore direct play (no speed call needed at 1x)
+        await _changeQuality(VideoQualityOption.directPlay, force: true);
+        return;
+      }
+    }
+
     await _nativePlayer.setPlaybackSpeed(s);
   }
 
@@ -857,6 +886,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         setState(() {
           _isInitialized = true;
           _isPlaying = true;
+          _isPaused = false;
         });
         if (_showControls && _playPauseBtnFocusNode.canRequestFocus) {
           _playPauseBtnFocusNode.requestFocus();
@@ -946,16 +976,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
         break;
       case MediaKeyAction.play:
         if (!_isPlaying) {
+          _isPaused = false;
+          setState(() => _isPlaying = true);
           _nativePlayer.resume();
           _timelineService.resume(_currentPositionMs);
           _showCenterFeedback(Icons.play_arrow_rounded);
+          if (_showControls) {
+            _scheduleHideControls();
+          }
         }
         break;
       case MediaKeyAction.pause:
         if (_isPlaying) {
+          _isPaused = true;
+          setState(() => _isPlaying = false);
           _nativePlayer.pause();
           _timelineService.pause(_currentPositionMs);
           _showCenterFeedback(Icons.pause_rounded);
+          _hideControlsTimer?.cancel();
         }
         break;
       case MediaKeyAction.fastForward:
@@ -970,16 +1008,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _togglePlayPause() {
     if (!_isInitialized) return;
     if (_isPlaying) {
+      _isPaused = true;
+      setState(() => _isPlaying = false);
       _nativePlayer.pause();
       _timelineService.pause(_currentPositionMs);
       _showCenterFeedback(Icons.pause_rounded);
+      _hideControlsTimer?.cancel();
     } else {
+      _isPaused = false;
+      setState(() => _isPlaying = true);
       _nativePlayer.resume();
       _timelineService.resume(_currentPositionMs);
       _showCenterFeedback(Icons.play_arrow_rounded);
-    }
-    if (_showControls) {
-      _scheduleHideControls();
+      if (_showControls) {
+        _scheduleHideControls();
+      }
     }
   }
 
@@ -1092,7 +1135,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _seekRelative(totalSec);
     }
     if (_showControls) {
-      _scheduleHideControls();
+      if (_isPlaying && !_isPaused) {
+        _scheduleHideControls();
+      }
       return;
     }
     setState(() {
@@ -1103,19 +1148,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _playPauseBtnFocusNode.requestFocus();
       }
     });
-    _scheduleHideControls();
+    if (_isPlaying && !_isPaused) {
+      _scheduleHideControls();
+    }
   }
 
   void _scheduleHideControls() {
     _hideControlsTimer?.cancel();
+    if (!_isPlaying || _isPaused) return;
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && (_isPlaying || _isInitialized)) {
+      if (mounted && _isPlaying && !_isPaused) {
         setState(() {
           _showControls = false;
         });
-        _playerFocusNode.requestFocus();
+        if (_playerFocusNode.canRequestFocus) {
+          _playerFocusNode.requestFocus();
+        }
       }
     });
+  }
+
+  void _hideControlsImmediate() {
+    _hideControlsTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _showControls = false;
+      });
+      if (_playerFocusNode.canRequestFocus) {
+        _playerFocusNode.requestFocus();
+      }
+    }
   }
 
   Future<void> _toggleFullScreen() async {
@@ -1856,10 +1918,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     duration: const Duration(milliseconds: 200),
                     child: IgnorePointer(
                       ignoring: !_showControls,
-                      child: Container(
-                        color: Colors.black45,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          setState(() {
+                            _showControls = false;
+                          });
+                        },
+                        child: Container(
+                          color: Colors.black45,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1953,8 +2022,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                         value: progressMs.clamp(0.0, maxMs),
                                         min: 0.0,
                                         max: maxMs,
+                                        onChangeStart: (_) {
+                                          _hideControlsTimer?.cancel();
+                                        },
                                         onChanged: (val) {
                                           _seekToTarget(val.toInt());
+                                        },
+                                        onChangeEnd: (_) {
+                                          if (_isPlaying && !_isPaused) {
+                                            _scheduleHideControls();
+                                          }
                                         },
                                       ),
                                     ),
@@ -1968,6 +2045,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ),
                           ],
                         ),
+                      ),
                       ),
                     ),
                   ),
@@ -2903,7 +2981,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                       DeviceOrientation.portraitUp,
                                                     ]);
                                                   },
-                                                  onDown: _scheduleHideControls,
+                                                  onDown: _hideControlsImmediate,
                                                   onFocus: _scheduleHideControls,
                                                 ),
                                                 const SizedBox(width: 20),
@@ -2925,7 +3003,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                         ? _prevEpBtnFocusNode.requestFocus()
                                                         : _playPauseBtnFocusNode.requestFocus()),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
-                                                onDown: _scheduleHideControls,
+                                                onDown: _hideControlsImmediate,
                                                 onFocus: _scheduleHideControls,
                                               ),
                                               const SizedBox(width: 20),
@@ -2945,7 +3023,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                       ? _prevEpBtnFocusNode.requestFocus()
                                                       : _playPauseBtnFocusNode.requestFocus(),
                                                   onUp: () => _scrubberFocusNode.requestFocus(),
-                                                  onDown: _scheduleHideControls,
+                                                  onDown: _hideControlsImmediate,
                                                   onFocus: _scheduleHideControls,
                                                 ),
                                                 const SizedBox(width: 20),
@@ -2967,7 +3045,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                       : _speedBtnFocusNode.requestFocus(),
                                                   onRight: () => _playPauseBtnFocusNode.requestFocus(),
                                                   onUp: () => _scrubberFocusNode.requestFocus(),
-                                                  onDown: _scheduleHideControls,
+                                                  onDown: _hideControlsImmediate,
                                                   onFocus: _scheduleHideControls,
                                                 ),
                                                 const SizedBox(width: 24),
@@ -2991,7 +3069,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                     ? _nextEpBtnFocusNode.requestFocus()
                                                     : _subtitleBtnFocusNode.requestFocus(),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
-                                                onDown: _scheduleHideControls,
+                                                onDown: _hideControlsImmediate,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
@@ -3010,7 +3088,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                   onLeft: () => _playPauseBtnFocusNode.requestFocus(),
                                                   onRight: () => _subtitleBtnFocusNode.requestFocus(),
                                                   onUp: () => _scrubberFocusNode.requestFocus(),
-                                                  onDown: _scheduleHideControls,
+                                                  onDown: _hideControlsImmediate,
                                                   onFocus: _scheduleHideControls,
                                                 ),
                                               ],
@@ -3033,7 +3111,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                     : _playPauseBtnFocusNode.requestFocus(),
                                                 onRight: () => _qualityBtnFocusNode.requestFocus(),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
-                                                onDown: _scheduleHideControls,
+                                                onDown: _hideControlsImmediate,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
@@ -3055,7 +3133,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                         ? _seriesBtnFocusNode.requestFocus()
                                                         : null),
                                                 onUp: () => _scrubberFocusNode.requestFocus(),
-                                                onDown: _scheduleHideControls,
+                                                onDown: _hideControlsImmediate,
                                                 onFocus: _scheduleHideControls,
                                               ),
 
@@ -3077,7 +3155,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                       ? () => _seriesBtnFocusNode.requestFocus()
                                                       : null,
                                                   onUp: () => _scrubberFocusNode.requestFocus(),
-                                                  onDown: _scheduleHideControls,
+                                                  onDown: _hideControlsImmediate,
                                                   onFocus: _scheduleHideControls,
                                                 ),
                                               ],
@@ -3101,7 +3179,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                               },
                                               onRight: () {},
                                               onUp: () => _scrubberFocusNode.requestFocus(),
-                                              onDown: _scheduleHideControls,
+                                              onDown: _hideControlsImmediate,
                                               onFocus: _scheduleHideControls,
                                             ),
                                           ),
