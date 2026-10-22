@@ -25,6 +25,7 @@ import 'server_select_screen.dart';
 import 'settings_screen.dart';
 import 'watchlist_screen.dart';
 import '../services/plix_device_helper.dart';
+import '../services/plix_image_cache.dart';
 import '../services/update_service.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/plix_bottom_nav.dart';
@@ -633,7 +634,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           clientId: _clientId,
         ),
       ),
-    ).then((_) {
+    ).then((_) async {
+      // Let the watchlist route finish its pop animation and dispose its
+      // images before Home starts loading its own artwork again. This is the
+      // transition that triggered the TV OOM.
+      await Future.delayed(const Duration(milliseconds: 350));
+      PlixImageCache.trim();
+      if (!mounted) return;
       _refreshContinueWatching(forceFocusFirst: false);
     });
   }
@@ -775,15 +782,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ).showLibrariesModal(context);
   }
 
-  Widget _buildMobileHero(String heroBackdropUrl) {
+  Widget _buildMobileHero(BuildContext context, String heroBackdropUrl) {
     if (_heroItem == null) return const SizedBox.shrink();
     final item = _heroItem!;
     final posterUrl = _mediaService.buildImageUrl(
       item.thumb ?? item.art,
-      width: 400,
-      height: 225,
+      width: PlixImageCache.mobileHeroWidth,
+      height: PlixImageCache.mobileHeroHeight,
     );
     final bgUrl = heroBackdropUrl.isNotEmpty ? heroBackdropUrl : posterUrl;
+    final heroWidth = PlixImageCache.decodeWidth(
+      context,
+      MediaQuery.sizeOf(context).width - 32,
+      cap: PlixImageCache.mobileHeroWidth,
+    );
+    final heroHeight = PlixImageCache.decodeHeight(
+      context,
+      290,
+      cap: PlixImageCache.mobileHeroHeight,
+    );
 
     return Container(
       height: 290,
@@ -808,6 +825,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 imageUrl: bgUrl,
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
+                memCacheWidth: heroWidth,
+                memCacheHeight: heroHeight,
               ),
             ),
           Positioned.fill(
@@ -1189,6 +1208,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             height: 1080,
           )
         : '';
+    final heroDecodeWidth = PlixImageCache.decodeWidth(
+      context,
+      MediaQuery.sizeOf(context).width,
+      cap: PlixImageCache.backdropWidth,
+    );
+    final heroDecodeHeight = PlixImageCache.decodeHeight(
+      context,
+      480,
+      cap: PlixImageCache.backdropHeight,
+    );
 
     Widget mainContentArea = Stack(
       fit: StackFit.expand,
@@ -1210,6 +1239,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               imageUrl: heroBackdropUrl,
                               fit: BoxFit.cover,
                               alignment: Alignment.topCenter,
+                              memCacheWidth: heroDecodeWidth,
+                              memCacheHeight: heroDecodeHeight,
                             ),
                           ),
                           Container(
@@ -1283,7 +1314,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (isCompact)
-                              _buildMobileHero(heroBackdropUrl)
+                              _buildMobileHero(context, heroBackdropUrl)
                             else if (_heroItem != null)
                               _buildTvHero(),
 

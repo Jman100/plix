@@ -8,6 +8,7 @@ import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_media_service.dart';
+import '../services/plix_image_cache.dart';
 import '../services/theme_music_service.dart';
 import '../widgets/cast_row.dart';
 import '../widgets/plix_back_button.dart';
@@ -614,7 +615,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
     });
   }
 
-  Widget _buildMobileOverview(String posterUrl) {
+  Widget _buildMobileOverview(BuildContext context, String posterUrl) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -640,6 +641,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   ? CachedNetworkImage(
                       imageUrl: posterUrl,
                       fit: BoxFit.cover,
+                      memCacheWidth: PlixImageCache.decodeWidth(context, 140, cap: 400),
+                      memCacheHeight: PlixImageCache.decodeHeight(context, 210, cap: 600),
                     )
                   : const Center(
                       child: Icon(Icons.movie, size: 48, color: PlixTheme.textMuted),
@@ -867,6 +870,16 @@ class _DetailsScreenState extends State<DetailsScreen> {
       width: 400,
       height: 600,
     );
+    final backdropDecodeWidth = PlixImageCache.decodeWidth(
+      context,
+      MediaQuery.sizeOf(context).width,
+      cap: PlixImageCache.backdropWidth,
+    );
+    final backdropDecodeHeight = PlixImageCache.decodeHeight(
+      context,
+      520,
+      cap: PlixImageCache.backdropHeight,
+    );
 
     final currentSeasonIdx = _seasons.indexWhere(
       (s) => s.ratingKey == _selectedSeason?.ratingKey || s.key == _selectedSeason?.key,
@@ -907,6 +920,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                       imageUrl: backdropUrl,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
+                      memCacheWidth: backdropDecodeWidth,
+                      memCacheHeight: backdropDecodeHeight,
                     ),
                     Container(
                       decoration: BoxDecoration(
@@ -973,7 +988,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                         ),
                         // Top Overview Block (Poster + Info + Actions)
                         if (isCompact)
-                          _buildMobileOverview(posterUrl)
+                          _buildMobileOverview(context, posterUrl)
                         else
                           Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -999,6 +1014,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               ? CachedNetworkImage(
                                   imageUrl: posterUrl,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: PlixImageCache.decodeWidth(context, 180, cap: 400),
+                                  memCacheHeight: PlixImageCache.decodeHeight(context, 270, cap: 600),
                                 )
                               : const Center(
                                   child: Icon(Icons.movie, size: 48, color: PlixTheme.textMuted),
@@ -1722,6 +1739,8 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           CachedNetworkImage(
                             imageUrl: widget.epThumb,
                             fit: BoxFit.cover,
+                            memCacheWidth: PlixImageCache.decodeWidth(context, 140, cap: 280),
+                            memCacheHeight: PlixImageCache.decodeHeight(context, 80, cap: 160),
                           ),
                         if (ep.isInProgress)
                           Positioned(

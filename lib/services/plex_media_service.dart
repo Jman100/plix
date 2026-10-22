@@ -26,12 +26,26 @@ class PlexMediaService {
         'X-Plex-Version': UpdateService.currentVersion,
       };
 
+  static const int _maxImageRequestWidth = 1920;
+  static const int _maxImageRequestHeight = 1080;
+  static const String _plexImageTranscoder = 'https://images.plex.tv/photo';
+
+  /// Plex account token used for Discover artwork. The catalog returns
+  /// full-size images from metadata-static.plex.tv, which ignore width and
+  /// height, so they have to be routed through Plex's image transcoder.
+  String? _imageToken;
+
   String buildImageUrl(String? path, {int? width, int? height}) {
+    width = width?.clamp(1, _maxImageRequestWidth).toInt();
+    height = height?.clamp(1, _maxImageRequestHeight).toInt();
+
     if (server.isJellyfin) {
       return _jfService.buildImageUrl(path ?? '', width: width, height: height);
     }
     if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http')) {
+      return _buildExternalImageUrl(path, width: width, height: height);
+    }
 
     if (width != null && height != null) {
       final encodedPath = Uri.encodeComponent(path);
@@ -39,6 +53,28 @@ class PlexMediaService {
     }
 
     return '$baseUrl$path?X-Plex-Token=$token';
+  }
+
+  /// Resize Plex catalog artwork before downloading it. The public image
+  /// transcoder is advertised by the Discover provider as
+  /// `https://images.plex.tv/photo`; passing the original URL in `url` makes
+  /// it return a poster-sized JPEG instead of the full-resolution source.
+  String _buildExternalImageUrl(String path, {int? width, int? height}) {
+    final uri = Uri.tryParse(path);
+    if (uri == null) return path;
+
+    // Already resized by the Plex image service.
+    if (uri.host == 'images.plex.tv') return path;
+
+    if (uri.host == 'metadata-static.plex.tv' && width != null && height != null) {
+      final imageToken = _imageToken ?? token;
+      if (imageToken.isNotEmpty) {
+        final encoded = Uri.encodeComponent(path);
+        return '$_plexImageTranscoder?url=$encoded&width=$width&height=$height&X-Plex-Token=$imageToken';
+      }
+    }
+
+    return path;
   }
 
   String buildDirectPlayUrl(String partKey, {int offsetSeconds = 0, String? clientId}) {
@@ -1368,6 +1404,7 @@ class PlexMediaService {
           }
 
           if (allParsed.isNotEmpty) {
+            _imageToken = t;
             return allParsed;
           }
         } catch (_) {}

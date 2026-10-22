@@ -612,8 +612,15 @@ class JellyfinMediaService {
     return items.map((m) => _parseItem(m as Map<String, dynamic>)).toList();
   }
 
+  static const int _maxImageRequestWidth = 1920;
+  static const int _maxImageRequestHeight = 1080;
+
   String buildImageUrl(String pathOrId, {int? width, int? height}) {
     if (pathOrId.isEmpty) return '';
+    width = width?.clamp(1, _maxImageRequestWidth).toInt();
+    height = height?.clamp(1, _maxImageRequestHeight).toInt();
+    // External artwork bypasses Jellyfin's resizer; callers must set
+    // memCacheWidth/Height to keep the decoded bitmap bounded.
     if (pathOrId.startsWith('http://') || pathOrId.startsWith('https://')) {
       return pathOrId;
     }

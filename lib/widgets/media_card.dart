@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../app_theme.dart';
 import '../models/plex_media_item.dart';
 import '../services/plex_media_service.dart';
+import '../services/plix_image_cache.dart';
 
 class MediaCard extends StatefulWidget {
   final PlexMediaItem item;
@@ -99,10 +100,12 @@ class _MediaCardState extends State<MediaCard> {
   @override
   Widget build(BuildContext context) {
     final height = widget.width / widget.aspectRatio;
+    final imageWidth = PlixImageCache.requestWidth(widget.width);
+    final imageHeight = PlixImageCache.requestHeight(height);
     final imageUrl = widget.mediaService.buildImageUrl(
       widget.item.posterThumb,
-      width: (widget.width * 2).toInt(),
-      height: (height * 2).toInt(),
+      width: imageWidth,
+      height: imageHeight,
     );
 
     final isHighlighted = widget.isForcedHighlighted || (widget.enableHighlight && (_isFocused || _isHovered));
@@ -211,6 +214,8 @@ class _MediaCardState extends State<MediaCard> {
                           CachedNetworkImage(
                             imageUrl: imageUrl,
                             fit: BoxFit.cover,
+                            memCacheWidth: PlixImageCache.decodeWidth(context, widget.width),
+                            memCacheHeight: PlixImageCache.decodeHeight(context, height),
                             placeholder: (context, url) => Container(
                               color: PlixTheme.card,
                               child: const Center(

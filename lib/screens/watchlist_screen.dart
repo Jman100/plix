@@ -236,6 +236,9 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                               )
                             : GridView.builder(
                                 clipBehavior: Clip.hardEdge,
+                                // Keep the number of decoded posters bounded on
+                                // low-memory TVs while scrolling a large list.
+                                cacheExtent: 200,
                                 padding: EdgeInsets.only(
                                   left: isCompact ? 14 : 32,
                                   right: isCompact ? 14 : 32,

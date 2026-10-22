@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
+import '../services/plix_image_cache.dart';
 import '../services/plex_media_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
@@ -173,6 +174,16 @@ class _PersonScreenState extends State<PersonScreen> {
                 ? CachedNetworkImage(
                     imageUrl: imageUrl,
                     fit: BoxFit.cover,
+                    memCacheWidth: PlixImageCache.decodeWidth(
+                      context,
+                      isCompact ? 104 : 144,
+                      cap: 300,
+                    ),
+                    memCacheHeight: PlixImageCache.decodeHeight(
+                      context,
+                      isCompact ? 148 : 202,
+                      cap: 450,
+                    ),
                     placeholder: (_, __) => Container(color: PlixTheme.card),
                     errorWidget: (_, __, ___) => _initials(initials, isCompact),
                   )

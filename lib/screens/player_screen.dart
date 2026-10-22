@@ -15,6 +15,7 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/plex_timeline_service.dart';
 import '../services/plix_device_helper.dart';
+import '../services/plix_image_cache.dart';
 import '../services/subtitle_parser.dart';
 import '../services/theme_music_service.dart';
 import '../services/update_service.dart';
@@ -2236,9 +2237,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                         height: 48,
                                         child: ep.thumb != null && ep.thumb!.isNotEmpty
                                             ? Image.network(
-                                                _mediaService.buildImageUrl(ep.thumb, width: 240),
+                                                _mediaService.buildImageUrl(ep.thumb, width: 240, height: 144),
                                                 headers: _playHeaders,
                                                 fit: BoxFit.cover,
+                                                cacheWidth: PlixImageCache.decodeWidth(context, 80, cap: 240),
+                                                cacheHeight: PlixImageCache.decodeHeight(context, 48, cap: 144),
                                                 errorBuilder: (_, __, ___) => Container(
                                                   color: Colors.black45,
                                                   child: const Icon(Icons.movie, color: Colors.white24),

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
 import '../models/plex_media_item.dart';
+import '../services/plix_image_cache.dart';
 import '../services/plex_media_service.dart';
 
 class CastRow extends StatefulWidget {
@@ -202,6 +203,8 @@ class _CastCardState extends State<_CastCard> {
                         ? CachedNetworkImage(
                             imageUrl: widget.imageUrl,
                             fit: BoxFit.cover,
+                            memCacheWidth: PlixImageCache.decodeWidth(context, 104, cap: 220),
+                            memCacheHeight: PlixImageCache.decodeHeight(context, 130, cap: 330),
                             placeholder: (_, __) => Container(color: PlixTheme.card),
                             errorWidget: (_, __, ___) => _initials(initials),
                           )

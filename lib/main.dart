@@ -8,9 +8,11 @@ import 'screens/splash_screen.dart';
 import 'services/plex_auth_service.dart';
 import 'services/plex_server_service.dart';
 import 'services/plix_device_helper.dart';
+import 'services/plix_image_cache.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PlixImageCache.configure();
 
   await PlixDeviceHelper.initDeviceName();
 
