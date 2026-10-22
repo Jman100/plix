@@ -51,7 +51,9 @@ if (Test-Path $networkPlixDir) {
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
 
-    Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
+    # Write UTF-8 without a BOM so the app's jsonDecode can parse the manifest.
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($manifestPath, $manifest, $utf8NoBom)
     Write-Host "Published plix_windows.exe and updated plix.json successfully to $networkPlixDir"
 } else {
     Write-Warning "Network directory $networkPlixDir not reachable."

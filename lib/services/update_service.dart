@@ -108,7 +108,10 @@ class UpdateService {
       final response = await request.close().timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        var body = await response.transform(utf8.decoder).join();
+        if (body.startsWith('\uFEFF')) {
+          body = body.substring(1);
+        }
         final json = jsonDecode(body) as Map<String, dynamic>;
         return UpdateInfo.fromJson(
           json,

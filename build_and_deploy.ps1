@@ -83,7 +83,9 @@ if (Test-Path $networkPlixDir) {
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
 
-    Set-Content -Path "$networkPlixDir\plix.json" -Value $manifest -Encoding UTF8
+    # Write UTF-8 without a BOM so the app's jsonDecode can parse the manifest.
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText("$networkPlixDir\plix.json", $manifest, $utf8NoBom)
     Write-Host "Published plix.json release manifest successfully!" -ForegroundColor Green
 
 } else {
