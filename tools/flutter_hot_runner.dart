@@ -135,14 +135,10 @@ void _watchCommandFile() {
           _process.kill();
           exit(0);
         } else {
-          _process.stdin.writeln(content);
-          _process.stdin.flush();
-          _log('>> $content');
+          _sendRaw(content);
         }
       } else {
-        _process.stdin.writeln(content);
-        _process.stdin.flush();
-        _log('>> $content');
+        _sendRaw(content);
       }
     } catch (error) {
       _log('COMMAND ERROR: $error');
@@ -168,11 +164,20 @@ void _sendRestart({required bool fullRestart}) {
 
 void _sendCommand(String method, Map<String, Object?> params) {
   final id = (++_requestId).toString();
-  final payload = jsonEncode(<String, Object?>{
+  final payload = '[${jsonEncode(<String, Object?>{
     'id': id,
     'method': method,
     'params': params,
-  });
+  })}]';
+  _process.stdin.writeln(payload);
+  _process.stdin.flush();
+  _log('>> $payload');
+}
+
+void _sendRaw(String content) {
+  final trimmed = content.trim();
+  final payload =
+      trimmed.startsWith('[') && trimmed.endsWith(']') ? trimmed : '[$trimmed]';
   _process.stdin.writeln(payload);
   _process.stdin.flush();
   _log('>> $payload');
