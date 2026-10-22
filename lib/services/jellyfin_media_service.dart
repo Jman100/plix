@@ -4,6 +4,7 @@ import '../models/plex_library.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import 'jellyfin_auth_service.dart';
+import 'update_service.dart';
 
 class JellyfinMediaService {
   final PlexServer server;
@@ -18,7 +19,7 @@ class JellyfinMediaService {
     'Authorization': JellyfinAuthService.buildAuthHeader(
       clientId: server.clientIdentifier,
       clientName: server.name,
-      version: '1.1.2',
+      version: UpdateService.currentVersion,
       token: token,
     ),
     'X-Emby-Token': token,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'jellyfin_auth_service.dart';
 import 'plex_media_service.dart';
+import 'update_service.dart';
 
 class ThemeMusicService {
   static final ThemeMusicService instance = ThemeMusicService._internal();
@@ -114,7 +115,7 @@ class ThemeMusicService {
         'Authorization': JellyfinAuthService.buildAuthHeader(
           clientId: clientId,
           clientName: mediaService.server.name,
-          version: '1.1.0',
+          version: UpdateService.currentVersion,
           token: mediaService.token,
         ),
         'X-Emby-Token': mediaService.token,

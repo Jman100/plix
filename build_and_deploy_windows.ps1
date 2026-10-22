@@ -1,5 +1,5 @@
-$version = "1.2.0"
-$versionCode = 19
+$version = "1.2.2"
+$versionCode = 21
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -36,12 +36,10 @@ if (Test-Path $networkPlixDir) {
 
     $manifestPath = "$networkPlixDir\plix.json"
     $releaseNotes = @"
-- Android Phone & Touch Support: Full portrait and landscape orientation support, touch-optimized controls, responsive 3-column media grids, and persistent bottom navigation bar
-- Picture-in-Picture (PiP) & Portrait Player: Background mini-player with pause controls and smooth expansion; portrait playback includes embedded media info, instant watchlist toggle, and interactive season episode picker
-- Playback Speed Controls: Variable speed adjustment (0.5x, 0.75x, 1x, 1.25x, 1.5x) with on-screen speed badge; enabled PCM audio decoding on Android TV for smooth pitch-corrected speed adjustment during Direct Play
-- Subtitle Reliability & VOBSUB Support: Auto Direct Stream transcode for VOBSUB and PGS bitmap subtitles prevents player stalling; resolved Plex subtitle track selection issues
-- TV & Desktop Polish: Play/Pause button automatically gains initial focus upon playback start, playback controls auto-hide seamlessly during episode transitions, search poster tiles match standard 2:3 proportions, and active server badge displayed on Switch Server screen
-- App Version Bump: Updated to v1.2.0 (versionCode 19)
+- Collapsed Sidebar: Library rows now show their movie or TV icons when the left navigation is collapsed
+- Sidebar Header: The LIBRARIES label and reorder button are hidden while collapsed; a divider separates the library section instead
+- TV Remote Navigation: The library reorder button can now be focused and selected with the D-pad on Android TV
+- App Version Bump: Updated to v1.2.2 (versionCode 21)
 "@
 
     $manifest = [ordered]@{

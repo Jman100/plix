@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.2.1"
-$versionCode = 20
+$version = "1.2.2"
+$versionCode = 21
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -68,11 +68,10 @@ if (Test-Path $networkPlixDir) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Playback UI Auto-Fade: Resolved timer reset loop caused by periodic position updates; playback controls now smoothly auto-hide on Android TV and mobile portrait mode
-- Portrait Player Controls: Added tap-to-dismiss overlay, scrubber scrubbing pauses fade timer until release, and quick-seek buttons reset the timeout
-- TV Remote D-Pad Navigation: Pressing Down on the bottom player button row immediately dismisses playback controls
-- Playback Speed & Audio Transcode: Seamless server-side directStream handling for pitch-corrected audio at variable speeds
-- App Version Bump: Updated to v1.2.1 (versionCode 20)
+- Collapsed Sidebar: Library rows now show their movie or TV icons when the left navigation is collapsed
+- Sidebar Header: The LIBRARIES label and reorder button are hidden while collapsed; a divider separates the library section instead
+- TV Remote Navigation: The library reorder button can now be focused and selected with the D-pad on Android TV
+- App Version Bump: Updated to v1.2.2 (versionCode 21)
 "@
 
     $manifest = [ordered]@{
