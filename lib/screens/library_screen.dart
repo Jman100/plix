@@ -220,11 +220,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                   crossAxisCount: (MediaQuery.of(context).size.width / 130).floor().clamp(3, 7),
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 12,
-                              childAspectRatio: 0.52,
+                              childAspectRatio: 0.51,
                             )
                           : const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 165,
-                              childAspectRatio: 0.56,
+                              childAspectRatio: 0.55,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 18,
                             ),

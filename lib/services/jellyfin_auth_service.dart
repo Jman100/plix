@@ -76,10 +76,11 @@ class JellyfinAuthService {
     required String clientName,
     required String version,
     String? token,
+    String? deviceName,
   }) {
     final buffer = StringBuffer('MediaBrowser ');
-    buffer.write('Client="Plix", ');
-    buffer.write('Device="$clientName", ');
+    buffer.write('Client="$clientName", ');
+    buffer.write('Device="${deviceName ?? clientName}", ');
     buffer.write('DeviceId="$clientId", ');
     buffer.write('Version="$version"');
     if (token != null && token.isNotEmpty) {

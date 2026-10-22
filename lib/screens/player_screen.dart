@@ -90,7 +90,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Map<String, String> get _playHeaders {
     if (widget.server.isJellyfin) {
       return {
-        'Authorization': 'MediaBrowser Client="Plix", Device="${PlixDeviceHelper.deviceName}", DeviceId="${widget.clientId}", Version="${UpdateService.currentVersion}", Token="${widget.server.accessToken}"',
+        'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="${widget.clientId}", Version="${UpdateService.currentVersion}", Token="${widget.server.accessToken}"',
       };
     }
     return {
@@ -141,6 +141,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Audio track state
   PlexAudioStream? _selectedAudio;
+  bool _audioNeedsTranscode = false;
+  bool _forceAudioForSpeed = false;
 
   // Quality state
   VideoQualityOption _selectedQuality = VideoQualityOption.directPlay;
@@ -745,14 +747,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // when the user resets to 1x.
     if (!Platform.isWindows) {
       final needsTranscode = (s - 1.0).abs() > 0.01;
+      _forceAudioForSpeed = needsTranscode;
       if (needsTranscode && _selectedQuality.isDirectPlay) {
         await _changeQuality(VideoQualityOption.directStream, force: true);
         // _changeQuality restarts the player; then set speed on the new stream
         await _nativePlayer.setPlaybackSpeed(s);
         return;
       } else if (!needsTranscode && !_selectedQuality.isDirectPlay) {
-        // Back to 1x — restore direct play (no speed call needed at 1x)
+        _forceAudioForSpeed = false;
+        // Back to 1x — restore direct play. The new ExoPlayer instance starts
+        // with the previous native speed, so reset it explicitly.
         await _changeQuality(VideoQualityOption.directPlay, force: true);
+        await _nativePlayer.setPlaybackSpeed(1.0);
         return;
       }
     }
@@ -809,16 +815,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _durationMs = _currentItem.duration!;
       }
 
-      // Check device audio compatibility
-      final audioCodec = _currentItem.audioCodec ?? '';
+      // Check device audio compatibility. Some Android TV devices advertise a
+      // DTS decoder but cannot actually render DTS (especially DTS-HD), which
+      // results in direct play with no audio. Always transcode DTS/TrueHD.
+      final audioCodec = (_currentItem.audioCodec ?? '').toLowerCase();
       if (audioCodec.isNotEmpty) {
-        final isSupported = await _nativePlayer.checkAudioSupported(audioCodec);
-        if (!isSupported) {
-          // Unsupported audio format (e.g. DTS, TrueHD) on this device -> Direct stream video, transcode audio
+        final isDtsOrLossless = audioCodec.contains('dts') ||
+            audioCodec == 'dca' ||
+            audioCodec.contains('truehd') ||
+            audioCodec.contains('true-hd') ||
+            audioCodec == 'mlp';
+        final isSupported = !isDtsOrLossless &&
+            await _nativePlayer.checkAudioSupported(audioCodec);
+        _audioNeedsTranscode = isDtsOrLossless || !isSupported;
+        if (_audioNeedsTranscode) {
           _selectedQuality = VideoQualityOption.directStream;
         }
       }
-
       if (_currentItem.isTrailer && _selectedQuality.isDirectPlay) {
         _selectedQuality = VideoQualityOption.directStream;
       }
@@ -843,6 +856,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           offsetSeconds: _currentPositionMs ~/ 1000,
           clientId: widget.clientId,
           directStreamVideo: _selectedQuality.resolution.isEmpty,
+          forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
         );
       }
 
@@ -1092,6 +1106,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         directStreamVideo: _selectedQuality.resolution.isEmpty,
         burnSubtitles: _selectedSubtitle != null,
         subtitleStreamId: _selectedSubtitle?.id,
+        forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
       );
 
       _nativePlayer.play(
@@ -1658,6 +1673,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           directStreamVideo: quality.resolution.isEmpty,
           burnSubtitles: _selectedSubtitle != null,
           subtitleStreamId: _selectedSubtitle?.id,
+          forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
         );
       }
 
@@ -1824,9 +1840,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       left: 16,
                       right: 16,
                       child: Center(
-                        child: Image.memory(
-                          _subtitleBitmapBytes!,
-                          fit: BoxFit.contain,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: _isInPip
+                                ? 26
+                                : MediaQuery.of(context).size.height * 0.20,
+                          ),
+                          child: Image.memory(
+                            _subtitleBitmapBytes!,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     )
@@ -2489,7 +2512,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   right: _isInPip ? 8 : 48,
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: _isInPip ? 30 : double.infinity),
+                      constraints: BoxConstraints(
+                        maxHeight: _isInPip
+                            ? 30
+                            : MediaQuery.of(context).size.height * 0.20,
+                      ),
                       child: Image.memory(
                         _subtitleBitmapBytes!,
                         fit: BoxFit.contain,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'jellyfin_auth_service.dart';
 import 'plex_media_service.dart';
+import 'plix_device_helper.dart';
 import 'update_service.dart';
 
 class ThemeMusicService {
@@ -114,9 +115,10 @@ class ThemeMusicService {
       headers = {
         'Authorization': JellyfinAuthService.buildAuthHeader(
           clientId: clientId,
-          clientName: mediaService.server.name,
+          clientName: PlixDeviceHelper.clientName,
           version: UpdateService.currentVersion,
           token: mediaService.token,
+          deviceName: PlixDeviceHelper.deviceName,
         ),
         'X-Emby-Token': mediaService.token,
       };

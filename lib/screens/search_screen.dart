@@ -623,7 +623,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   final crossAxisCount = (availableWidth / 150).floor().clamp(2, 10);
                   const spacing = 16.0;
                   final cellWidth = (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
-                  final cellHeight = cellWidth * 1.5 + 65.0;
+                  final cellHeight = cellWidth * 1.5 + 72.0;
                   final childAspectRatio = cellWidth / cellHeight;
 
                   return GridView.builder(
@@ -660,7 +660,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 const spacing = 16.0;
                 final cellWidth = (constraints.maxWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
                 final cardWidth = cellWidth < 130.0 ? cellWidth : 130.0;
-                final cellHeight = cardWidth * 1.5 + 56.0;
+                final cellHeight = cardWidth * 1.5 + 64.0;
                 final childAspectRatio = cellWidth / cellHeight;
 
                 return GridView.builder(

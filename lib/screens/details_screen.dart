@@ -9,11 +9,13 @@ import '../models/plex_server.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/theme_music_service.dart';
+import '../widgets/cast_row.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
 import '../services/native_player_service.dart';
+import 'person_screen.dart';
 import 'player_screen.dart';
 
 class DetailsScreen extends StatefulWidget {
@@ -47,6 +49,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   PlexMediaItem? _selectedSeason;
   List<PlexMediaItem> _episodes = [];
   bool _isLoadingEpisodes = false;
+  List<MediaPerson> _people = const [];
 
   final FocusNode _firstEpisodeFocusNode = FocusNode();
   final FocusNode _firstSeasonFocusNode = FocusNode();
@@ -255,6 +258,24 @@ class _DetailsScreenState extends State<DetailsScreen> {
       } catch (_) {}
     }
 
+    // Cast and crew metadata. Episodes often omit their own Role tags, so
+    // fall back to the parent show's cast list.
+    try {
+      var people = _item.people;
+      if (people.isEmpty && _item.isEpisode) {
+        final showKey = _item.grandparentRatingKey;
+        if (showKey != null && showKey.isNotEmpty) {
+          final show = await _mediaService.getItemMetadata(showKey);
+          people = show.people;
+        }
+      }
+      if (mounted && people.isNotEmpty) {
+        setState(() {
+          _people = people;
+        });
+      }
+    } catch (_) {}
+
     // If item is a movie, attempt to load trailer
     if (_item.isMovie) {
       try {
@@ -363,6 +384,19 @@ class _DetailsScreenState extends State<DetailsScreen> {
     });
   }
 
+  String get _showPlayLabel {
+    if (_episodes.isNotEmpty) {
+      final targetEp = _episodes.firstWhere(
+        (e) => e.isInProgress || !e.isWatched,
+        orElse: () => _episodes.first,
+      );
+      if (targetEp.parentIndex != null && targetEp.index != null) {
+        return 'Play "S${targetEp.parentIndex}:E${targetEp.index}"';
+      }
+    }
+    return 'Play';
+  }
+
   void _playShow() async {
     if (_episodes.isNotEmpty) {
       final targetEp = _episodes.firstWhere(
@@ -459,6 +493,21 @@ class _DetailsScreenState extends State<DetailsScreen> {
     ).then((_) {
       // Refresh details and restore cursor to the played episode
       _loadFullDetails(restoreFocus: true);
+    });
+  }
+
+  void _openPerson(MediaPerson person) {
+    _stopTheme();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PersonScreen(
+          person: person,
+          server: widget.server,
+          clientId: widget.clientId,
+        ),
+      ),
+    ).then((_) {
+      _startThemeIfAllowed();
     });
   }
 
@@ -760,7 +809,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 fontSize: 13.0,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                label: 'Play',
+                label: _showPlayLabel,
                 onPressed: _playShow,
               ),
               PlixButton(
@@ -1197,7 +1246,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                     fontSize: 12.0,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                    label: 'Play',
+                                    label: _showPlayLabel,
                                     onPressed: _playShow,
                                   ),
                                   const SizedBox(width: 10),
@@ -1231,6 +1280,17 @@ class _DetailsScreenState extends State<DetailsScreen> {
                       ),
                     ],
                   ),
+
+                  // Cast & Crew (movies and episodes). Shows have their own
+                  // season/episode list below.
+                  if ((_item.isMovie || _item.isEpisode) && _people.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    CastRow(
+                      people: _people,
+                      mediaService: _mediaService,
+                      onPersonTap: _openPerson,
+                    ),
+                  ],
 
                   // TV Show Seasons & Episodes Section
                   if (_item.isShow) ...[

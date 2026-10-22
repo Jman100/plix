@@ -58,6 +58,7 @@ class PlexMediaService {
     bool directStreamVideo = false,
     bool burnSubtitles = false,
     String? subtitleStreamId,
+    bool forceAudioTranscode = false,
   }) {
     if (server.isJellyfin) {
       return _jfService.buildTranscodeUrl(
@@ -67,6 +68,7 @@ class PlexMediaService {
         offsetSeconds: offsetSeconds,
         clientId: clientId,
         directStreamVideo: directStreamVideo,
+        forceAudioTranscode: forceAudioTranscode,
       );
     }
     final resParts = resolution.split('x');
@@ -82,7 +84,10 @@ class PlexMediaService {
       'protocol': 'hls',
       'fastSeek': '1',
       'directPlay': '0',
-      'directStream': (directStreamVideo && !burnSubtitles) ? '1' : '0',
+      'directStream': (directStreamVideo && !burnSubtitles && !forceAudioTranscode) ? '1' : '0',
+      if (forceAudioTranscode) 'audioCodec': 'aac',
+      if (forceAudioTranscode) 'videoCodec': 'h264',
+      if (forceAudioTranscode) 'audioChannels': '2',
       'subtitleSize': '100',
       'audioBoost': '100',
       'location': 'lan',
@@ -279,13 +284,82 @@ class PlexMediaService {
 
       start += metadata.length;
       final totalSize = container['totalSize'] as int?;
-      if (metadata.length < pageSize || (totalSize != null && start >= totalSize)) {
+      // Plex often caps `recentlyAdded` pages at 50 even when a larger page
+      // size is requested. Keep paging until the server's total is reached.
+      if (totalSize != null && start >= totalSize) {
+        break;
+      }
+      if (totalSize == null && metadata.length < pageSize) {
         break;
       }
     }
 
     final deduped = deduplicateShows(rawItems);
+    if (deduped.length >= limit) {
+      return deduped.take(limit).toList();
+    }
+
+    // TV libraries are de-duplicated down to shows. If the recently-added
+    // endpoint only returned enough episodes for 44 unique shows, pull the
+    // latest shows directly so "View more" still contains 50 entries.
+    final isTvLibrary = libraryType == 'show' || libraryType == 'series' || libraryType == 'tvshows';
+    if (isTvLibrary) {
+      try {
+        final allUrl = Uri.parse(
+            '$baseUrl/library/sections/$sectionKey/all?type=2&sort=addedAt:desc&X-Plex-Container-Start=0&X-Plex-Container-Size=$limit');
+        final allResponse = await http.get(allUrl, headers: _headers);
+        if (allResponse.statusCode == 200) {
+          final allData = jsonDecode(allResponse.body) as Map<String, dynamic>;
+          final allContainer = allData['MediaContainer'] as Map<String, dynamic>? ?? {};
+          final allMetadata = allContainer['Metadata'] as List<dynamic>? ?? [];
+          final merged = List<PlexMediaItem>.from(deduped);
+          final existingKeys = merged.map((e) => e.ratingKey).toSet();
+          for (final raw in allMetadata) {
+            final show = PlexMediaItem.fromJson(raw as Map<String, dynamic>);
+            if (existingKeys.add(show.ratingKey)) {
+              merged.add(show.copyWith(
+                targetType: 'show',
+                targetRatingKey: show.ratingKey,
+                targetSeasonKey: null,
+                addedSubtitle: '',
+              ));
+            }
+            if (merged.length >= limit) break;
+          }
+          return merged.take(limit).toList();
+        }
+      } catch (_) {}
+    }
+
     return deduped.take(limit).toList();
+  }
+
+  String _showKeyFor(PlexMediaItem item) {
+    if (item.isEpisode) {
+      return item.grandparentRatingKey ??
+          (item.grandparentTitle?.isNotEmpty == true ? item.grandparentTitle! : item.ratingKey);
+    }
+    if (item.isSeason) {
+      // Jellyfin seasons expose the series in grandparentRatingKey (from
+      // SeriesName/SeriesId); Plex seasons expose the show in parentRatingKey.
+      return item.grandparentRatingKey ??
+          item.parentRatingKey ??
+          (item.grandparentTitle?.isNotEmpty == true
+              ? item.grandparentTitle!
+              : (item.parentTitle?.isNotEmpty == true ? item.parentTitle! : item.ratingKey));
+    }
+    return item.ratingKey;
+  }
+
+  String _showTitleFor(PlexMediaItem item) {
+    if (item.isEpisode) {
+      return item.grandparentTitle?.isNotEmpty == true ? item.grandparentTitle! : item.title;
+    }
+    if (item.isSeason) {
+      if (item.grandparentTitle?.isNotEmpty == true) return item.grandparentTitle!;
+      if (item.parentTitle?.isNotEmpty == true) return item.parentTitle!;
+    }
+    return item.title;
   }
 
   List<PlexMediaItem> deduplicateShows(List<PlexMediaItem> items) {
@@ -294,22 +368,13 @@ class PlexMediaService {
     final Map<String, List<PlexMediaItem>> itemsByShow = {};
 
     for (final item in items) {
-      final showKey = item.isEpisode
-          ? (item.grandparentRatingKey ?? (item.grandparentTitle?.isNotEmpty == true ? item.grandparentTitle! : item.ratingKey))
-          : item.isSeason
-              ? (item.parentRatingKey ?? (item.parentTitle?.isNotEmpty == true ? item.parentTitle! : item.ratingKey))
-              : item.ratingKey;
-
+      final showKey = _showKeyFor(item);
       itemsByShow.putIfAbsent(showKey, () => []).add(item);
     }
 
     for (final item in items) {
       if (item.isEpisode || item.isSeason || item.isShow) {
-        final showKey = item.isEpisode
-            ? (item.grandparentRatingKey ?? (item.grandparentTitle?.isNotEmpty == true ? item.grandparentTitle! : item.ratingKey))
-            : item.isSeason
-                ? (item.parentRatingKey ?? (item.parentTitle?.isNotEmpty == true ? item.parentTitle! : item.ratingKey))
-                : item.ratingKey;
+        final showKey = _showKeyFor(item);
 
         if (!seenShowKeys.contains(showKey)) {
           seenShowKeys.add(showKey);
@@ -332,7 +397,7 @@ class PlexMediaService {
             final seasonSet = <String>{};
             final seasonNumbers = <int>{};
             for (final ai in addedItems) {
-              final sKey = ai.parentRatingKey ?? (ai.isSeason ? ai.ratingKey : null);
+              final sKey = ai.isSeason ? ai.ratingKey : ai.parentRatingKey;
               if (sKey != null && sKey.isNotEmpty) {
                 seasonSet.add(sKey);
               }
@@ -357,7 +422,7 @@ class PlexMediaService {
               String? earliestSeasonKey;
               for (final ai in addedItems) {
                 final sNum = ai.parentIndex ?? ai.index ?? 9999;
-                final sKey = ai.parentRatingKey ?? (ai.isSeason ? ai.ratingKey : null);
+                final sKey = ai.isSeason ? ai.ratingKey : ai.parentRatingKey;
                 if (sNum < minSeason && sKey != null) {
                   minSeason = sNum;
                   earliestSeasonKey = sKey;
@@ -376,17 +441,13 @@ class PlexMediaService {
             }
           }
 
-          final showTitle = item.isEpisode
-              ? (item.grandparentTitle?.isNotEmpty == true ? item.grandparentTitle! : item.title)
-              : item.isSeason
-                  ? (item.parentTitle?.isNotEmpty == true ? item.parentTitle! : item.title)
-                  : item.title;
+          final showTitle = _showTitleFor(item);
 
           final showPoster = item.grandparentThumb ?? item.parentThumb ?? item.thumb;
 
           final showItem = item.copyWith(
             title: showTitle,
-            ratingKey: item.grandparentRatingKey ?? item.parentRatingKey ?? item.ratingKey,
+            ratingKey: _showKeyFor(item),
             type: 'show',
             thumb: showPoster,
             grandparentThumb: showPoster,
@@ -409,6 +470,73 @@ class PlexMediaService {
       }
     }
     return result;
+  }
+
+  Future<MediaPerson> getPersonDetails(MediaPerson person) async {
+    if (server.isJellyfin) {
+      return _jfService.getPersonDetails(person);
+    }
+    if (person.id.isEmpty) return person;
+    try {
+      final url = Uri.parse('$baseUrl/library/people/${person.id}');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+        final metadata = container['Metadata'];
+        final meta = metadata is List && metadata.isNotEmpty
+            ? metadata.first as Map<String, dynamic>
+            : (metadata is Map<String, dynamic> ? metadata : null);
+        if (meta != null) {
+          return MediaPerson(
+            id: person.id,
+            name: meta['title']?.toString() ?? meta['tag']?.toString() ?? person.name,
+            role: person.role,
+            type: person.type,
+            thumb: meta['thumb']?.toString() ?? person.thumb,
+            summary: meta['summary']?.toString() ?? person.summary,
+          );
+        }
+      }
+    } catch (_) {}
+    return person;
+  }
+
+  Future<List<PlexMediaItem>> getPersonMedia(MediaPerson person) async {
+    if (server.isJellyfin) {
+      return _jfService.getPersonMedia(person);
+    }
+    if (person.id.isEmpty) return [];
+
+    Future<List<PlexMediaItem>> fetch(Uri url) async {
+      try {
+        final response = await http.get(url, headers: _headers);
+        if (response.statusCode != 200) return [];
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+        final metadata = container['Metadata'];
+        final list = metadata is List ? metadata : (metadata is Map ? [metadata] : null);
+        if (list == null) return [];
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(PlexMediaItem.fromJson)
+            .where((item) => item.isMovie || item.isShow || item.isEpisode)
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    final direct = await fetch(Uri.parse('$baseUrl/library/people/${person.id}/media'));
+    if (direct.isNotEmpty) return direct;
+
+    // Some Plex versions only expose person media through search. Filter the
+    // results to items that actually list this actor.
+    final searchResults = await search(person.name);
+    final actor = person.name.toLowerCase();
+    return searchResults
+        .where((item) => item.people.any((p) => p.name.toLowerCase() == actor))
+        .toList();
   }
 
   Future<List<PlexMediaItem>> getLibraryItems(String sectionKey) async {

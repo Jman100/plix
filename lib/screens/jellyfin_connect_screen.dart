@@ -108,7 +108,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
       final qcResult = await _jellyfinAuthService.initiateQuickConnect(
         cleanUrl,
         clientId: clientId,
-        clientName: PlixDeviceHelper.deviceName,
+        clientName: PlixDeviceHelper.clientName,
         version: UpdateService.currentVersion,
       );
 
@@ -162,7 +162,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         _targetServerUrl,
         _quickConnectSecret,
         clientId: clientId,
-        clientName: PlixDeviceHelper.deviceName,
+        clientName: PlixDeviceHelper.clientName,
         version: UpdateService.currentVersion,
       );
 

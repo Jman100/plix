@@ -53,8 +53,8 @@ class UpdateInfo {
 class UpdateService {
   static const String manifestUrl = 'https://plix.jman100.com/plix.json';
   // Keep in sync with the version in pubspec.yaml.
-  static const String currentVersion = '1.2.2';
-  static const int currentVersionCode = 21;
+  static const String currentVersion = '1.2.3';
+  static const int currentVersionCode = 22;
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');

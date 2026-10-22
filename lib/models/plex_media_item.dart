@@ -123,6 +123,60 @@ class PlexMarker {
   }
 }
 
+class MediaPerson {
+  final String id;
+  final String name;
+  final String role;
+  final String type; // 'cast' or 'crew'
+  final String? thumb;
+  final String? summary;
+
+  const MediaPerson({
+    required this.id,
+    required this.name,
+    this.role = '',
+    this.type = 'cast',
+    this.thumb,
+    this.summary,
+  });
+
+  bool get isCast => type == 'cast';
+
+  factory MediaPerson.fromPlex(Map<String, dynamic> json, {String type = 'cast', String defaultRole = ''}) {
+    final name = json['tag']?.toString() ?? json['title']?.toString() ?? '';
+    final id = json['id']?.toString() ??
+        json['tagKey']?.toString() ??
+        json['ratingKey']?.toString() ??
+        name;
+    return MediaPerson(
+      id: id,
+      name: name,
+      role: json['role']?.toString() ?? defaultRole,
+      type: type,
+      thumb: json['thumb']?.toString(),
+      summary: json['summary']?.toString(),
+    );
+  }
+
+  factory MediaPerson.fromJellyfin(Map<String, dynamic> json) {
+    final id = json['Id']?.toString() ?? '';
+    final imageTags = json['ImageTags'];
+    final imageTag = json['PrimaryImageTag']?.toString() ??
+        (imageTags is Map ? imageTags['Primary']?.toString() : null);
+    final typeName = json['Type']?.toString().toLowerCase() ?? '';
+    return MediaPerson(
+      id: id,
+      name: json['Name']?.toString() ?? '',
+      role: json['Role']?.toString() ?? '',
+      type: typeName == 'actor' ? 'cast' : 'crew',
+      thumb: id.isNotEmpty
+          ? '/Items/$id/Images/Primary${imageTag != null && imageTag.isNotEmpty ? '?tag=$imageTag' : ''}'
+          : null,
+      summary: json['Overview']?.toString(),
+    );
+  }
+}
+
 class PlexMediaItem {
   final String ratingKey;
   final String key;
@@ -181,6 +235,7 @@ class PlexMediaItem {
   final String? subtype;
   final String? extraType;
   final String? addedSubtitle;
+  final List<MediaPerson> people;
 
   const PlexMediaItem({
     required this.ratingKey,
@@ -240,6 +295,7 @@ class PlexMediaItem {
     this.subtype,
     this.extraType,
     this.addedSubtitle,
+    this.people = const [],
   });
 
   bool get isMovie => type == 'movie';
@@ -693,6 +749,24 @@ class PlexMediaItem {
       }
     }
 
+    final people = <MediaPerson>[];
+    void addPeople(dynamic raw, String type, String defaultRole) {
+      final list = raw is List ? raw : (raw is Map ? [raw] : null);
+      if (list == null) return;
+      for (final entry in list) {
+        if (entry is Map<String, dynamic>) {
+          final person = MediaPerson.fromPlex(entry, type: type, defaultRole: defaultRole);
+          if (person.name.isNotEmpty &&
+              !people.any((p) => p.name == person.name && p.role == person.role)) {
+            people.add(person);
+          }
+        }
+      }
+    }
+    addPeople(json['Role'], 'cast', '');
+    addPeople(json['Director'], 'crew', 'Director');
+    addPeople(json['Writer'], 'crew', 'Writer');
+
     final parsedRatingKey = json['ratingKey']?.toString() ?? json['id']?.toString() ?? '';
     final parsedKey = json['key']?.toString() ?? (parsedRatingKey.isNotEmpty ? '/library/metadata/$parsedRatingKey' : '');
 
@@ -771,6 +845,7 @@ class PlexMediaItem {
           : (json['viewedAt'] is num)
               ? (json['viewedAt'] as num).toInt()
               : int.tryParse(json['lastViewedAt']?.toString() ?? json['viewedAt']?.toString() ?? ''),
+      people: people,
     );
   }
 
@@ -809,6 +884,7 @@ class PlexMediaItem {
     String? subtype,
     String? extraType,
     String? addedSubtitle,
+    List<MediaPerson>? people,
   }) {
     return PlexMediaItem(
       ratingKey: ratingKey ?? this.ratingKey,
@@ -868,6 +944,7 @@ class PlexMediaItem {
       subtype: subtype ?? this.subtype,
       extraType: extraType ?? this.extraType,
       addedSubtitle: addedSubtitle ?? this.addedSubtitle,
+      people: people ?? this.people,
     );
   }
 }

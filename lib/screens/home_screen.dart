@@ -463,20 +463,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await Future.wait(recentlyAddedFutures);
 
       if (mounted) {
-        final newFirstKey = cw.firstOrNull?.ratingKey;
+        final oldFirst = _continueWatching.firstOrNull;
+        final newFirst = cw.firstOrNull;
+        final newFirstKey = newFirst?.ratingKey;
+        final continueWatchingChanged = oldFirst == null ||
+            newFirst == null ||
+            oldFirst.ratingKey != newFirst.ratingKey ||
+            oldFirst.targetRatingKey != newFirst.targetRatingKey ||
+            (oldFirst.viewOffset ?? -1) != (newFirst.viewOffset ?? -1);
         final didItemMoveToFront = openedRatingKey != null &&
             newFirstKey != null &&
             newFirstKey != previousFirstKey &&
             (newFirstKey == openedRatingKey || cw.any((it) => it.ratingKey == openedRatingKey && it.ratingKey == newFirstKey));
 
-        final shouldFocusFirst = forceFocusFirst || didItemMoveToFront;
+        // After playback, the active Continue Watching item may be a later
+        // episode (or even a different show). Keep the hero in sync with it.
+        final shouldUpdateHero = openedRatingKey != null &&
+            cw.isNotEmpty &&
+            continueWatchingChanged;
+        final shouldFocusFirst = forceFocusFirst || didItemMoveToFront || shouldUpdateHero;
 
         setState(() {
           _continueWatching = cw;
           if (recentlyAddedMap.isNotEmpty) {
             _recentlyAddedByLibrary.addAll(recentlyAddedMap);
           }
-          if (shouldFocusFirst && cw.isNotEmpty) {
+          if ((shouldFocusFirst || shouldUpdateHero) && cw.isNotEmpty) {
             _heroItem = cw.first;
           } else if (_heroItem != null) {
             final match = cw.where((item) => item.ratingKey == _heroItem!.ratingKey);
@@ -522,7 +534,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           initialPositionMs: item.viewOffset ?? 0,
         ),
       ),
-    ).then((_) => _refreshContinueWatching(forceFocusFirst: false));
+    ).then((_) => _refreshContinueWatching(
+          openedRatingKey: item.ratingKey,
+          previousFirstKey: _continueWatching.firstOrNull?.ratingKey,
+          forceFocusFirst: false,
+        ));
   }
 
   void _switchServer() async {

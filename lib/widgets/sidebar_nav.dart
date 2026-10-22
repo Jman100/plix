@@ -58,7 +58,6 @@ class _SidebarNavState extends State<SidebarNav> {
   late List<PlexLibrary> _orderedLibraries;
   String? _activeReorderKey;
   bool _isReorderMode = false;
-  final Map<String, FocusNode> _reorderFocusNodes = {};
   final Map<String, FocusNode> _itemFocusNodes = {};
 
   final ScrollController _scrollController = ScrollController();
@@ -102,9 +101,6 @@ class _SidebarNavState extends State<SidebarNav> {
     _switchServerFocusNode.dispose();
     _signOutFocusNode.dispose();
     _reorderToggleFocusNode.dispose();
-    for (final node in _reorderFocusNodes.values) {
-      node.dispose();
-    }
     for (final node in _itemFocusNodes.values) {
       node.dispose();
     }
@@ -119,39 +115,37 @@ class _SidebarNavState extends State<SidebarNav> {
       setState(() {
         final item = _orderedLibraries.removeAt(idx);
         _orderedLibraries.insert(target, item);
-        if (Platform.isWindows) {
-          _activeReorderKey = null;
-        } else {
-          _activeReorderKey = lib.key;
-        }
+        _activeReorderKey = lib.key;
       });
       widget.onLibrariesReordered?.call(List.from(_orderedLibraries));
-      if (!Platform.isWindows) {
-        _reorderFocusNodes[lib.key]?.requestFocus();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _reorderFocusNodes[lib.key]?.requestFocus();
-          }
-        });
-      } else {
-        _reorderFocusNodes[lib.key]?.unfocus();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _itemFocusNodes[lib.key]?.requestFocus();
+        }
+      });
     }
   }
 
-  void _reorderLibraryToIndex(int fromIndex, int toIndex) {
-    if (fromIndex == toIndex) return;
-    if (fromIndex < 0 || fromIndex >= _orderedLibraries.length) return;
-    if (toIndex < 0 || toIndex >= _orderedLibraries.length) return;
+  void _toggleReorderMode() {
     setState(() {
-      final item = _orderedLibraries.removeAt(fromIndex);
-      _orderedLibraries.insert(toIndex, item);
-      _activeReorderKey = null;
+      _isReorderMode = !_isReorderMode;
+      if (!_isReorderMode) {
+        _activeReorderKey = null;
+      }
     });
-    for (final node in _reorderFocusNodes.values) {
-      node.unfocus();
+  }
+
+  void _handleLibraryTap(PlexLibrary lib) {
+    if (!_isReorderMode) {
+      widget.onLibrarySelected(lib);
+      return;
     }
-    widget.onLibrariesReordered?.call(List.from(_orderedLibraries));
+    if (_activeReorderKey == lib.key) {
+      setState(() => _activeReorderKey = null);
+    } else {
+      setState(() => _activeReorderKey = lib.key);
+      _itemFocusNodes[lib.key]?.requestFocus();
+    }
   }
 
   @override
@@ -399,8 +393,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                 _ReorderToggleButton(
                                   focusNode: _reorderToggleFocusNode,
                                   isActive: _isReorderMode,
-                                  onToggle: () =>
-                                      setState(() => _isReorderMode = !_isReorderMode),
+                                  onToggle: _toggleReorderMode,
                                   onUp: () => _watchlistFocusNode.requestFocus(),
                                   onDown: () {
                                     if (_orderedLibraries.isNotEmpty) {
@@ -421,148 +414,47 @@ class _SidebarNavState extends State<SidebarNav> {
                             ),
                     ),
 
-                  // Dynamic library entries (Movies, TV Shows) with drag-and-drop & reorder handle
+                  // Dynamic library entries. In reorder mode: select to pick up,
+                  // move with up/down, select again to drop.
                   for (int i = 0; i < _orderedLibraries.length; i++)
-                    DragTarget<int>(
-                      key: ValueKey('drag_target_${_orderedLibraries[i].key}'),
-                      onWillAcceptWithDetails: (details) => details.data != i,
-                      onAcceptWithDetails: (details) {
-                        _reorderLibraryToIndex(details.data, i);
+                    _NavItem(
+                      key: ValueKey('nav_${_orderedLibraries[i].key}'),
+                      focusNode: _itemFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
+                      icon: _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
+                      label: _orderedLibraries[i].title,
+                      isSelected: widget.activeDestination == NavDestination.library &&
+                          widget.selectedLibrary?.key == _orderedLibraries[i].key,
+                      isExpanded: effectiveExpanded,
+                      isReorderMode: _isReorderMode,
+                      isReorderPicked: _activeReorderKey == _orderedLibraries[i].key,
+                      onUp: () {
+                        if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
+                          _moveLibrary(_orderedLibraries[i], -1);
+                          return;
+                        }
+                        if (i == 0) {
+                          if (effectiveExpanded) {
+                            _reorderToggleFocusNode.requestFocus();
+                          } else {
+                            _watchlistFocusNode.requestFocus();
+                          }
+                        } else {
+                          _itemFocusNodes[_orderedLibraries[i - 1].key]?.requestFocus();
+                        }
                       },
-                      builder: (context, candidateData, rejectedData) {
-                        final isDropTarget = candidateData.isNotEmpty;
-                        return Container(
-                          decoration: isDropTarget
-                              ? BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(
-                                      color: PlixTheme.plexGold,
-                                      width: 3.0,
-                                    ),
-                                  ),
-                                  color: PlixTheme.cardFocused.withOpacity(0.3),
-                                )
-                              : null,
-                          child: Row(
-                            key: ValueKey('lib_row_${_orderedLibraries[i].key}'),
-                            children: [
-                              if (effectiveExpanded && _isReorderMode)
-                                Draggable<int>(
-                                  data: i,
-                                  feedback: Material(
-                                    color: Colors.transparent,
-                                    child: Container(
-                                      width: 200,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: PlixTheme.cardFocused,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: PlixTheme.plexGold, width: 2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.6),
-                                            blurRadius: 10,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.drag_handle_rounded, color: PlixTheme.plexGold, size: 18),
-                                          const SizedBox(width: 8),
-                                          Icon(
-                                            _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
-                                            color: PlixTheme.plexGold,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Flexible(
-                                            child: Text(
-                                              _orderedLibraries[i].title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  childWhenDragging: Opacity(
-                                    opacity: 0.3,
-                                    child: _ReorderHandle(
-                                      key: ValueKey('reorder_${_orderedLibraries[i].key}'),
-                                      focusNode: _reorderFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
-                                      isReordering: _activeReorderKey == _orderedLibraries[i].key,
-                                      onUp: () => _moveLibrary(_orderedLibraries[i], -1),
-                                      onDown: () => _moveLibrary(_orderedLibraries[i], 1),
-                                      onRight: () {
-                                        setState(() => _activeReorderKey = null);
-                                        _itemFocusNodes[_orderedLibraries[i].key]?.requestFocus();
-                                      },
-                                      onSelect: () {
-                                        setState(() => _activeReorderKey = null);
-                                        _itemFocusNodes[_orderedLibraries[i].key]?.requestFocus();
-                                      },
-                                    ),
-                                  ),
-                                  child: _ReorderHandle(
-                                    key: ValueKey('reorder_${_orderedLibraries[i].key}'),
-                                    focusNode: _reorderFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
-                                    isReordering: _activeReorderKey == _orderedLibraries[i].key,
-                                    onUp: () => _moveLibrary(_orderedLibraries[i], -1),
-                                    onDown: () => _moveLibrary(_orderedLibraries[i], 1),
-                                    onRight: () {
-                                      setState(() => _activeReorderKey = null);
-                                      _itemFocusNodes[_orderedLibraries[i].key]?.requestFocus();
-                                    },
-                                    onSelect: () {
-                                      setState(() => _activeReorderKey = null);
-                                      _itemFocusNodes[_orderedLibraries[i].key]?.requestFocus();
-                                    },
-                                  ),
-                                ),
-                              Expanded(
-                                child: _NavItem(
-                                  key: ValueKey('nav_${_orderedLibraries[i].key}'),
-                                  focusNode: _itemFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
-                                  icon: _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
-                                  label: _orderedLibraries[i].title,
-                                  isSelected: widget.activeDestination == NavDestination.library &&
-                                      widget.selectedLibrary?.key == _orderedLibraries[i].key,
-                                  isExpanded: effectiveExpanded,
-                                  onUp: () {
-                                    if (i == 0) {
-                                      if (effectiveExpanded) {
-                                        _reorderToggleFocusNode.requestFocus();
-                                      } else {
-                                        _watchlistFocusNode.requestFocus();
-                                      }
-                                    } else {
-                                      _itemFocusNodes[_orderedLibraries[i - 1].key]?.requestFocus();
-                                    }
-                                  },
-                                  onDown: () {
-                                    if (i == _orderedLibraries.length - 1) {
-                                      _settingsFocusNode.requestFocus();
-                                    } else {
-                                      _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
-                                    }
-                                  },
-                                  onNavigateLeft: (effectiveExpanded && _isReorderMode) ? () => _reorderFocusNodes[_orderedLibraries[i].key]?.requestFocus() : null,
-                                  onNavigateRight: widget.onNavigateRight,
-                                  onTap: () => widget.onLibrarySelected(_orderedLibraries[i]),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                      onDown: () {
+                        if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
+                          _moveLibrary(_orderedLibraries[i], 1);
+                          return;
+                        }
+                        if (i == _orderedLibraries.length - 1) {
+                          _settingsFocusNode.requestFocus();
+                        } else {
+                          _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
+                        }
                       },
+                      onNavigateRight: widget.onNavigateRight,
+                      onTap: () => _handleLibraryTap(_orderedLibraries[i]),
                     ),
 
                   const Divider(color: PlixTheme.cardBorder, height: 20),
@@ -630,9 +522,10 @@ class _NavItem extends StatefulWidget {
   final String label;
   final bool isSelected;
   final bool isExpanded;
+  final bool isReorderMode;
+  final bool isReorderPicked;
   final VoidCallback onTap;
   final VoidCallback? onNavigateRight;
-  final VoidCallback? onNavigateLeft;
   final FocusNode? focusNode;
   final bool blockUp;
   final bool blockDown;
@@ -646,9 +539,10 @@ class _NavItem extends StatefulWidget {
     required this.label,
     required this.isSelected,
     required this.isExpanded,
+    this.isReorderMode = false,
+    this.isReorderPicked = false,
     required this.onTap,
     this.onNavigateRight,
-    this.onNavigateLeft,
     this.focusNode,
     this.blockUp = false,
     this.blockDown = false,
@@ -735,12 +629,18 @@ class _NavItemState extends State<_NavItem> {
 
   @override
   Widget build(BuildContext context) {
-    final isHighlighted = _isFocused || _isHovered;
+    final picked = widget.isReorderPicked;
+    final isHighlighted = _isFocused || _isHovered || picked;
     final activeColor = widget.isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary;
     final fgColor = isHighlighted ? Colors.black : activeColor;
     final bgColor = isHighlighted ? PlixTheme.plexGold : Colors.transparent;
 
-    return Focus(
+    return AnimatedScale(
+      scale: picked ? 1.04 : 1.0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.centerLeft,
+      child: Focus(
       focusNode: _focusNode,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -762,12 +662,6 @@ class _NavItemState extends State<_NavItem> {
             if (widget.blockDown) {
               return KeyEventResult.handled;
             }
-          }
-          if (key == LogicalKeyboardKey.arrowLeft) {
-            if (widget.onNavigateLeft != null) {
-              widget.onNavigateLeft!();
-            }
-            return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowRight) {
             if (widget.onNavigateRight != null) {
@@ -801,6 +695,23 @@ class _NavItemState extends State<_NavItem> {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(8),
+            border: picked
+                ? Border.all(color: PlixTheme.plexGold, width: 2)
+                : null,
+            boxShadow: picked
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.55),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                    BoxShadow(
+                      color: PlixTheme.plexGold.withOpacity(0.35),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
@@ -827,6 +738,7 @@ class _NavItemState extends State<_NavItem> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -952,184 +864,13 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
-              Icons.reorder_rounded,
-              size: 16,
+              Icons.swap_vert_rounded,
+              size: 18,
               color: iconColor,
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ReorderHandle extends StatefulWidget {
-  final VoidCallback onUp;
-  final VoidCallback onDown;
-  final VoidCallback onRight;
-  final VoidCallback onSelect;
-  final FocusNode? focusNode;
-  final bool isReordering;
-
-  const _ReorderHandle({
-    super.key,
-    required this.onUp,
-    required this.onDown,
-    required this.onRight,
-    required this.onSelect,
-    this.focusNode,
-    this.isReordering = false,
-  });
-
-  @override
-  State<_ReorderHandle> createState() => _ReorderHandleState();
-}
-
-class _ReorderHandleState extends State<_ReorderHandle> {
-  late FocusNode _focusNode;
-  bool _isFocused = false;
-  bool _isHovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = widget.focusNode ?? FocusNode();
-    _isFocused = _focusNode.hasFocus;
-    _focusNode.addListener(_handleFocusChange);
-  }
-
-  void _handleFocusChange() {
-    if (mounted) {
-      setState(() {
-        _isFocused = _focusNode.hasFocus;
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _ReorderHandle oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusNode != widget.focusNode) {
-      oldWidget.focusNode?.removeListener(_handleFocusChange);
-      _focusNode = widget.focusNode ?? FocusNode();
-      _isFocused = _focusNode.hasFocus;
-      _focusNode.addListener(_handleFocusChange);
-    }
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(_handleFocusChange);
-    if (widget.focusNode == null) {
-      _focusNode.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isHighlighted = Platform.isWindows
-        ? _isHovered
-        : (_focusNode.hasFocus || _isFocused || widget.isReordering);
-
-    return Focus(
-      focusNode: _focusNode,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent || event is KeyRepeatEvent) {
-          final key = event.logicalKey;
-          if (key == LogicalKeyboardKey.arrowUp) {
-            widget.onUp();
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowDown) {
-            widget.onDown();
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowRight) {
-            widget.onRight();
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowLeft) {
-            return KeyEventResult.handled;
-          }
-          if (event is KeyDownEvent && (key == LogicalKeyboardKey.select ||
-              key == LogicalKeyboardKey.enter ||
-              key == LogicalKeyboardKey.space ||
-              key == LogicalKeyboardKey.gameButtonA ||
-              key == LogicalKeyboardKey.numpadEnter)) {
-            widget.onSelect();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: MouseRegion(
-        onEnter: (_) {
-          if (Platform.isWindows && mounted) {
-            setState(() => _isHovered = true);
-          }
-        },
-        onExit: (_) {
-          if (Platform.isWindows && mounted) {
-            setState(() => _isHovered = false);
-          }
-        },
-        child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(left: 8, right: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        decoration: BoxDecoration(
-          color: isHighlighted ? PlixTheme.plexGold : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onUp,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                  child: Icon(
-                    Icons.keyboard_arrow_up_rounded,
-                    size: 14,
-                    color: isHighlighted ? Colors.black : PlixTheme.textMuted,
-                  ),
-                ),
-              ),
-            ),
-            MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                child: Icon(
-                  Icons.drag_handle_rounded,
-                  size: 14,
-                  color: isHighlighted ? Colors.black : PlixTheme.textMuted,
-                ),
-              ),
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onDown,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 14,
-                    color: isHighlighted ? Colors.black : PlixTheme.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
     );
   }
 }

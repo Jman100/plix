@@ -4,6 +4,7 @@ import '../models/plex_library.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import 'jellyfin_auth_service.dart';
+import 'plix_device_helper.dart';
 import 'update_service.dart';
 
 class JellyfinMediaService {
@@ -18,9 +19,10 @@ class JellyfinMediaService {
   Map<String, String> get _headers => {
     'Authorization': JellyfinAuthService.buildAuthHeader(
       clientId: server.clientIdentifier,
-      clientName: server.name,
+      clientName: PlixDeviceHelper.clientName,
       version: UpdateService.currentVersion,
       token: token,
+      deviceName: PlixDeviceHelper.deviceName,
     ),
     'X-Emby-Token': token,
     'X-MediaBrowser-Token': token,
@@ -28,7 +30,7 @@ class JellyfinMediaService {
   };
 
   static const String _itemFields =
-      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber';
+      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People';
 
   PlexLibrary _parseLibrary(Map<String, dynamic> json) {
     final id = json['Id']?.toString() ?? '';
@@ -198,6 +200,17 @@ class JellyfinMediaService {
     final seasonPoster = seasonId != null ? '/Items/$seasonId/Images/Primary' : null;
     final itemThumb = '/Items/$id/Images/Primary';
 
+    final people = <MediaPerson>[];
+    final rawPeople = json['People'] as List<dynamic>? ?? [];
+    for (final rawPerson in rawPeople) {
+      if (rawPerson is! Map<String, dynamic>) continue;
+      final person = MediaPerson.fromJellyfin(rawPerson);
+      if (person.name.isNotEmpty &&
+          !people.any((p) => p.id == person.id && p.role == person.role)) {
+        people.add(person);
+      }
+    }
+
     return PlexMediaItem(
       ratingKey: id,
       key: '/Items/$id',
@@ -235,6 +248,7 @@ class JellyfinMediaService {
       colorPrimaries: colorPrimaries,
       doviTitle: doviTitle,
       hdrType: hdrType,
+      people: people,
     );
   }
 
@@ -432,38 +446,138 @@ class JellyfinMediaService {
   }
 
   Future<List<PlexMediaItem>> search(String query) async {
-    final cleanQuery = query.trim().toLowerCase();
+    final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) return [];
+    final normalizedQuery = cleanQuery.toLowerCase();
 
+    final rawItems = <Map<String, dynamic>>[];
+    final seenRawIds = <String>{};
+
+    Future<void> fetch(Uri url) async {
+      try {
+        final response = await http.get(url, headers: _headers);
+        if (response.statusCode != 200) return;
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final items = data['Items'] as List<dynamic>? ?? [];
+        for (final raw in items) {
+          if (raw is! Map<String, dynamic>) continue;
+          final id = raw['Id']?.toString() ?? '';
+          if (id.isNotEmpty && !seenRawIds.add(id)) continue;
+          rawItems.add(raw);
+        }
+      } catch (_) {}
+    }
+
+    // SearchTerm is the most flexible Jellyfin search. Include all supported
+    // media types and ask for a larger page so episodes don't crowd out shows.
+    await fetch(Uri.parse(
+      '$baseUrl/Users/$userId/Items?searchTerm=${Uri.encodeComponent(cleanQuery)}'
+      '&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=100'
+      '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
+    ));
+
+    // Jellyfin's full-text search can miss exact title prefixes. Merge in a
+    // NameStartsWith pass, which is more reliable for short/partial queries.
+    await fetch(Uri.parse(
+      '$baseUrl/Users/$userId/Items?NameStartsWith=${Uri.encodeComponent(cleanQuery)}'
+      '&IncludeItemTypes=Movie,Series&Recursive=true&Limit=60'
+      '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
+    ));
+
+    final parsed = <PlexMediaItem>[];
+    final seenIds = <String>{};
+    for (final raw in rawItems) {
+      final rawType = raw['Type']?.toString().toLowerCase() ?? '';
+      if (rawType != 'movie' && rawType != 'series' && rawType != 'episode') continue;
+      final item = _parseItem(raw);
+      if (item.ratingKey.isEmpty || !seenIds.add(item.ratingKey)) continue;
+      parsed.add(item);
+    }
+
+    int score(PlexMediaItem item) {
+      final title = item.title.toLowerCase();
+      final series = (item.grandparentTitle ?? '').toLowerCase();
+      if (title == normalizedQuery) return 0;
+      if (title.startsWith(normalizedQuery)) return 1;
+      if (title.contains(normalizedQuery)) return 2;
+      if (series == normalizedQuery) return 3;
+      if (series.startsWith(normalizedQuery)) return 4;
+      if (series.contains(normalizedQuery)) return 5;
+      return 10;
+    }
+
+    final showsAndMovies = parsed
+        .where((item) => item.isMovie || item.isShow)
+        .toList()
+      ..sort((a, b) {
+        final byScore = score(a).compareTo(score(b));
+        if (byScore != 0) return byScore;
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+
+    final result = <PlexMediaItem>[...showsAndMovies];
+    final seriesIdsInResult = showsAndMovies
+        .where((item) => item.isShow)
+        .map((item) => item.ratingKey)
+        .toSet();
+
+    final episodes = parsed
+        .where((item) => item.isEpisode)
+        .where((item) {
+          final parentShowId = item.grandparentRatingKey;
+          if (parentShowId != null && seriesIdsInResult.contains(parentShowId)) {
+            return false;
+          }
+          return score(item) < 10;
+        })
+        .toList()
+      ..sort((a, b) {
+        final byScore = score(a).compareTo(score(b));
+        if (byScore != 0) return byScore;
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      });
+
+    result.addAll(episodes);
+    return result;
+  }
+
+  Future<MediaPerson> getPersonDetails(MediaPerson person) async {
+    if (person.id.isEmpty) return person;
+    try {
+      final url = Uri.parse('$baseUrl/Users/$userId/Items/${person.id}?Fields=Overview,ImageTags');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final updated = MediaPerson.fromJellyfin(data);
+        return MediaPerson(
+          id: person.id,
+          name: updated.name.isNotEmpty ? updated.name : person.name,
+          role: person.role,
+          type: person.type,
+          thumb: updated.thumb ?? person.thumb,
+          summary: updated.summary,
+        );
+      }
+    } catch (_) {}
+    return person;
+  }
+
+  Future<List<PlexMediaItem>> getPersonMedia(MediaPerson person) async {
+    if (person.id.isEmpty) return [];
     final url = Uri.parse(
-      '$baseUrl/Users/$userId/Items?searchTerm=${Uri.encodeComponent(query)}&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=60&Fields=$_itemFields',
+      '$baseUrl/Users/$userId/Items?PersonIds=${Uri.encodeComponent(person.id)}'
+      '&Recursive=true&IncludeItemTypes=Movie,Series&Limit=100'
+      '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending',
     );
     final response = await http.get(url, headers: _headers);
     if (response.statusCode != 200) return [];
-
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final items = data['Items'] as List<dynamic>? ?? [];
-
-    final List<PlexMediaItem> result = [];
-    final Set<String> seriesIdsInResult = {};
-    for (final m in items) {
-      final item = _parseItem(m as Map<String, dynamic>);
-      if (item.isMovie || item.isShow) {
-        result.add(item);
-        seriesIdsInResult.add(item.ratingKey);
-      }
-    }
-    for (final m in items) {
-      final item = _parseItem(m as Map<String, dynamic>);
-      if (item.isEpisode) {
-        final parentShowId = item.grandparentRatingKey;
-        final showAlreadyFound = parentShowId != null && seriesIdsInResult.contains(parentShowId);
-        if (!showAlreadyFound && item.title.toLowerCase().contains(cleanQuery)) {
-          result.add(item);
-        }
-      }
-    }
-    return result;
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(_parseItem)
+        .where((item) => item.isMovie || item.isShow || item.isEpisode)
+        .toList();
   }
 
   Future<bool> markWatched(String itemId) async {
@@ -552,12 +666,16 @@ class JellyfinMediaService {
     int offsetSeconds = 0,
     required String clientId,
     bool directStreamVideo = false,
+    bool forceAudioTranscode = false,
   }) {
     final cleanId = _extractCleanItemId(itemId);
     final params = <String>[
       'api_key=$token',
       'DeviceId=$clientId',
       'MediaSourceId=$cleanId',
+      'Static=false',
+      'TranscodingContainer=ts',
+      'TranscodingProtocol=hls',
     ];
     if (offsetSeconds > 0) {
       params.add('StartTimeTicks=${offsetSeconds * 10000000}');
@@ -565,14 +683,25 @@ class JellyfinMediaService {
     if (maxBitrateKbps != null && maxBitrateKbps > 0) {
       params.add('VideoBitRate=${maxBitrateKbps * 1000}');
     }
-    if (directStreamVideo) {
-      params.add('VideoCodec=copy');
-      params.add('AudioCodec=copy');
+    if (resolution != null && resolution.contains('x')) {
+      final parts = resolution.split('x');
+      final width = int.tryParse(parts[0]);
+      final height = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      if (width != null && width > 0) params.add('MaxWidth=$width');
+      if (height != null && height > 0) params.add('MaxHeight=$height');
     }
-    if (offsetSeconds == 0 && (maxBitrateKbps == null || maxBitrateKbps <= 0) && !directStreamVideo) {
-      params.add('static=true');
+
+    params.add('VideoCodec=${directStreamVideo ? 'copy' : 'h264'}');
+    params.add('AudioCodec=${forceAudioTranscode ? 'aac' : (directStreamVideo ? 'copy' : 'aac')}');
+    if (forceAudioTranscode) {
+      params.add('AllowAudioStreamCopy=false');
+      params.add('EnableAutoStreamCopy=false');
     }
-    return '$baseUrl/Videos/$cleanId/stream?${params.join('&')}';
+    if (!directStreamVideo) {
+      params.add('AllowVideoStreamCopy=false');
+    }
+
+    return '$baseUrl/Videos/$cleanId/master.m3u8?${params.join('&')}';
   }
 
   Future<String?> fetchSubtitleContent({

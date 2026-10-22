@@ -42,7 +42,7 @@ class PlexTimelineService {
       final ticks = initialTimeMs * 10000;
       final endpoint = '$baseUrl/Sessions/Playing';
       final headers = {
-        'Authorization': 'MediaBrowser Client="Plix", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
+        'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
         'Content-Type': 'application/json',
       };
       final body = jsonEncode({
@@ -232,7 +232,7 @@ class PlexTimelineService {
       final userId = server.userId ?? '';
       final url = Uri.parse('$baseUrl/Users/$userId/PlayedItems/$ratingKey');
       final headers = {
-        'Authorization': 'MediaBrowser Client="Plix", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
+        'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
       };
       try {
         await http.post(url, headers: headers);
@@ -258,7 +258,7 @@ class PlexTimelineService {
         endpoint = '$baseUrl/Sessions/Playing/Stopped';
       }
       final headers = {
-        'Authorization': 'MediaBrowser Client="Plix", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
+        'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
         'Content-Type': 'application/json',
       };
       final body = jsonEncode({
