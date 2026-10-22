@@ -983,7 +983,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 0),
         child: SizedBox(
-          height: 165,
+          height: 168,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
