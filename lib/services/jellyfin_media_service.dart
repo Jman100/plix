@@ -549,12 +549,13 @@ class JellyfinMediaService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final updated = MediaPerson.fromJellyfin(data);
+        final updatedThumb = updated.thumb;
         return MediaPerson(
           id: person.id,
           name: updated.name.isNotEmpty ? updated.name : person.name,
           role: person.role,
           type: person.type,
-          thumb: updated.thumb ?? person.thumb,
+          thumb: updatedThumb != null && updatedThumb.isNotEmpty ? updatedThumb : person.thumb,
           summary: updated.summary,
         );
       }

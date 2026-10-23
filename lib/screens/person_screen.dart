@@ -35,6 +35,7 @@ class _PersonScreenState extends State<PersonScreen> {
 
   final FocusNode _backFocusNode = FocusNode();
   final Map<String, FocusNode> _mediaFocusNodes = {};
+  final Map<String, GlobalKey> _mediaKeys = {};
   final ScrollController _gridController = ScrollController();
 
   @override
@@ -66,8 +67,19 @@ class _PersonScreenState extends State<PersonScreen> {
       final seen = <String>{};
       final unique = media.where((item) => seen.add(item.ratingKey)).toList();
       if (mounted) {
+        // The thumb from the previous page is already known to load. Keep it
+        // when the person detail endpoint returns no usable image.
+        final initialThumb = widget.person.thumb;
+        final resolvedThumb = initialThumb != null && initialThumb.isNotEmpty ? initialThumb : details.thumb;
         setState(() {
-          _person = details;
+          _person = MediaPerson(
+            id: details.id,
+            name: details.name.isNotEmpty ? details.name : widget.person.name,
+            role: details.role.isNotEmpty ? details.role : widget.person.role,
+            type: details.type.isNotEmpty ? details.type : widget.person.type,
+            thumb: resolvedThumb,
+            summary: details.summary?.isNotEmpty == true ? details.summary : widget.person.summary,
+          );
           _media = unique;
           _isLoading = false;
         });
@@ -84,6 +96,24 @@ class _PersonScreenState extends State<PersonScreen> {
 
   FocusNode _focusNodeFor(PlexMediaItem item) {
     return _mediaFocusNodes.putIfAbsent(item.ratingKey, () => FocusNode());
+  }
+
+  GlobalKey _mediaKeyFor(PlexMediaItem item) {
+    return _mediaKeys.putIfAbsent(item.ratingKey, () => GlobalKey());
+  }
+
+  void _ensureMediaVisible(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final mediaContext = key.currentContext;
+      if (mediaContext == null) return;
+      Scrollable.ensureVisible(
+        mediaContext,
+        alignment: 0.35,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _focusFirstMedia() {
@@ -141,7 +171,7 @@ class _PersonScreenState extends State<PersonScreen> {
               child: _buildHeader(isCompact),
             ),
             const SizedBox(height: 22),
-            Expanded(child: _buildBody()),
+            Expanded(child: _buildBody(isCompact)),
           ],
         ),
       ),
@@ -149,10 +179,12 @@ class _PersonScreenState extends State<PersonScreen> {
   }
 
   Widget _buildHeader(bool isCompact) {
+    // Reuse the same size as the cast row. The Plex image transcoder does not
+    // reliably serve arbitrary dimensions for metadata-static people images.
     final imageUrl = _mediaService.buildImageUrl(
       _person.thumb,
-      width: 300,
-      height: 450,
+      width: 220,
+      height: 330,
     );
     final initials = _person.name
         .trim()
@@ -177,12 +209,12 @@ class _PersonScreenState extends State<PersonScreen> {
                     memCacheWidth: PlixImageCache.decodeWidth(
                       context,
                       isCompact ? 104 : 144,
-                      cap: 300,
+                      cap: 220,
                     ),
                     memCacheHeight: PlixImageCache.decodeHeight(
                       context,
                       isCompact ? 148 : 202,
-                      cap: 450,
+                      cap: 330,
                     ),
                     placeholder: (_, __) => Container(color: PlixTheme.card),
                     errorWidget: (_, __, ___) => _initials(initials, isCompact),
@@ -245,7 +277,7 @@ class _PersonScreenState extends State<PersonScreen> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isCompact) {
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(color: PlixTheme.plexGold),
@@ -260,12 +292,14 @@ class _PersonScreenState extends State<PersonScreen> {
       );
     }
 
+    final horizontalPadding = isCompact ? 18.0 : 32.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: const Text(
             'Appears in',
             style: TextStyle(
               color: PlixTheme.textPrimary,
@@ -286,13 +320,27 @@ class _PersonScreenState extends State<PersonScreen> {
               : LayoutBuilder(
                   builder: (context, constraints) {
                     const spacing = 18.0;
-                    final columns = (constraints.maxWidth / 164).floor().clamp(2, 8);
-                    final cellWidth =
-                        (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+                    final contentWidth = constraints.maxWidth - (horizontalPadding * 2);
+                    final widthColumns = (contentWidth / 164).floor();
+                    // The filmography grid only gets the space left below the
+                    // person header on a TV. Add columns until a full tile fits
+                    // vertically instead of clipping the posters.
+                    final availableHeight = constraints.maxHeight - 16;
+                    final maxCellWidth = (availableHeight - 58) / 1.5;
+                    final heightColumns =
+                        maxCellWidth > 1 ? ((contentWidth + spacing) / (maxCellWidth + spacing)).ceil() : widthColumns;
+                    final columns = (widthColumns > heightColumns ? widthColumns : heightColumns).clamp(2, 14);
+                    final cellWidth = (contentWidth - (spacing * (columns - 1))) / columns;
                     final cellHeight = cellWidth * 1.5 + 58;
                     return GridView.builder(
                       controller: _gridController,
-                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                      cacheExtent: 600,
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        8,
+                        horizontalPadding,
+                        8,
+                      ),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns,
                         mainAxisSpacing: 18,
@@ -302,18 +350,33 @@ class _PersonScreenState extends State<PersonScreen> {
                       itemCount: _media.length,
                       itemBuilder: (context, index) {
                         final item = _media[index];
+                        final cardKey = _mediaKeyFor(item);
                         final isFirstRow = index < columns;
                         final isFirstColumn = index % columns == 0;
                         return MediaCard(
+                          key: cardKey,
                           item: item,
                           mediaService: _mediaService,
                           focusNode: _focusNodeFor(item),
-                          width: cellWidth - 8,
+                          width: cellWidth,
+                          margin: EdgeInsets.zero,
                           onTap: () => _openMedia(item),
-                          onUp: isFirstRow ? () => _backFocusNode.requestFocus() : null,
-                          onLeft: isFirstColumn
-                              ? null
-                              : () => _focusNodeFor(_media[index - 1]).requestFocus(),
+                          onFocusWithNode: (_, focused) {
+                            if (focused) _ensureMediaVisible(cardKey);
+                          },
+                          onUp: isFirstRow
+                              ? () {
+                                  if (_gridController.hasClients) {
+                                    _gridController.animateTo(
+                                      0.0,
+                                      duration: const Duration(milliseconds: 220),
+                                      curve: Curves.easeOutCubic,
+                                    );
+                                  }
+                                  _backFocusNode.requestFocus();
+                                }
+                              : null,
+                          onLeft: isFirstColumn ? null : () => _focusNodeFor(_media[index - 1]).requestFocus(),
                           onRight: (index + 1) % columns == 0 || index == _media.length - 1
                               ? null
                               : () => _focusNodeFor(_media[index + 1]).requestFocus(),

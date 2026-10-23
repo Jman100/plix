@@ -1,6 +1,6 @@
 ; Inno Setup Script for Plix Windows
 #define MyAppName "Plix"
-#define MyAppVersion "1.2.4"
+#define MyAppVersion "1.2.5"
 #define MyAppPublisher "Plix"
 #define MyAppURL "https://plix.jman100.com/"
 #define MyAppExeName "plix.exe"

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.2.4"
-$versionCode = 23
+$version = "1.2.5"
+$versionCode = 24
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -68,10 +68,10 @@ if (Test-Path $networkPlixDir) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Watchlist: Fixed crashes and stutter when scrolling large watchlists
-- Artwork: Plex Discover posters now load as poster-sized images instead of full-resolution downloads
-- Memory: Reduced image decode work and preloading on low-memory TVs
-- App Version Bump: Updated to v1.2.4 (versionCode 23)
+- Cast & Crew: Actor portraits now load reliably on person pages
+- Person Pages: Filmography tiles fit on TV and long credit lists scroll with the remote
+- Cast Rows: Long rows scroll horizontally and Up returns to the action buttons
+- App Version Bump: Updated to v1.2.5 (versionCode 24)
 "@
 
     $manifest = [ordered]@{

@@ -524,12 +524,13 @@ class PlexMediaService {
             ? metadata.first as Map<String, dynamic>
             : (metadata is Map<String, dynamic> ? metadata : null);
         if (meta != null) {
+          final metaThumb = meta['thumb']?.toString();
           return MediaPerson(
             id: person.id,
             name: meta['title']?.toString() ?? meta['tag']?.toString() ?? person.name,
             role: person.role,
             type: person.type,
-            thumb: meta['thumb']?.toString() ?? person.thumb,
+            thumb: metaThumb != null && metaThumb.isNotEmpty ? metaThumb : person.thumb,
             summary: meta['summary']?.toString() ?? person.summary,
           );
         }

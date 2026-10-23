@@ -14,6 +14,7 @@ class CastRow extends StatefulWidget {
   final PlexMediaService mediaService;
   final ValueChanged<MediaPerson> onPersonTap;
   final String title;
+  final VoidCallback? onUp;
 
   const CastRow({
     super.key,
@@ -21,6 +22,7 @@ class CastRow extends StatefulWidget {
     required this.mediaService,
     required this.onPersonTap,
     this.title = 'Cast & Crew',
+    this.onUp,
   });
 
   @override
@@ -60,27 +62,31 @@ class _CastRowState extends State<CastRow> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 196,
+          height: 200,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            cacheExtent: 600,
             itemCount: widget.people.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final person = widget.people[index];
-              return _CastCard(
-                person: person,
-                focusNode: _nodeFor(person),
-                imageUrl: widget.mediaService.buildImageUrl(
-                  person.thumb,
-                  width: 220,
-                  height: 330,
+              return Center(
+                child: _CastCard(
+                  person: person,
+                  focusNode: _nodeFor(person),
+                  imageUrl: widget.mediaService.buildImageUrl(
+                    person.thumb,
+                    width: 220,
+                    height: 330,
+                  ),
+                  onTap: () => widget.onPersonTap(person),
+                  onUp: widget.onUp,
+                  onLeft: index == 0 ? null : () => _nodeFor(widget.people[index - 1]).requestFocus(),
+                  onRight: index == widget.people.length - 1
+                      ? null
+                      : () => _nodeFor(widget.people[index + 1]).requestFocus(),
                 ),
-                onTap: () => widget.onPersonTap(person),
-                onLeft: index == 0 ? null : () => _nodeFor(widget.people[index - 1]).requestFocus(),
-                onRight: index == widget.people.length - 1
-                    ? null
-                    : () => _nodeFor(widget.people[index + 1]).requestFocus(),
               );
             },
           ),
@@ -95,6 +101,7 @@ class _CastCard extends StatefulWidget {
   final FocusNode focusNode;
   final String imageUrl;
   final VoidCallback onTap;
+  final VoidCallback? onUp;
   final VoidCallback? onLeft;
   final VoidCallback? onRight;
 
@@ -103,6 +110,7 @@ class _CastCard extends StatefulWidget {
     required this.focusNode,
     required this.imageUrl,
     required this.onTap,
+    this.onUp,
     this.onLeft,
     this.onRight,
   });
@@ -123,7 +131,19 @@ class _CastCardState extends State<_CastCard> {
   }
 
   void _handleFocus() {
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
+    final focused = widget.focusNode.hasFocus;
+    if (mounted) setState(() => _isFocused = focused);
+    if (focused) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
   }
 
   @override
@@ -154,6 +174,10 @@ class _CastCardState extends State<_CastCard> {
           }
           if (key == LogicalKeyboardKey.arrowRight && widget.onRight != null) {
             widget.onRight!();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+            widget.onUp!();
             return KeyEventResult.handled;
           }
           if (event is KeyDownEvent &&
@@ -198,13 +222,13 @@ class _CastCardState extends State<_CastCard> {
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
                     width: 104,
-                    height: 130,
+                    height: 124,
                     child: widget.imageUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: widget.imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: PlixImageCache.decodeWidth(context, 104, cap: 220),
-                            memCacheHeight: PlixImageCache.decodeHeight(context, 130, cap: 330),
+                            memCacheHeight: PlixImageCache.decodeHeight(context, 124, cap: 330),
                             placeholder: (_, __) => Container(color: PlixTheme.card),
                             errorWidget: (_, __, ___) => _initials(initials),
                           )
