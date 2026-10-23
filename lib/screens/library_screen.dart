@@ -40,6 +40,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String? _errorMessage;
   int? _lastSelectedIndex;
   final Map<int, FocusNode> _focusNodes = {};
+  final ScrollController _gridScrollController = ScrollController();
   _LibrarySortOption _sortOption = _LibrarySortOption.nameAsc;
 
   @override
@@ -51,10 +52,40 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _gridScrollController.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
     }
     super.dispose();
+  }
+
+  int _firstRowItemCount(bool isCompact) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (isCompact) {
+      return (width / 130).floor().clamp(3, 7);
+    }
+    // Matches SliverGridDelegateWithMaxCrossAxisExtent's column calculation.
+    final available = width - 48;
+    return (available / (165 + 16)).ceil();
+  }
+
+  void _keepFirstRowVisible(int index, bool isCompact) {
+    if (index >= _firstRowItemCount(isCompact)) return;
+    void scrollToTop() {
+      if (!mounted || !_gridScrollController.hasClients) return;
+      if (!(_focusNodes[index]?.hasFocus ?? false)) return;
+      if (_gridScrollController.offset <= 0.5) return;
+      _gridScrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scrollToTop();
+      // Re-assert after the framework's focus ensureVisible pass.
+      Future<void>.delayed(const Duration(milliseconds: 80), scrollToTop);
+    });
   }
 
   void _applySort() {
@@ -207,12 +238,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         style: TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
                       ),
                     )
-                  : GridView.builder(
+                  : Padding(
+                      padding: EdgeInsets.only(top: isCompact ? 12 : 24),
+                      child: GridView.builder(
+                      controller: _gridScrollController,
                       clipBehavior: Clip.hardEdge,
                       padding: EdgeInsets.only(
                         left: isCompact ? 14 : 24,
                         right: isCompact ? 14 : 24,
-                        top: isCompact ? 12 : 24,
                         bottom: isCompact ? 24 : 140,
                       ),
                       gridDelegate: isCompact
@@ -241,11 +274,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               margin: EdgeInsets.zero,
                               autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
                               enableHighlight: !isCompact,
+                              onFocusChange: (focused) {
+                                if (focused) _keepFirstRowVisible(index, isCompact);
+                              },
                               onTap: () => _onItemTap(item, index),
                             );
                           },
                         );
                       },
+                    ),
                     ),
     );
   }

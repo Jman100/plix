@@ -33,6 +33,7 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
   String? _errorMessage;
   int? _lastSelectedIndex;
   final Map<int, FocusNode> _focusNodes = {};
+  final ScrollController _gridScrollController = ScrollController();
 
   @override
   void initState() {
@@ -43,10 +44,40 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
 
   @override
   void dispose() {
+    _gridScrollController.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
     }
     super.dispose();
+  }
+
+  int _firstRowItemCount(bool isCompact) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (isCompact) {
+      return (width / 130).floor().clamp(3, 7);
+    }
+    // Matches SliverGridDelegateWithMaxCrossAxisExtent's column calculation.
+    final available = width - 64;
+    return (available / (165 + 16)).ceil();
+  }
+
+  void _keepFirstRowVisible(int index, bool isCompact) {
+    if (index >= _firstRowItemCount(isCompact)) return;
+    void scrollToTop() {
+      if (!mounted || !_gridScrollController.hasClients) return;
+      if (!(_focusNodes[index]?.hasFocus ?? false)) return;
+      if (_gridScrollController.offset <= 0.5) return;
+      _gridScrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      scrollToTop();
+      // Re-assert after the framework's focus ensureVisible pass.
+      Future<void>.delayed(const Duration(milliseconds: 80), scrollToTop);
+    });
   }
 
   Future<void> _loadRecentlyAdded() async {
@@ -176,12 +207,14 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                                 style: TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
                               ),
                             )
-                          : GridView.builder(
+                          : Padding(
+                              padding: EdgeInsets.only(top: isCompact ? 88 : 92),
+                              child: GridView.builder(
+                              controller: _gridScrollController,
                               clipBehavior: Clip.hardEdge,
                               padding: EdgeInsets.only(
                                 left: isCompact ? 14 : 32,
                                 right: isCompact ? 14 : 32,
-                                top: isCompact ? 88 : 92,
                                 bottom: isCompact ? 24 : 140,
                               ),
                               gridDelegate: isCompact
@@ -210,11 +243,15 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                                       enableHighlight: !isCompact,
                                       width: constraints.maxWidth,
                                       margin: EdgeInsets.zero,
+                                      onFocusChange: (focused) {
+                                        if (focused) _keepFirstRowVisible(index, isCompact);
+                                      },
                                       onTap: () => _openDetails(item, index),
                                     );
                                   },
                                 );
                               },
+                            ),
                             ),
             ),
 

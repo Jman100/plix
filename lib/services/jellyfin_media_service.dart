@@ -633,8 +633,11 @@ class JellyfinMediaService {
 
     final sep = path.contains('?') ? '&' : '?';
     final query = <String>[];
-    if (width != null) query.add('fillWidth=$width');
-    if (height != null) query.add('fillHeight=$height');
+    // maxWidth/maxHeight preserve the source aspect ratio. fillWidth/fillHeight
+    // stretch Jellyfin images to the requested box, which squashes square
+    // cast portraits into the 2:3 tile used by the cast row.
+    if (width != null) query.add('maxWidth=$width');
+    if (height != null) query.add('maxHeight=$height');
     query.add('quality=90');
     query.add('api_key=$token');
 

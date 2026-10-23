@@ -681,7 +681,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   double _artworkWidth(bool isCompact) {
     if (_item.isEpisode) {
-      return isCompact ? 260 : 280;
+      return isCompact ? 250 : 260;
     }
     return isCompact ? 140 : 180;
   }
@@ -1185,11 +1185,16 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                     if (!_item.isShow) ...[
                                       KeyedSubtree(
                                         key: _actionRowKey,
-                                        child: Wrap(
-                                          spacing: 10,
-                                          runSpacing: 10,
-                                          children: [
-                                            for (final Widget button in <Widget>[
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Wrap(
+                                              spacing: 10,
+                                              runSpacing: 10,
+                                              children: [
+                                                for (final Widget button in <Widget>[
                                               if (_item.isInProgress) ...[
                                                 PlixButton(
                                                   autofocus: true,
@@ -1329,7 +1334,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                               ],
                                             ])
                                               IntrinsicWidth(child: button),
-                                          ],
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ] else ...[

@@ -1,5 +1,5 @@
-$version = "1.2.6"
-$versionCode = 25
+$version = "1.2.7"
+$versionCode = 26
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -36,12 +36,12 @@ if (Test-Path $networkPlixDir) {
 
     $manifestPath = "$networkPlixDir\plix.json"
     $releaseNotes = @"
-- Update Fix: Resolved the false update prompt on v1.2.5
+- Library Grid: Fixed the top row clipping when scrolling back up on TV
+- Sidebar Reorder: Focused libraries float with a stronger 3D lift, and the picked library gets a dotted outline
 - Episode Details: Smaller artwork keeps all action buttons on one row
-- Cast & Crew: Focus highlights no longer clip and Up returns to the top
-- Show Details: Cleaner play label and a season dropdown on mobile
-- Person Pages: Actor portraits now keep their correct square aspect ratio
-- App Version Bump: Updated to v1.2.6 (versionCode 25)
+- Cast & Crew: Jellyfin actor portraits now keep their correct aspect ratio
+- Mobile Playback: Double-tap the left or right half of the video to rewind or fast-forward 10 seconds
+- App Version Bump: Updated to v1.2.7 (versionCode 26)
 "@
 
     $manifest = [ordered]@{

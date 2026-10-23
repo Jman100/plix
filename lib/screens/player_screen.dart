@@ -1041,6 +1041,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  void _handleDoubleTapSeek(TapDownDetails details) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 0) return;
+    if (details.localPosition.dx < width / 2) {
+      _accumulateSeek(-10);
+    } else {
+      _accumulateSeek(10);
+    }
+  }
+
   void _accumulateSeek(int seconds) {
     if (!_isInitialized) return;
 
@@ -1793,6 +1803,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 children: [
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
+                    onDoubleTapDown: _handleDoubleTapSeek,
                     onTap: () {
                       setState(() {
                         _showControls = !_showControls;
@@ -1944,6 +1955,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ignoring: !_showControls,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
+                        onDoubleTapDown: _handleDoubleTapSeek,
                         onTap: () {
                           setState(() {
                             _showControls = false;
@@ -2439,6 +2451,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onKeyEvent: _handleKeyEvent,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
+              onDoubleTapDown: isMobile ? _handleDoubleTapSeek : null,
               onDoubleTap: Platform.isWindows ? _toggleFullScreen : null,
               onTap: () {
                 if (_showControls) {

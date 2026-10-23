@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
@@ -630,117 +631,192 @@ class _NavItemState extends State<_NavItem> {
   @override
   Widget build(BuildContext context) {
     final picked = widget.isReorderPicked;
+    final reorderFocused = widget.isReorderMode && (_isFocused || _isHovered);
     final isHighlighted = _isFocused || _isHovered || picked;
     final activeColor = widget.isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary;
-    final fgColor = isHighlighted ? Colors.black : activeColor;
-    final bgColor = isHighlighted ? PlixTheme.plexGold : Colors.transparent;
+    final fgColor = picked
+        ? PlixTheme.plexGold
+        : isHighlighted
+            ? Colors.black
+            : activeColor;
+    final bgColor = picked
+        ? PlixTheme.plexGold.withOpacity(0.16)
+        : isHighlighted
+            ? PlixTheme.plexGold
+            : Colors.transparent;
+    final shadows = picked
+        ? <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withOpacity(0.65),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: PlixTheme.plexGold.withOpacity(0.5),
+              blurRadius: 16,
+              spreadRadius: 2,
+            ),
+          ]
+        : reorderFocused
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.45),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: PlixTheme.plexGold.withOpacity(0.25),
+                  blurRadius: 9,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null;
 
-    return AnimatedScale(
-      scale: picked ? 1.04 : 1.0,
-      duration: const Duration(milliseconds: 160),
+    return AnimatedSlide(
+      offset: Offset(0, picked ? -0.05 : reorderFocused ? -0.02 : 0),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      alignment: Alignment.centerLeft,
-      child: Focus(
-      focusNode: _focusNode,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent || event is KeyRepeatEvent) {
-          final key = event.logicalKey;
-          if (key == LogicalKeyboardKey.arrowUp) {
-            if (widget.onUp != null) {
-              widget.onUp!();
-              return KeyEventResult.handled;
+      child: AnimatedScale(
+        scale: picked ? 1.09 : reorderFocused ? 1.04 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.center,
+        child: Focus(
+          focusNode: _focusNode,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.arrowUp) {
+                if (widget.onUp != null) {
+                  widget.onUp!();
+                  return KeyEventResult.handled;
+                }
+                if (widget.blockUp) {
+                  return KeyEventResult.handled;
+                }
+              }
+              if (key == LogicalKeyboardKey.arrowDown) {
+                if (widget.onDown != null) {
+                  widget.onDown!();
+                  return KeyEventResult.handled;
+                }
+                if (widget.blockDown) {
+                  return KeyEventResult.handled;
+                }
+              }
+              if (key == LogicalKeyboardKey.arrowRight) {
+                if (widget.onNavigateRight != null) {
+                  widget.onNavigateRight!();
+                  return KeyEventResult.handled;
+                }
+              }
+              if (event is KeyDownEvent && (key == LogicalKeyboardKey.select ||
+                  key == LogicalKeyboardKey.enter ||
+                  key == LogicalKeyboardKey.space ||
+                  key == LogicalKeyboardKey.gameButtonA ||
+                  key == LogicalKeyboardKey.numpadEnter)) {
+                widget.onTap();
+                return KeyEventResult.handled;
+              }
             }
-            if (widget.blockUp) {
-              return KeyEventResult.handled;
-            }
-          }
-          if (key == LogicalKeyboardKey.arrowDown) {
-            if (widget.onDown != null) {
-              widget.onDown!();
-              return KeyEventResult.handled;
-            }
-            if (widget.blockDown) {
-              return KeyEventResult.handled;
-            }
-          }
-          if (key == LogicalKeyboardKey.arrowRight) {
-            if (widget.onNavigateRight != null) {
-              widget.onNavigateRight!();
-              return KeyEventResult.handled;
-            }
-          }
-          if (event is KeyDownEvent && (key == LogicalKeyboardKey.select ||
-              key == LogicalKeyboardKey.enter ||
-              key == LogicalKeyboardKey.space ||
-              key == LogicalKeyboardKey.gameButtonA ||
-              key == LogicalKeyboardKey.numpadEnter)) {
-            widget.onTap();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: InkWell(
-        onTap: widget.onTap,
-        onHover: (hovered) {
-          if (Platform.isWindows && mounted) {
-            setState(() => _isHovered = hovered);
-          }
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: bgColor,
+            return KeyEventResult.ignored;
+          },
+          child: InkWell(
+            onTap: widget.onTap,
+            onHover: (hovered) {
+              if (Platform.isWindows && mounted) {
+                setState(() => _isHovered = hovered);
+              }
+            },
             borderRadius: BorderRadius.circular(8),
-            border: picked
-                ? Border.all(color: PlixTheme.plexGold, width: 2)
-                : null,
-            boxShadow: picked
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.55),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                    BoxShadow(
-                      color: PlixTheme.plexGold.withOpacity(0.35),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                widget.icon,
-                size: 22,
-                color: fgColor,
-              ),
-              if (widget.isExpanded) ...[
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: fgColor,
-                      fontSize: 14,
-                      fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: shadows,
+                ),
+                child: CustomPaint(
+                  foregroundPainter: picked
+                      ? _DottedBorderPainter(color: PlixTheme.plexGold)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.icon,
+                          size: 22,
+                          color: fgColor,
+                        ),
+                        if (widget.isExpanded) ...[
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: fgColor,
+                                fontSize: 14,
+                                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),
-      ),
     );
+  }
+}
+
+class _DottedBorderPainter extends CustomPainter {
+  final Color color;
+
+  const _DottedBorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    const strokeWidth = 2.0;
+    const radius = 8.0;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      math.max(0, size.width - strokeWidth),
+      math.max(0, size.height - strokeWidth),
+    );
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(radius)));
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final end = math.min(distance + 2.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += 6.0;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DottedBorderPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
