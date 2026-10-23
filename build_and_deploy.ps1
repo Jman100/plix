@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.2.5"
-$versionCode = 24
+$version = "1.2.6"
+$versionCode = 25
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -68,10 +68,12 @@ if (Test-Path $networkPlixDir) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Cast & Crew: Actor portraits now load reliably on person pages
-- Person Pages: Filmography tiles fit on TV and long credit lists scroll with the remote
-- Cast Rows: Long rows scroll horizontally and Up returns to the action buttons
-- App Version Bump: Updated to v1.2.5 (versionCode 24)
+- Update Fix: Resolved the false update prompt on v1.2.5
+- Episode Details: Smaller artwork keeps all action buttons on one row
+- Cast & Crew: Focus highlights no longer clip and Up returns to the top
+- Show Details: Cleaner play label and a season dropdown on mobile
+- Person Pages: Actor portraits now keep their correct square aspect ratio
+- App Version Bump: Updated to v1.2.6 (versionCode 25)
 "@
 
     $manifest = [ordered]@{

@@ -62,10 +62,11 @@ class _CastRowState extends State<CastRow> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 200,
+          height: 220,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             cacheExtent: 600,
             itemCount: widget.people.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),

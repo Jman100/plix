@@ -201,7 +201,7 @@ class _PersonScreenState extends State<PersonScreen> {
           borderRadius: BorderRadius.circular(12),
           child: SizedBox(
             width: isCompact ? 104 : 144,
-            height: isCompact ? 148 : 202,
+            height: isCompact ? 104 : 144,
             child: imageUrl.isNotEmpty
                 ? CachedNetworkImage(
                     imageUrl: imageUrl,
@@ -213,7 +213,7 @@ class _PersonScreenState extends State<PersonScreen> {
                     ),
                     memCacheHeight: PlixImageCache.decodeHeight(
                       context,
-                      isCompact ? 148 : 202,
+                      isCompact ? 104 : 144,
                       cap: 330,
                     ),
                     placeholder: (_, __) => Container(color: PlixTheme.card),

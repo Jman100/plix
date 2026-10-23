@@ -57,6 +57,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _firstActionFocusNode = FocusNode();
   final FocusNode _showPlayFocusNode = FocusNode();
+  final FocusNode _seasonDropdownFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _actionRowKey = GlobalKey();
   final Map<String, FocusNode> _seasonFocusNodes = {};
@@ -81,9 +82,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   void _focusSelectedSeason() {
-    final node = _selectedSeasonFocusNode;
-    if (node != null && node.canRequestFocus) {
-      node.requestFocus();
+    if (!mounted) return;
+    if (PlixDeviceHelper.isCompact(context)) {
+      _seasonDropdownFocusNode.requestFocus();
+    } else {
+      final node = _selectedSeasonFocusNode;
+      if (node != null && node.canRequestFocus) {
+        node.requestFocus();
+      }
     }
     if (_scrollController.hasClients && !Platform.isWindows) {
       _scrollController.animateTo(
@@ -140,6 +146,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _scrollController.dispose();
     _firstEpisodeFocusNode.dispose();
     _firstSeasonFocusNode.dispose();
+    _seasonDropdownFocusNode.dispose();
     _backButtonFocusNode.dispose();
     _firstActionFocusNode.dispose();
     _showPlayFocusNode.dispose();
@@ -399,7 +406,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         orElse: () => _episodes.first,
       );
       if (targetEp.parentIndex != null && targetEp.index != null) {
-        return 'Play "S${targetEp.parentIndex}:E${targetEp.index}"';
+        return 'Play S${targetEp.parentIndex}:E${targetEp.index}';
       }
     }
     return 'Play';
@@ -539,6 +546,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _firstActionFocusNode.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!PlixDeviceHelper.isCompact(context) && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+        return;
+      }
       final actionContext = _actionRowKey.currentContext;
       if (actionContext != null) {
         Scrollable.ensureVisible(
@@ -666,7 +681,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   double _artworkWidth(bool isCompact) {
     if (_item.isEpisode) {
-      return isCompact ? 320 : 400;
+      return isCompact ? 260 : 280;
     }
     return isCompact ? 140 : 180;
   }
@@ -1404,44 +1419,90 @@ class _DetailsScreenState extends State<DetailsScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      SizedBox(
-                        height: 48,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _seasons.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 10),
-                          itemBuilder: (context, index) {
-                            final season = _seasons[index];
-                            final isSel = _selectedSeason?.ratingKey == season.ratingKey ||
-                                      (_selectedSeason?.key.isNotEmpty == true && _selectedSeason?.key == season.key);
-                            return PlixButton(
-                              focusNode: _seasonFocusNodes[season.ratingKey],
-                              onUp: () {
-                                _showPlayFocusNode.requestFocus();
-                                if (_scrollController.hasClients && !Platform.isWindows) {
-                                  _scrollController.animateTo(
-                                    0.0,
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeOutCubic,
-                                  );
-                                }
+                      if (isCompact)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: PlixTheme.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: PlixTheme.cardBorder),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              focusNode: _seasonDropdownFocusNode,
+                              value: _seasons.any((s) => s.ratingKey == _selectedSeason?.ratingKey)
+                                  ? _selectedSeason!.ratingKey
+                                  : _seasons.first.ratingKey,
+                              isExpanded: true,
+                              isDense: true,
+                              borderRadius: BorderRadius.circular(10),
+                              dropdownColor: PlixTheme.surface,
+                              icon: Icon(Icons.arrow_drop_down_rounded, color: PlixTheme.plexGold),
+                              style: const TextStyle(
+                                color: PlixTheme.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              items: _seasons
+                                  .map(
+                                    (season) => DropdownMenuItem<String>(
+                                      value: season.ratingKey,
+                                      child: Text(
+                                        season.title,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (ratingKey) {
+                                if (ratingKey == null) return;
+                                final season = _seasons.firstWhere(
+                                  (s) => s.ratingKey == ratingKey,
+                                );
+                                _loadEpisodesForSeason(season);
                               },
-                              onDown: _focusFirstEpisode,
-                              label: season.title,
-                              isPrimary: isSel,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 10,
-                              ),
-                              onPressed: () => _loadEpisodesForSeason(
-                                season,
-                                focusFirstEpisode: true,
-                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          height: 48,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: _seasons.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            itemBuilder: (context, index) {
+                              final season = _seasons[index];
+                              final isSel = _selectedSeason?.ratingKey == season.ratingKey ||
+                                  (_selectedSeason?.key.isNotEmpty == true && _selectedSeason?.key == season.key);
+                              return PlixButton(
+                                focusNode: _seasonFocusNodes[season.ratingKey],
+                                onUp: () {
+                                  _showPlayFocusNode.requestFocus();
+                                  if (_scrollController.hasClients && !Platform.isWindows) {
+                                    _scrollController.animateTo(
+                                      0.0,
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeOutCubic,
+                                    );
+                                  }
+                                },
+                                onDown: _focusFirstEpisode,
+                                label: season.title,
+                                isPrimary: isSel,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                onPressed: () => _loadEpisodesForSeason(
+                                  season,
+                                  focusFirstEpisode: true,
+                                ),
                               );
-                          },
+                            },
+                          ),
                         ),
-                      ),
                     ],
 
                     const SizedBox(height: 24),
