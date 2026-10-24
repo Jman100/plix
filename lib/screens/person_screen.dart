@@ -357,6 +357,7 @@ class _PersonScreenState extends State<PersonScreen> {
                           key: cardKey,
                           item: item,
                           mediaService: _mediaService,
+                          showResolutionBadge: true,
                           focusNode: _focusNodeFor(item),
                           width: cellWidth,
                           margin: EdgeInsets.zero,

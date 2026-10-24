@@ -53,8 +53,8 @@ class UpdateInfo {
 class UpdateService {
   static const String manifestUrl = 'https://plix.jman100.com/plix.json';
   // Keep in sync with the version in pubspec.yaml.
-  static const String currentVersion = '1.2.7';
-  static const int currentVersionCode = 26;
+  static const String currentVersion = '1.2.9';
+  static const int currentVersionCode = 28;
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');
@@ -255,6 +255,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   double _progress = 0.0;
   String? _errorMessage;
 
+  final FocusScopeNode _scopeNode = FocusScopeNode();
   final FocusNode _updateBtnFocusNode = FocusNode();
   final FocusNode _laterBtnFocusNode = FocusNode();
   final FocusNode _retryBtnFocusNode = FocusNode();
@@ -270,9 +271,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         !_laterBtnFocusNode.hasFocus &&
         !_retryBtnFocusNode.hasFocus) {
       if (_updateBtnFocusNode.canRequestFocus) {
-        _updateBtnFocusNode.requestFocus();
+        FocusScope.of(context).requestFocus(_updateBtnFocusNode);
       } else if (_retryBtnFocusNode.canRequestFocus) {
-        _retryBtnFocusNode.requestFocus();
+        FocusScope.of(context).requestFocus(_retryBtnFocusNode);
       }
     }
   }
@@ -310,6 +311,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
 
   @override
   void dispose() {
+    _scopeNode.dispose();
     _notesFocusNode.dispose();
     _updateBtnFocusNode.dispose();
     _laterBtnFocusNode.dispose();
@@ -364,6 +366,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         side: BorderSide(color: PlixTheme.plexGold.withOpacity(0.5), width: 1.5),
       ),
       child: FocusScope(
+        node: _scopeNode,
         autofocus: true,
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent || event is KeyRepeatEvent) {

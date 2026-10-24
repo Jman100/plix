@@ -54,7 +54,7 @@ class ThemeMusicService {
     final normShowKey = normalizeKey(showKey);
     if (_currentShowKey != null && !isSameShow(_currentShowKey, normShowKey)) {
       _activeScreenTokens.clear();
-      stopImmediate();
+      stopImmediate(clearScreens: false);
     }
     _activeScreenTokens[token] = normShowKey;
     _currentShowKey = normShowKey;
@@ -66,7 +66,7 @@ class ThemeMusicService {
         .any((k) => isSameShow(k, _currentShowKey));
     if (!hasActiveScreenForCurrentShow) {
       if (_activeScreenTokens.isEmpty) {
-        stopImmediate();
+        stopImmediate(clearScreens: true);
       } else {
         fadeOutAndStop();
       }
@@ -97,8 +97,8 @@ class ThemeMusicService {
       return;
     }
 
-    // New show or restarting: stop any previous playback immediately
-    await stopImmediate();
+    // New show or restarting: stop any previous playback immediately without dropping current screen token
+    await stopImmediate(clearScreens: false);
 
     // Re-check after stopping previous playback (in case screen was closed during await)
     if (!_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
@@ -326,12 +326,14 @@ class ThemeMusicService {
     }
   }
 
-  Future<void> stopImmediate() async {
+  Future<void> stopImmediate({bool clearScreens = true}) async {
     _fadeTimer?.cancel();
     _winHeartbeatTimer?.cancel();
     _isPlaying = false;
     _currentShowKey = null;
-    _activeScreenTokens.clear();
+    if (clearScreens) {
+      _activeScreenTokens.clear();
+    }
 
     _winVolumeSub?.cancel();
     _winCompletedSub?.cancel();

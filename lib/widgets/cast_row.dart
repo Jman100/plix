@@ -15,6 +15,7 @@ class CastRow extends StatefulWidget {
   final ValueChanged<MediaPerson> onPersonTap;
   final String title;
   final VoidCallback? onUp;
+  final FocusNode? firstFocusNode;
 
   const CastRow({
     super.key,
@@ -23,6 +24,7 @@ class CastRow extends StatefulWidget {
     required this.onPersonTap,
     this.title = 'Cast & Crew',
     this.onUp,
+    this.firstFocusNode,
   });
 
   @override
@@ -40,7 +42,10 @@ class _CastRowState extends State<CastRow> {
     super.dispose();
   }
 
-  FocusNode _nodeFor(MediaPerson person) {
+  FocusNode _nodeFor(int index, MediaPerson person) {
+    if (index == 0 && widget.firstFocusNode != null) {
+      return widget.firstFocusNode!;
+    }
     final key = '${person.id}_${person.name}_${person.role}';
     return _focusNodes.putIfAbsent(key, () => FocusNode());
   }
@@ -75,7 +80,7 @@ class _CastRowState extends State<CastRow> {
               return Center(
                 child: _CastCard(
                   person: person,
-                  focusNode: _nodeFor(person),
+                  focusNode: _nodeFor(index, person),
                   imageUrl: widget.mediaService.buildImageUrl(
                     person.thumb,
                     width: 220,
@@ -83,10 +88,10 @@ class _CastRowState extends State<CastRow> {
                   ),
                   onTap: () => widget.onPersonTap(person),
                   onUp: widget.onUp,
-                  onLeft: index == 0 ? null : () => _nodeFor(widget.people[index - 1]).requestFocus(),
+                  onLeft: index == 0 ? null : () => _nodeFor(index - 1, widget.people[index - 1]).requestFocus(),
                   onRight: index == widget.people.length - 1
                       ? null
-                      : () => _nodeFor(widget.people[index + 1]).requestFocus(),
+                      : () => _nodeFor(index + 1, widget.people[index + 1]).requestFocus(),
                 ),
               );
             },

@@ -203,12 +203,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final updateInfo = await UpdateService.checkForUpdate();
       if (!mounted) return;
       if (updateInfo != null && updateInfo.hasUpdate) {
-        _isUpdateDialogOpen = true;
+        setState(() {
+          _isUpdateDialogOpen = true;
+        });
+        FocusManager.instance.primaryFocus?.unfocus();
         try {
           await UpdateService.showUpdateDialog(context, updateInfo);
         } finally {
           if (mounted) {
-            _isUpdateDialogOpen = false;
+            setState(() {
+              _isUpdateDialogOpen = false;
+            });
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+                if (_continueWatching.isNotEmpty) {
+                  _heroPlayFocusNode.requestFocus();
+                } else if (_activeRowIds.isNotEmpty) {
+                  _rowSectionKeys[_activeRowIds.first]?.currentState?.focusAt(0);
+                }
+              }
+            });
           }
         }
       }
@@ -1439,7 +1453,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
       child: Scaffold(
         backgroundColor: PlixTheme.background,
-        body: Focus(
+        body: ExcludeFocus(
+          excluding: _isUpdateDialogOpen,
+          child: Focus(
           canRequestFocus: false,
           skipTraversal: true,
           onKeyEvent: (node, event) {
@@ -1500,6 +1516,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -378,6 +378,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   Future<void> _loadPlayerPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final screenOff = prefs.getBool('continue_playback_screen_off') ?? false;
+      _nativePlayer.setScreenOffPlayback(screenOff);
       if (mounted) {
         setState(() {
           _autoplayEnabled = prefs.getBool('autoplay_next_episode') ?? true;
@@ -808,15 +810,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   Future<void> _initPlayer() async {
     try {
-      // Fetch full metadata if not present (ensures full streams, bitrate, HDR flags, air date)
-      if (_currentItem.partKey == null ||
-          _currentItem.partKey!.isEmpty ||
-          _currentItem.subtitleStreams.isEmpty) {
-        try {
-          final fullItem = await _mediaService.getItemMetadata(_currentItem.ratingKey);
-          _currentItem = fullItem;
-        } catch (_) {}
-      }
+      // Fetch full metadata (ensures latest user-selected audio track, full streams, bitrate, HDR flags, air date)
+      try {
+        final fullItem = await _mediaService.getItemMetadata(_currentItem.ratingKey);
+        _currentItem = fullItem;
+      } catch (_) {}
 
       if (_currentItem.duration != null && _currentItem.duration! > 0) {
         _durationMs = _currentItem.duration!;
@@ -901,6 +899,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       }
       if (_selectedAudio == null && _currentItem.audioStreams.isNotEmpty) {
         _selectedAudio = _currentItem.audioStreams.first;
+      }
+      if (_selectedAudio != null) {
+        final streamIndex = _selectedAudio!.streamIndex >= 0
+            ? _selectedAudio!.streamIndex
+            : _currentItem.audioStreams.indexOf(_selectedAudio!);
+        await _nativePlayer.setAudioTrack(
+          trackIndex: streamIndex >= 0 ? streamIndex : null,
+          language: _selectedAudio!.languageCode.isNotEmpty
+              ? _selectedAudio!.languageCode
+              : _selectedAudio!.language,
+          label: _selectedAudio!.displayTitle,
+        );
       }
 
       if (mounted) {

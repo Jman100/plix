@@ -7,6 +7,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 class NativePlayerService {
   static const MethodChannel _channel = MethodChannel('com.plix.plix/native_player');
 
+  int? _pendingAudioTrackIndex;
+  String? _pendingAudioLanguage;
+  String? _pendingAudioLabel;
+
   final _positionController = StreamController<int>.broadcast();
   final _durationController = StreamController<int>.broadcast();
   final _isPlayingController = StreamController<bool>.broadcast();
@@ -75,6 +79,33 @@ class NativePlayerService {
       _windowsSubscriptions.add(p.stream.completed.listen((completed) {
         if (completed) {
           _endedController.add(null);
+        }
+      }));
+
+      _windowsSubscriptions.add(p.stream.tracks.listen((tracks) {
+        if (_pendingAudioTrackIndex != null &&
+            _pendingAudioTrackIndex! >= 0 &&
+            _pendingAudioTrackIndex! < tracks.audio.length) {
+          p.setAudioTrack(tracks.audio[_pendingAudioTrackIndex!]);
+          _pendingAudioTrackIndex = null;
+        } else if (_pendingAudioLanguage != null && tracks.audio.isNotEmpty) {
+          final match = tracks.audio.firstWhere(
+            (t) => (t.language ?? '').toLowerCase().startsWith(_pendingAudioLanguage!.toLowerCase()),
+            orElse: () => AudioTrack.auto(),
+          );
+          if (match != AudioTrack.auto()) {
+            p.setAudioTrack(match);
+            _pendingAudioLanguage = null;
+          }
+        } else if (_pendingAudioLabel != null && tracks.audio.isNotEmpty) {
+          final match = tracks.audio.firstWhere(
+            (t) => (t.title ?? '').toLowerCase().contains(_pendingAudioLabel!.toLowerCase()),
+            orElse: () => AudioTrack.auto(),
+          );
+          if (match != AudioTrack.auto()) {
+            p.setAudioTrack(match);
+            _pendingAudioLabel = null;
+          }
         }
       }));
 
@@ -341,6 +372,9 @@ class NativePlayerService {
     String? label,
   }) async {
     if (Platform.isWindows && _windowsPlayer != null) {
+      _pendingAudioTrackIndex = trackIndex;
+      _pendingAudioLanguage = language;
+      _pendingAudioLabel = label;
       try {
         final tracks = _windowsPlayer!.state.tracks.audio;
         if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
@@ -360,6 +394,15 @@ class NativePlayerService {
         'trackIndex': trackIndex,
         'language': language,
         'label': label,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> setScreenOffPlayback(bool enabled) async {
+    if (Platform.isWindows) return;
+    try {
+      await _channel.invokeMethod('setScreenOffPlayback', {
+        'enabled': enabled,
       });
     } catch (_) {}
   }

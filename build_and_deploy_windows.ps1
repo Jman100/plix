@@ -1,5 +1,5 @@
-$version = "1.2.8"
-$versionCode = 27
+$version = "1.2.9"
+$versionCode = 28
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -36,13 +36,15 @@ if (Test-Path $networkPlixDir) {
 
     $manifestPath = "$networkPlixDir\plix.json"
     $releaseNotes = @"
-- Library Grid: Resolved top row cursor clipping and bottom row year truncation
-- Android TV Sound: Added default system click sound for remote navigation and inputs
-- Mobile Background Audio: Media now continues playing audio when the screen is turned off
-- Update Modal: Locked TV remote focus to the update dialog to prevent background media playback
-- Autoplay Next Episode: Prevented countdown playback if the app is minimized to home
-- Theme Music: Fixed show theme audio playing on home screen after rapid back navigation
-- App Version Bump: Updated to v1.2.8 (versionCode 27)
+- Update Modal: Fixed focus trap on app launch to prevent background remote navigation
+- Theme Music: Restored show theme music playback when opening episode details and show pages
+- Episode Details: Blocked right navigation from the Series button to keep focus stable
+- Navigation: Down arrow from detail page action buttons now focuses the first Cast & Crew card
+- TV System Sound: Remote navigation sounds now only play when the cursor actually moves
+- Actor Details: Added video resolution badge to items in the 'Appears In' section
+- Audio Persistence: Preserved and resumed alternate audio tracks when continuing playback
+- Mobile Background Audio: Added settings toggle to continue playback with screen turned off
+- App Version Bump: Updated to v1.2.9 (versionCode 28)
 "@
 
     $manifest = [ordered]@{

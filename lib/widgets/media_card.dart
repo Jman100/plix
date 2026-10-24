@@ -19,6 +19,7 @@ class MediaCard extends StatefulWidget {
   final bool autofocus;
   final bool enableHighlight;
   final bool isForcedHighlighted;
+  final bool showResolutionBadge;
   final EdgeInsetsGeometry? margin;
 
   const MediaCard({
@@ -34,6 +35,7 @@ class MediaCard extends StatefulWidget {
     this.autofocus = false,
     this.enableHighlight = true,
     this.isForcedHighlighted = false,
+    this.showResolutionBadge = false,
     this.margin,
     this.onLeft,
     this.onRight,
@@ -326,16 +328,48 @@ class _MediaCardState extends State<MediaCard> {
                     fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
-                if (widget.item.cardSubtitle.isNotEmpty)
-                  Text(
-                    widget.item.cardSubtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: PlixTheme.textMuted,
-                      fontSize: 11,
-                    ),
+                if (widget.item.cardSubtitle.isNotEmpty ||
+                    (widget.showResolutionBadge && widget.item.formattedResolution.isNotEmpty)) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (widget.item.cardSubtitle.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            widget.item.cardSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: PlixTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (widget.showResolutionBadge && widget.item.formattedResolution.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: PlixTheme.plexGold.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            widget.item.formattedResolution,
+                            style: TextStyle(
+                              color: PlixTheme.plexGold,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ],
               ],
             ),
           ),

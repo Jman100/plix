@@ -57,6 +57,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _firstActionFocusNode = FocusNode();
   final FocusNode _showPlayFocusNode = FocusNode();
+  final FocusNode _firstCastFocusNode = FocusNode();
   final FocusNode _seasonDropdownFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _actionRowKey = GlobalKey();
@@ -150,6 +151,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _backButtonFocusNode.dispose();
     _firstActionFocusNode.dispose();
     _showPlayFocusNode.dispose();
+    _firstCastFocusNode.dispose();
     for (final node in _seasonFocusNodes.values) {
       node.dispose();
     }
@@ -531,6 +533,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
     });
   }
 
+  void _focusFirstCast() {
+    if (_people.isNotEmpty) {
+      _firstCastFocusNode.requestFocus();
+    }
+  }
+
   void _focusActionRowFromCast() {
     if (_item.isShow) {
       _showPlayFocusNode.requestFocus();
@@ -884,6 +892,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   size: 16,
                 ),
                 label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
+                blockRight: !(_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty),
+                onDown: _focusFirstCast,
                 onPressed: _toggleWatched,
               ),
               if (_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
@@ -893,6 +903,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   icon: const Icon(Icons.tv_rounded, size: 16),
                   label: 'Series',
+                  blockRight: true,
+                  onDown: _focusFirstCast,
                   onPressed: _goToSeries,
                 ),
             ] else ...[
@@ -1214,6 +1226,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
                                                   label: 'Resume',
+                                                  onDown: _focusFirstCast,
                                                   onPressed: () => _playMedia(
                                                     item: _item,
                                                     resumeMs: _item.viewOffset!,
@@ -1226,6 +1239,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.replay_rounded, size: 16),
                                                   label: 'Restart',
+                                                  onDown: _focusFirstCast,
                                                   onPressed: () => _playMedia(item: _item, resumeMs: 0),
                                                 ),
                                               ] else if (_item.partKey != null || _item.duration != null) ...[
@@ -1239,6 +1253,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
                                                   label: 'Play',
+                                                  onDown: _focusFirstCast,
                                                   onPressed: () => _playMedia(item: _item, resumeMs: 0),
                                                 ),
                                               ] else ...[
@@ -1252,6 +1267,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.cloud_off_rounded, size: 16),
                                                   label: 'Not in Library',
+                                                  onDown: _focusFirstCast,
                                                   onPressed: () {
                                                     ScaffoldMessenger.of(context).removeCurrentSnackBar();
                                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1283,6 +1299,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.theaters_rounded, size: 16),
                                                   label: 'Trailer',
+                                                  onDown: _focusFirstCast,
                                                   onPressed: _playTrailer,
                                                 ),
                                               ],
@@ -1306,6 +1323,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                         color: _isOnWatchlist ? PlixTheme.plexGold : null,
                                                       ),
                                                 label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                                                onDown: _focusFirstCast,
                                                 onPressed: _toggleWatchlist,
                                               ),
                                               PlixButton(
@@ -1318,6 +1336,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   size: 16,
                                                 ),
                                                 label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
+                                                blockRight: !(_item.isEpisode &&
+                                                    _item.grandparentRatingKey != null &&
+                                                    _item.grandparentRatingKey!.isNotEmpty),
+                                                onDown: _focusFirstCast,
                                                 onPressed: _toggleWatched,
                                               ),
                                               if (_item.isEpisode &&
@@ -1330,6 +1352,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                   icon: const Icon(Icons.tv_rounded, size: 16),
                                                   label: 'Series',
+                                                  blockRight: true,
+                                                  onDown: _focusFirstCast,
                                                   onPressed: _goToSeries,
                                                 ),
                                               ],
@@ -1394,6 +1418,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   if ((_item.isMovie || _item.isEpisode) && _people.isNotEmpty) ...[
                     const SizedBox(height: 32),
                     CastRow(
+                      firstFocusNode: _firstCastFocusNode,
                       people: _people,
                       mediaService: _mediaService,
                       onPersonTap: _openPerson,

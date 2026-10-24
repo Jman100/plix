@@ -8,6 +8,7 @@ import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
+import '../services/native_player_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final PlexServer? server;
@@ -31,8 +32,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoplayNextEpisode = true;
   bool _autoSkipIntro = false;
   bool _playTvThemes = true;
+  bool _continuePlaybackScreenOff = false;
   final FocusNode _skipIntroFocusNode = FocusNode();
   final FocusNode _themeFocusNode = FocusNode();
+  final FocusNode _screenOffFocusNode = FocusNode();
   int _quickRewindSeconds = 10;
   int _skipAheadSeconds = 30;
 
@@ -84,6 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _autoplayNextEpisode = prefs.getBool('autoplay_next_episode') ?? true;
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _playTvThemes = prefs.getBool('play_tv_show_themes') ?? true;
+        _continuePlaybackScreenOff = prefs.getBool('continue_playback_screen_off') ?? false;
         _quickRewindSeconds = prefs.getInt('quick_rewind_seconds') ?? 10;
         _skipAheadSeconds = prefs.getInt('skip_ahead_seconds') ?? 30;
       });
@@ -176,6 +180,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setBool('play_tv_show_themes', newVal);
   }
 
+  Future<void> _toggleContinuePlaybackScreenOff() async {
+    final newVal = !_continuePlaybackScreenOff;
+    setState(() => _continuePlaybackScreenOff = newVal);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('continue_playback_screen_off', newVal);
+    try {
+      await NativePlayerService().setScreenOffPlayback(newVal);
+    } catch (_) {}
+  }
+
   Future<void> _cycleRewind() async {
     const options = [5, 10, 15, 20, 30];
     final currentIdx = options.indexOf(_quickRewindSeconds);
@@ -202,6 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _autoplayFocusNode.dispose();
     _skipIntroFocusNode.dispose();
     _themeFocusNode.dispose();
+    _screenOffFocusNode.dispose();
     _rewindFocusNode.dispose();
     _skipFocusNode.dispose();
     _autoUpdateFocusNode.dispose();
@@ -220,6 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
     final isTv = PlixDeviceHelper.isTelevision;
+    final isMobile = !isTv && !Platform.isWindows;
 
     return Scaffold(
       backgroundColor: PlixTheme.background,
@@ -425,13 +441,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _skipFocusNode,
                     onUp: () => _rewindFocusNode.requestFocus(),
-                    onDown: () => _autoUpdateFocusNode.requestFocus(),
+                    onDown: () => isMobile ? _screenOffFocusNode.requestFocus() : _autoUpdateFocusNode.requestFocus(),
                     title: 'Skip Ahead Duration',
                     subtitle: 'Seconds skipped forward when pressing D-pad Right or Fast Forward on remote',
                     trailing: '${_skipAheadSeconds}s',
                     isInteractive: true,
                     onTap: _cycleSkip,
                   ),
+                  if (isMobile) ...[
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _screenOffFocusNode,
+                      onUp: () => _skipFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Continue playback with screen off',
+                      subtitle: 'Keep playing audio in the background when your screen is turned off',
+                      trailing: _continuePlaybackScreenOff ? 'Enabled' : 'Disabled',
+                      isInteractive: true,
+                      onTap: _toggleContinuePlaybackScreenOff,
+                    ),
+                  ],
 
                   const SizedBox(height: 36),
                   const Divider(color: PlixTheme.cardBorder),
@@ -456,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoUpdateFocusNode,
-                    onUp: () => _skipFocusNode.requestFocus(),
+                    onUp: () => isMobile ? _screenOffFocusNode.requestFocus() : _skipFocusNode.requestFocus(),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',

@@ -96,6 +96,20 @@ class MainActivity: FlutterActivity() {
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             return powerManager?.isInteractive == false
         }
+
+    private var screenOffPlaybackEnabled: Boolean? = null
+
+    private fun isScreenOffPlaybackAllowed(): Boolean {
+        if (screenOffPlaybackEnabled != null) {
+            return screenOffPlaybackEnabled == true
+        }
+        return try {
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            prefs.getBoolean("flutter.continue_playback_screen_off", false)
+        } catch (_: Exception) {
+            false
+        }
+    }
     private var updaterChannel: MethodChannel? = null
 
     private var isPlayerActive: Boolean = false
@@ -320,6 +334,14 @@ class MainActivity: FlutterActivity() {
                     updateMediaSessionActive(isPlayerActive)
                     result.success(true)
                 }
+                "playSystemSound" -> {
+                    if (isTv) {
+                        val soundType = call.argument<String>("type") ?: "navigation"
+                        val sound = if (soundType == "click") SoundEffectConstants.CLICK else SoundEffectConstants.NAVIGATION_RIGHT
+                        window?.decorView?.playSoundEffect(sound)
+                    }
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -354,6 +376,14 @@ class MainActivity: FlutterActivity() {
                 }
                 "stop" -> {
                     stopPlayback()
+                    result.success(true)
+                }
+                "setScreenOffPlayback" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    screenOffPlaybackEnabled = enabled
+                    if (!isTv) {
+                        exoPlayer?.setWakeMode(if (enabled) C.WAKE_MODE_NETWORK else C.WAKE_MODE_NONE)
+                    }
                     result.success(true)
                 }
                 "setPlaybackSpeed" -> {
@@ -686,7 +716,11 @@ class MainActivity: FlutterActivity() {
                 .setUsage(C.USAGE_MEDIA)
                 .build()
             setAudioAttributes(audioAttributes, true)
-            setWakeMode(C.WAKE_MODE_NETWORK)
+            if (!isTv && isScreenOffPlaybackAllowed()) {
+                setWakeMode(C.WAKE_MODE_NETWORK)
+            } else {
+                setWakeMode(C.WAKE_MODE_NONE)
+            }
             videoSurfaceView?.let { setVideoSurfaceView(it) }
 
             val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -1058,7 +1092,7 @@ class MainActivity: FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
             return
         }
-        if (!isTv && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
+        if (!isTv && isScreenOffPlaybackAllowed() && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
             // Keep playing audio in the background on mobile when screen is turned off
             return
         }
@@ -1077,7 +1111,7 @@ class MainActivity: FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
             return
         }
-        if (!isTv && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
+        if (!isTv && isScreenOffPlaybackAllowed() && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
             // Keep playing audio in the background on mobile when screen is turned off
             return
         }
@@ -1205,30 +1239,6 @@ class MainActivity: FlutterActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
-            if (isTv) {
-                val sound = when (event.keyCode) {
-                    KeyEvent.KEYCODE_DPAD_UP -> SoundEffectConstants.NAVIGATION_UP
-                    KeyEvent.KEYCODE_DPAD_DOWN -> SoundEffectConstants.NAVIGATION_DOWN
-                    KeyEvent.KEYCODE_DPAD_LEFT -> SoundEffectConstants.NAVIGATION_LEFT
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> SoundEffectConstants.NAVIGATION_RIGHT
-                    KeyEvent.KEYCODE_DPAD_CENTER,
-                    KeyEvent.KEYCODE_ENTER,
-                    KeyEvent.KEYCODE_NUMPAD_ENTER,
-                    KeyEvent.KEYCODE_BUTTON_A,
-                    KeyEvent.KEYCODE_BACK,
-                    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-                    KeyEvent.KEYCODE_MEDIA_PLAY,
-                    KeyEvent.KEYCODE_MEDIA_PAUSE,
-                    KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
-                    KeyEvent.KEYCODE_MEDIA_REWIND,
-                    KeyEvent.KEYCODE_MEDIA_NEXT,
-                    KeyEvent.KEYCODE_MEDIA_PREVIOUS -> SoundEffectConstants.CLICK
-                    else -> null
-                }
-                if (sound != null) {
-                    window?.decorView?.playSoundEffect(sound)
-                }
-            }
             if (handleKeyCode(event.keyCode)) {
                 if (isPlayerActive) return true
             }
