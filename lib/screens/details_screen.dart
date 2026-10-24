@@ -184,6 +184,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       }
     }
 
+    if (!mounted) return;
     final themePath = _item.theme;
     if (themePath == null || themePath.isEmpty) return;
 

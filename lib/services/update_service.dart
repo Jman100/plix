@@ -263,6 +263,20 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   bool _hasMoreNotes = false;
   bool _isNotesFocused = false;
 
+  void _ensureDialogFocused() {
+    if (!mounted) return;
+    if (!_notesFocusNode.hasFocus &&
+        !_updateBtnFocusNode.hasFocus &&
+        !_laterBtnFocusNode.hasFocus &&
+        !_retryBtnFocusNode.hasFocus) {
+      if (_updateBtnFocusNode.canRequestFocus) {
+        _updateBtnFocusNode.requestFocus();
+      } else if (_retryBtnFocusNode.canRequestFocus) {
+        _retryBtnFocusNode.requestFocus();
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -271,6 +285,12 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         setState(() => _isNotesFocused = _notesFocusNode.hasFocus);
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureDialogFocused();
+    });
+    Future.delayed(const Duration(milliseconds: 60), _ensureDialogFocused);
+    Future.delayed(const Duration(milliseconds: 180), _ensureDialogFocused);
+    Future.delayed(const Duration(milliseconds: 350), _ensureDialogFocused);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_notesScrollController.hasClients &&
           _notesScrollController.position.maxScrollExtent > 8) {
@@ -348,18 +368,20 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent || event is KeyRepeatEvent) {
             final key = event.logicalKey;
-            if (key == LogicalKeyboardKey.arrowUp ||
-                key == LogicalKeyboardKey.arrowDown ||
-                key == LogicalKeyboardKey.arrowLeft ||
-                key == LogicalKeyboardKey.arrowRight) {
-              if (!_notesFocusNode.hasFocus &&
-                  !_updateBtnFocusNode.hasFocus &&
-                  !_laterBtnFocusNode.hasFocus &&
-                  !_retryBtnFocusNode.hasFocus) {
-                if (_updateBtnFocusNode.canRequestFocus) {
-                  _updateBtnFocusNode.requestFocus();
-                } else if (_retryBtnFocusNode.canRequestFocus) {
-                  _retryBtnFocusNode.requestFocus();
+            final isDialogFocused = _notesFocusNode.hasFocus ||
+                _updateBtnFocusNode.hasFocus ||
+                _laterBtnFocusNode.hasFocus ||
+                _retryBtnFocusNode.hasFocus;
+
+            if (!isDialogFocused) {
+              _ensureDialogFocused();
+              if (key == LogicalKeyboardKey.select ||
+                  key == LogicalKeyboardKey.enter ||
+                  key == LogicalKeyboardKey.space ||
+                  key == LogicalKeyboardKey.gameButtonA ||
+                  key == LogicalKeyboardKey.numpadEnter) {
+                if (!_isDownloading && _errorMessage == null) {
+                  _startDownload();
                 }
               }
               return KeyEventResult.handled;

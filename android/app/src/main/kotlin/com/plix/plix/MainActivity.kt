@@ -1,5 +1,9 @@
 package com.plix.plix
 
+import android.os.PowerManager
+import android.view.SoundEffectConstants
+import androidx.media3.common.AudioAttributes
+
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.PixelFormat
@@ -63,6 +67,35 @@ class MainActivity: FlutterActivity() {
 
     private var mediaKeysChannel: MethodChannel? = null
     private var nativePlayerChannel: MethodChannel? = null
+
+    private val isTv: Boolean
+        get() {
+            return try {
+                val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+                val isTvMode = uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+                val isLeanback = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                isTvMode || isLeanback
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+    private var isScreenOff = false
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> isScreenOff = true
+                Intent.ACTION_SCREEN_ON -> isScreenOff = false
+            }
+        }
+    }
+
+    private val isScreenReallyOff: Boolean
+        get() {
+            if (isScreenOff) return true
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            return powerManager?.isInteractive == false
+        }
     private var updaterChannel: MethodChannel? = null
 
     private var isPlayerActive: Boolean = false
@@ -114,6 +147,15 @@ class MainActivity: FlutterActivity() {
         setupMediaSession()
         registerPipReceiver()
         setupOrientationListener()
+        try {
+            val screenFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            registerReceiver(screenStateReceiver, screenFilter)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onFlutterSurfaceViewCreated(flutterSurfaceView: FlutterSurfaceView) {
@@ -639,6 +681,12 @@ class MainActivity: FlutterActivity() {
         }
 
         val player = ExoPlayer.Builder(this, renderersFactory).build().apply {
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .setUsage(C.USAGE_MEDIA)
+                .build()
+            setAudioAttributes(audioAttributes, true)
+            setWakeMode(C.WAKE_MODE_NETWORK)
             videoSurfaceView?.let { setVideoSurfaceView(it) }
 
             val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -995,6 +1043,11 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        isScreenOff = false
+    }
+
     override fun onPause() {
         super.onPause()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
@@ -1003,6 +1056,10 @@ class MainActivity: FlutterActivity() {
         }
         // In Android 12+ (API 31+), auto-enter PiP may briefly transition through onPause while playing
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
+            return
+        }
+        if (!isTv && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
+            // Keep playing audio in the background on mobile when screen is turned off
             return
         }
         exoPlayer?.pause()
@@ -1018,6 +1075,10 @@ class MainActivity: FlutterActivity() {
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+            return
+        }
+        if (!isTv && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
+            // Keep playing audio in the background on mobile when screen is turned off
             return
         }
         exoPlayer?.pause()
@@ -1144,6 +1205,30 @@ class MainActivity: FlutterActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
+            if (isTv) {
+                val sound = when (event.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_UP -> SoundEffectConstants.NAVIGATION_UP
+                    KeyEvent.KEYCODE_DPAD_DOWN -> SoundEffectConstants.NAVIGATION_DOWN
+                    KeyEvent.KEYCODE_DPAD_LEFT -> SoundEffectConstants.NAVIGATION_LEFT
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> SoundEffectConstants.NAVIGATION_RIGHT
+                    KeyEvent.KEYCODE_DPAD_CENTER,
+                    KeyEvent.KEYCODE_ENTER,
+                    KeyEvent.KEYCODE_NUMPAD_ENTER,
+                    KeyEvent.KEYCODE_BUTTON_A,
+                    KeyEvent.KEYCODE_BACK,
+                    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                    KeyEvent.KEYCODE_MEDIA_PLAY,
+                    KeyEvent.KEYCODE_MEDIA_PAUSE,
+                    KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+                    KeyEvent.KEYCODE_MEDIA_REWIND,
+                    KeyEvent.KEYCODE_MEDIA_NEXT,
+                    KeyEvent.KEYCODE_MEDIA_PREVIOUS -> SoundEffectConstants.CLICK
+                    else -> null
+                }
+                if (sound != null) {
+                    window?.decorView?.playSoundEffect(sound)
+                }
+            }
             if (handleKeyCode(event.keyCode)) {
                 if (isPlayerActive) return true
             }
@@ -1162,6 +1247,9 @@ class MainActivity: FlutterActivity() {
         orientationListener?.disable()
         orientationListener = null
         unregisterPipReceiver()
+        try {
+            unregisterReceiver(screenStateReceiver)
+        } catch (_: Exception) {}
         stopPlayback()
         mediaSession?.release()
         mediaSession = null

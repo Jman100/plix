@@ -65,7 +65,11 @@ class ThemeMusicService {
     final hasActiveScreenForCurrentShow = _activeScreenTokens.values
         .any((k) => isSameShow(k, _currentShowKey));
     if (!hasActiveScreenForCurrentShow) {
-      fadeOutAndStop();
+      if (_activeScreenTokens.isEmpty) {
+        stopImmediate();
+      } else {
+        fadeOutAndStop();
+      }
     }
   }
 
@@ -83,6 +87,11 @@ class ThemeMusicService {
 
     final normShowKey = normalizeKey(showKey);
 
+    // Guard: Do not play if no active screen is registered for this show!
+    if (!_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
+      return;
+    }
+
     // If already playing for this exact show, keep playing continuously without restarting!
     if (isSameShow(_currentShowKey, normShowKey) && _isPlaying) {
       return;
@@ -90,6 +99,11 @@ class ThemeMusicService {
 
     // New show or restarting: stop any previous playback immediately
     await stopImmediate();
+
+    // Re-check after stopping previous playback (in case screen was closed during await)
+    if (!_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
+      return;
+    }
 
     _currentShowKey = normShowKey;
     _isPlaying = true;
@@ -141,6 +155,12 @@ class ThemeMusicService {
 
         await p.setVolume(0.0);
         await p.open(Media(themeUrl, httpHeaders: headers));
+        if (!_isPlaying || !_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
+          await p.stop();
+          _isPlaying = false;
+          _currentShowKey = null;
+          return;
+        }
         // Single play: no looping
         await p.setPlaylistMode(PlaylistMode.none);
 
@@ -197,9 +217,11 @@ class ThemeMusicService {
         );
         _androidController = controller;
         await controller.initialize();
-        if (!_isPlaying) {
+        if (!_isPlaying || !_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
           await controller.dispose();
           if (_androidController == controller) _androidController = null;
+          _isPlaying = false;
+          _currentShowKey = null;
           return;
         }
         // Single play: no looping

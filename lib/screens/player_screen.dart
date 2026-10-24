@@ -82,7 +82,7 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver {
   final NativePlayerService _nativePlayer = NativePlayerService();
   late PlexTimelineService _timelineService;
   late PlexMediaService _mediaService;
@@ -203,6 +203,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ThemeMusicService.instance.stopImmediate();
     _currentItem = widget.item;
     if (_currentItem.isTrailer) {
@@ -560,6 +561,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _startNextEpisode() {
     _autoplayTimer?.cancel();
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      _cancelAutoplay();
+      return;
+    }
     if (_nextEpisodeItem == null) {
       Navigator.of(context).maybePop();
       return;
@@ -1724,7 +1730,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (_isAutoplayCountdownActive) {
+        _cancelAutoplay();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onGlobalKeyEvent);
     _mediaButtonService.setPlayerActive(false);
     _mediaKeySub?.cancel();

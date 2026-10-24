@@ -27,6 +27,8 @@ import 'watchlist_screen.dart';
 import '../services/plix_device_helper.dart';
 import '../services/plix_image_cache.dart';
 import '../services/update_service.dart';
+
+import '../services/theme_music_service.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/plix_bottom_nav.dart';
 
@@ -162,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   DateTime? _lastUpdateCheckTime;
+  bool _isUpdateDialogOpen = false;
 
   @override
   void initState() {
@@ -179,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ThemeMusicService.instance.stopImmediate();
       _checkForAutoUpdate();
     }
   }
@@ -199,7 +203,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final updateInfo = await UpdateService.checkForUpdate();
       if (!mounted) return;
       if (updateInfo != null && updateInfo.hasUpdate) {
-        UpdateService.showUpdateDialog(context, updateInfo);
+        _isUpdateDialogOpen = true;
+        try {
+          await UpdateService.showUpdateDialog(context, updateInfo);
+        } finally {
+          if (mounted) {
+            _isUpdateDialogOpen = false;
+          }
+        }
       }
     } catch (_) {}
   }
@@ -236,6 +247,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initData() async {
+    ThemeMusicService.instance.stopImmediate();
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -291,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _startMobileHeroTimer();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (ModalRoute.of(context)?.isCurrent != true) return;
+          if (_isUpdateDialogOpen || ModalRoute.of(context)?.isCurrent != true) return;
           if (PlixDeviceHelper.isPhone(context)) return;
           if (!mounted) return;
           if (_continueWatching.isNotEmpty) {
@@ -502,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _startMobileHeroTimer();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (ModalRoute.of(context)?.isCurrent != true) return;
+          if (_isUpdateDialogOpen || ModalRoute.of(context)?.isCurrent != true) return;
           if (PlixDeviceHelper.isPhone(context)) return;
           if (!mounted) return;
           // Never steal focus if user currently has focus in sidebar nav or on a sidebar item!

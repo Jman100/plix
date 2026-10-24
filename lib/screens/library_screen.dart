@@ -69,22 +69,73 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return (available / (165 + 16)).ceil();
   }
 
-  void _keepFirstRowVisible(int index, bool isCompact) {
-    if (index >= _firstRowItemCount(isCompact)) return;
-    void scrollToTop() {
-      if (!mounted || !_gridScrollController.hasClients) return;
-      if (!(_focusNodes[index]?.hasFocus ?? false)) return;
-      if (_gridScrollController.offset <= 0.5) return;
-      _gridScrollController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
+  void _handleItemFocus(int index, bool isCompact) {
+    if (isCompact) return;
+    if (index < _firstRowItemCount(isCompact)) {
+      void scrollToTop() {
+        if (!mounted || !_gridScrollController.hasClients) return;
+        if (!(_focusNodes[index]?.hasFocus ?? false)) return;
+        if (_gridScrollController.offset <= 0.5) return;
+        _gridScrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scrollToTop();
+        // Re-assert after the framework's focus ensureVisible pass.
+        Future<void>.delayed(const Duration(milliseconds: 80), scrollToTop);
+      });
+      return;
     }
+
+    void adjustVisible() {
+      if (!mounted || !_gridScrollController.hasClients) return;
+      final node = _focusNodes[index];
+      if (node == null || !node.hasFocus) return;
+      final itemContext = node.context;
+      if (itemContext == null || !itemContext.mounted) return;
+      final renderObject = itemContext.findRenderObject() as RenderBox?;
+      if (renderObject == null || !renderObject.attached) return;
+      final scrollable = Scrollable.maybeOf(itemContext);
+      final scrollBox = scrollable?.context.findRenderObject() as RenderBox?;
+      if (scrollBox == null || !scrollBox.attached) return;
+
+      final itemOffset = renderObject.localToGlobal(Offset.zero, ancestor: scrollBox);
+      final itemTop = itemOffset.dy;
+      final itemBottom = itemTop + renderObject.size.height;
+      final viewportHeight = _gridScrollController.position.viewportDimension;
+      final currentOffset = _gridScrollController.offset;
+
+      // Bottom margin: 40px ensures the 1.08 focus scale, border, and year subtitle stay fully visible
+      const bottomMargin = 40.0;
+      if (itemBottom + bottomMargin > viewportHeight) {
+        final overflow = (itemBottom + bottomMargin) - viewportHeight;
+        final target = (currentOffset + overflow).clamp(0.0, _gridScrollController.position.maxScrollExtent);
+        if ((target - currentOffset).abs() > 1.0) {
+          _gridScrollController.animateTo(
+            target,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      } else if (itemTop < 24.0) {
+        final underflow = 24.0 - itemTop;
+        final target = (currentOffset - underflow).clamp(0.0, _gridScrollController.position.maxScrollExtent);
+        if ((target - currentOffset).abs() > 1.0) {
+          _gridScrollController.animateTo(
+            target,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollToTop();
-      // Re-assert after the framework's focus ensureVisible pass.
-      Future<void>.delayed(const Duration(milliseconds: 80), scrollToTop);
+      adjustVisible();
+      Future<void>.delayed(const Duration(milliseconds: 80), adjustVisible);
     });
   }
 
@@ -238,11 +289,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         style: TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
                       ),
                     )
-                  : Padding(
-                      padding: EdgeInsets.only(top: isCompact ? 12 : 24),
-                      child: GridView.builder(
-                      controller: _gridScrollController,
-                      clipBehavior: Clip.hardEdge,
+                  : ClipRect(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: isCompact ? 12 : 24),
+                        child: GridView.builder(
+                        controller: _gridScrollController,
+                        clipBehavior: Clip.none,
                       padding: EdgeInsets.only(
                         left: isCompact ? 14 : 24,
                         right: isCompact ? 14 : 24,
@@ -257,7 +309,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             )
                           : const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 165,
-                              childAspectRatio: 0.55,
+                              childAspectRatio: 0.52,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 18,
                             ),
@@ -275,7 +327,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
                               enableHighlight: !isCompact,
                               onFocusChange: (focused) {
-                                if (focused) _keepFirstRowVisible(index, isCompact);
+                                if (focused) _handleItemFocus(index, isCompact);
                               },
                               onTap: () => _onItemTap(item, index),
                             );
@@ -283,6 +335,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         );
                       },
                     ),
+                      ),
                     ),
     );
   }

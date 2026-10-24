@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.2.7"
-$versionCode = 26
+$version = "1.2.8"
+$versionCode = 27
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -68,12 +68,13 @@ if (Test-Path $networkPlixDir) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Library Grid: Fixed the top row clipping when scrolling back up on TV
-- Sidebar Reorder: Focused libraries float with a stronger 3D lift, and the picked library gets a dotted outline
-- Episode Details: Smaller artwork keeps all action buttons on one row
-- Cast & Crew: Jellyfin actor portraits now keep their correct aspect ratio
-- Mobile Playback: Double-tap the left or right half of the video to rewind or fast-forward 10 seconds
-- App Version Bump: Updated to v1.2.7 (versionCode 26)
+- Library Grid: Resolved top row cursor clipping and bottom row year truncation
+- Android TV Sound: Added default system click sound for remote navigation and inputs
+- Mobile Background Audio: Media now continues playing audio when the screen is turned off
+- Update Modal: Locked TV remote focus to the update dialog to prevent background media playback
+- Autoplay Next Episode: Prevented countdown playback if the app is minimized to home
+- Theme Music: Fixed show theme audio playing on home screen after rapid back navigation
+- App Version Bump: Updated to v1.2.8 (versionCode 27)
 "@
 
     $manifest = [ordered]@{
