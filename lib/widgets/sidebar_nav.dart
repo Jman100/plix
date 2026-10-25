@@ -154,6 +154,8 @@ class _SidebarNavState extends State<SidebarNav> {
     final isMobileLandscape = !Platform.isWindows &&
         !PlixDeviceHelper.isTelevision &&
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final isReorderGripEnabled = !PlixDeviceHelper.isTelevision &&
+        (Platform.isWindows || MediaQuery.of(context).orientation == Orientation.landscape);
     final effectiveExpanded = isMobileLandscape || _isExpanded;
     final width = effectiveExpanded ? 245.0 : 72.0;
 
@@ -419,7 +421,7 @@ class _SidebarNavState extends State<SidebarNav> {
                   // On mobile landscape, show grab/grip section and support drag-and-drop reordering.
                   // On TV/desktop, select to pick up, move with up/down, select again to drop.
                   if (_orderedLibraries.isNotEmpty)
-                    _isReorderMode && isMobileLandscape
+                    _isReorderMode && isReorderGripEnabled
                         ? ReorderableListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),

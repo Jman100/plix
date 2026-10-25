@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.3.0"
-$versionCode = 29
+$version = "1.3.2"
+$versionCode = 31
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -68,12 +68,11 @@ if (Test-Path $networkPlixDir) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Show Episodes: Selecting an episode from a season list now opens its episode detail page
-- Episode Tiles: Removed unnecessary play icon from episode thumbnails in seasons list
-- Background Theme Music: Prevented show theme music from playing when app is minimized or hidden
-- Theme Music Fading: Restored smooth audio fade-in on entry and fade-out on exit for detail and show pages
-- Auto Updates: Enabled automatic update checking by default in settings
-- App Version Bump: Updated to v1.3.0 (versionCode 29)
+- MPV Player for iOS: Integrated libmpv media_kit video player on iOS for native direct play of MKV, DTS, TrueHD, and advanced codecs
+- iOS Playback UI: Fully resolved playback UI visibility and touch responsiveness in portrait and landscape
+- Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active
+- iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware
+- Version Bump: v1.3.2 (versionCode 31)
 "@
 
     $manifest = [ordered]@{

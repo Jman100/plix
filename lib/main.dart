@@ -22,10 +22,12 @@ void main() async {
   }
   TvSoundService.instance.init();
 
-  if (Platform.isWindows) {
+  if (Platform.isWindows || Platform.isIOS) {
     MediaKit.ensureInitialized();
-    await windowManager.ensureInitialized();
-    windowManager.setTitle('Plix');
+    if (Platform.isWindows) {
+      await windowManager.ensureInitialized();
+      windowManager.setTitle('Plix');
+    }
   }
 
   // Set system UI overlay style for immersive dark experience

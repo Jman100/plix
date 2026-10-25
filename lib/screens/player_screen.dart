@@ -284,7 +284,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         if (isBenign && _isPlaying) {
           return;
         }
-        if (Platform.isIOS && _selectedQuality.isDirectPlay) {
+        if (!NativePlayerService.useMediaKit && Platform.isIOS && _selectedQuality.isDirectPlay) {
           _changeQuality(VideoQualityOption.directStream, force: true);
           return;
         }
@@ -716,7 +716,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   }
 
   void _updateVideoBounds(BuildContext context, bool isPortrait) {
-    if (Platform.isWindows || PlixDeviceHelper.isTelevision) return;
+    if (NativePlayerService.useMediaKit || PlixDeviceHelper.isTelevision) return;
     if (_isInPip) return;
 
     if (IPhoneDuoService.isTabletop(context)) {
@@ -871,7 +871,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
           _selectedQuality = VideoQualityOption.directStream;
         }
       }
-      if (Platform.isIOS && _selectedQuality.isDirectPlay) {
+      if (!NativePlayerService.useMediaKit && Platform.isIOS && _selectedQuality.isDirectPlay) {
         final container = (_currentItem.container ?? '').toLowerCase();
         final videoCodec = (_currentItem.videoCodec ?? '').toLowerCase();
         final isAppleContainer = container == 'mp4' || container == 'm4v' || container == 'mov';
@@ -1943,6 +1943,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
             child: Stack(
               fit: StackFit.expand,
               children: [
+                if (_nativePlayer.videoController != null)
+                  Video(
+                    controller: _nativePlayer.videoController!,
+                    controls: NoVideoControls,
+                  ),
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onDoubleTapDown: _handleDoubleTapSeek,
@@ -2215,6 +2220,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  if (_nativePlayer.videoController != null)
+                    Video(
+                      controller: _nativePlayer.videoController!,
+                      controls: NoVideoControls,
+                    ),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onDoubleTapDown: _handleDoubleTapSeek,
@@ -2884,10 +2894,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // On Windows: MediaKit Video player; On TV: Native HDR SurfaceView behind transparent surface
-                  if (Platform.isWindows && _nativePlayer.windowsVideoController != null)
+                  // On Windows & iOS: MediaKit MPV Video player; On TV: Native HDR SurfaceView behind transparent surface
+                  if (_nativePlayer.videoController != null)
                     Video(
-                      controller: _nativePlayer.windowsVideoController!,
+                      controller: _nativePlayer.videoController!,
                       controls: NoVideoControls,
                     )
                   else

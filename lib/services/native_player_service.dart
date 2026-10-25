@@ -34,56 +34,58 @@ class NativePlayerService {
   Stream<String> get onDevicePhysicalOrientationChanged => _physicalOrientationController.stream;
   Stream<bool> get onBufferingChanged => _bufferingController.stream;
 
-  Player? _windowsPlayer;
-  VideoController? _windowsVideoController;
-  final List<StreamSubscription> _windowsSubscriptions = [];
+  static bool get useMediaKit => Platform.isWindows || Platform.isIOS;
 
-  VideoController? get windowsVideoController => _windowsVideoController;
+  Player? _mediaKitPlayer;
+  VideoController? _mediaKitVideoController;
+  final List<StreamSubscription> _mediaKitSubscriptions = [];
+
+  VideoController? get videoController => _mediaKitVideoController;
+  VideoController? get windowsVideoController => _mediaKitVideoController;
 
   NativePlayerService() {
-    if (Platform.isWindows) {
-      _initWindowsPlayer();
-    } else {
-      _channel.setMethodCallHandler(_handleNativeCall);
+    _channel.setMethodCallHandler(_handleNativeCall);
+    if (useMediaKit) {
+      _initMediaKitPlayer();
     }
   }
 
-  void _initWindowsPlayer() {
+  void _initMediaKitPlayer() {
     try {
       final p = Player();
-      _windowsPlayer = p;
-      _windowsVideoController = VideoController(p);
+      _mediaKitPlayer = p;
+      _mediaKitVideoController = VideoController(p);
 
       try {
         (p.platform as dynamic).setProperty('rebase-start-time', 'yes');
         (p.platform as dynamic).setProperty('hr-seek', 'yes');
       } catch (_) {}
 
-      _windowsSubscriptions.add(p.stream.position.listen((pos) {
+      _mediaKitSubscriptions.add(p.stream.position.listen((pos) {
         _positionController.add(pos.inMilliseconds);
       }));
 
-      _windowsSubscriptions.add(p.stream.duration.listen((dur) {
+      _mediaKitSubscriptions.add(p.stream.duration.listen((dur) {
         if (dur.inMilliseconds > 0) {
           _durationController.add(dur.inMilliseconds);
         }
       }));
 
-      _windowsSubscriptions.add(p.stream.playing.listen((playing) {
+      _mediaKitSubscriptions.add(p.stream.playing.listen((playing) {
         _isPlayingController.add(playing);
       }));
 
-      _windowsSubscriptions.add(p.stream.buffering.listen((buffering) {
+      _mediaKitSubscriptions.add(p.stream.buffering.listen((buffering) {
         _bufferingController.add(buffering);
       }));
 
-      _windowsSubscriptions.add(p.stream.completed.listen((completed) {
+      _mediaKitSubscriptions.add(p.stream.completed.listen((completed) {
         if (completed) {
           _endedController.add(null);
         }
       }));
 
-      _windowsSubscriptions.add(p.stream.tracks.listen((tracks) {
+      _mediaKitSubscriptions.add(p.stream.tracks.listen((tracks) {
         if (_pendingAudioTrackIndex != null &&
             _pendingAudioTrackIndex! >= 0 &&
             _pendingAudioTrackIndex! < tracks.audio.length) {
@@ -110,7 +112,7 @@ class NativePlayerService {
         }
       }));
 
-      _windowsSubscriptions.add(p.stream.error.listen((err) {
+      _mediaKitSubscriptions.add(p.stream.error.listen((err) {
         final errStr = err.toString().toLowerCase();
         // Ignore non-fatal network or demuxer warnings (e.g. tcp: ffurl_read returned 0xdfb9b0bb) that do not interrupt playback
         if (errStr.contains('ffurl_read') ||
@@ -127,7 +129,7 @@ class NativePlayerService {
         }
       }));
     } catch (e) {
-      _errorController.add('Windows player init error: $e');
+      _errorController.add('MediaKit player init error: $e');
     }
   }
 
@@ -192,7 +194,7 @@ class NativePlayerService {
   }
 
   Future<bool> checkAudioSupported(String codec) async {
-    if (Platform.isWindows) {
+    if (useMediaKit) {
       return true;
     }
     try {
@@ -208,9 +210,9 @@ class NativePlayerService {
     Map<String, String>? headers,
     int positionMs = 0,
   }) async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.open(
+        await _mediaKitPlayer!.open(
           Media(
             url,
             httpHeaders: headers,
@@ -233,9 +235,9 @@ class NativePlayerService {
   }
 
   Future<void> pause() async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.pause();
+        await _mediaKitPlayer!.pause();
       } catch (_) {}
       return;
     }
@@ -245,9 +247,9 @@ class NativePlayerService {
   }
 
   Future<void> resume() async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.play();
+        await _mediaKitPlayer!.play();
       } catch (_) {}
       return;
     }
@@ -257,9 +259,9 @@ class NativePlayerService {
   }
 
   Future<void> seekTo(int positionMs) async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.seek(Duration(milliseconds: positionMs));
+        await _mediaKitPlayer!.seek(Duration(milliseconds: positionMs));
       } catch (_) {}
       return;
     }
@@ -269,9 +271,9 @@ class NativePlayerService {
   }
 
   Future<void> stop() async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.stop();
+        await _mediaKitPlayer!.stop();
       } catch (_) {}
       return;
     }
@@ -281,9 +283,9 @@ class NativePlayerService {
   }
 
   Future<void> setPlaybackSpeed(double speed) async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
-        await _windowsPlayer!.setRate(speed);
+        await _mediaKitPlayer!.setRate(speed);
       } catch (_) {}
       return;
     }
@@ -293,7 +295,7 @@ class NativePlayerService {
   }
 
   Future<void> setVideoBounds({int x = 0, int y = 0, int? width, int? height}) async {
-    if (Platform.isWindows) return;
+    if (useMediaKit) return;
     try {
       await _channel.invokeMethod('setVideoBounds', {
         'x': x,
@@ -305,7 +307,7 @@ class NativePlayerService {
   }
 
   Future<bool> enterPipMode() async {
-    if (Platform.isWindows) return false;
+    if (useMediaKit) return false;
     try {
       final res = await _channel.invokeMethod<bool>('enterPipMode');
       return res ?? false;
@@ -315,8 +317,8 @@ class NativePlayerService {
   }
 
   Future<Map<String, dynamic>> getState() async {
-    if (Platform.isWindows && _windowsPlayer != null) {
-      final p = _windowsPlayer!;
+    if (useMediaKit && _mediaKitPlayer != null) {
+      final p = _mediaKitPlayer!;
       return {
         'position': p.state.position.inMilliseconds,
         'duration': p.state.duration.inMilliseconds,
@@ -339,22 +341,22 @@ class NativePlayerService {
     int? trackIndex,
     String? url,
   }) async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       try {
         if (!enabled) {
-          await _windowsPlayer!.setSubtitleTrack(SubtitleTrack.no());
+          await _mediaKitPlayer!.setSubtitleTrack(SubtitleTrack.no());
         } else if (url != null && url.isNotEmpty) {
-          await _windowsPlayer!.setSubtitleTrack(SubtitleTrack.uri(url, title: label, language: language));
+          await _mediaKitPlayer!.setSubtitleTrack(SubtitleTrack.uri(url, title: label, language: language));
         } else {
-          final tracks = _windowsPlayer!.state.tracks.subtitle;
+          final tracks = _mediaKitPlayer!.state.tracks.subtitle;
           if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
-            await _windowsPlayer!.setSubtitleTrack(tracks[trackIndex]);
+            await _mediaKitPlayer!.setSubtitleTrack(tracks[trackIndex]);
           } else if (language != null) {
             final match = tracks.firstWhere(
               (t) => (t.language ?? '').toLowerCase().startsWith(language.toLowerCase()),
               orElse: () => SubtitleTrack.auto(),
             );
-            await _windowsPlayer!.setSubtitleTrack(match);
+            await _mediaKitPlayer!.setSubtitleTrack(match);
           }
         }
       } catch (_) {}
@@ -375,20 +377,20 @@ class NativePlayerService {
     String? language,
     String? label,
   }) async {
-    if (Platform.isWindows && _windowsPlayer != null) {
+    if (useMediaKit && _mediaKitPlayer != null) {
       _pendingAudioTrackIndex = trackIndex;
       _pendingAudioLanguage = language;
       _pendingAudioLabel = label;
       try {
-        final tracks = _windowsPlayer!.state.tracks.audio;
+        final tracks = _mediaKitPlayer!.state.tracks.audio;
         if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
-          await _windowsPlayer!.setAudioTrack(tracks[trackIndex]);
+          await _mediaKitPlayer!.setAudioTrack(tracks[trackIndex]);
         } else if (language != null) {
           final match = tracks.firstWhere(
             (t) => (t.language ?? '').toLowerCase().startsWith(language.toLowerCase()),
             orElse: () => AudioTrack.auto(),
           );
-          await _windowsPlayer!.setAudioTrack(match);
+          await _mediaKitPlayer!.setAudioTrack(match);
         }
       } catch (_) {}
       return;
@@ -403,7 +405,7 @@ class NativePlayerService {
   }
 
   Future<void> setScreenOffPlayback(bool enabled) async {
-    if (Platform.isWindows) return;
+    if (useMediaKit) return;
     try {
       await _channel.invokeMethod('setScreenOffPlayback', {
         'enabled': enabled,
@@ -412,11 +414,11 @@ class NativePlayerService {
   }
 
   void dispose() {
-    for (final s in _windowsSubscriptions) {
+    for (final s in _mediaKitSubscriptions) {
       s.cancel();
     }
-    _windowsSubscriptions.clear();
-    _windowsPlayer?.dispose();
+    _mediaKitSubscriptions.clear();
+    _mediaKitPlayer?.dispose();
     _positionController.close();
     _durationController.close();
     _isPlayingController.close();
