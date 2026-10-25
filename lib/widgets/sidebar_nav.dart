@@ -415,48 +415,127 @@ class _SidebarNavState extends State<SidebarNav> {
                             ),
                     ),
 
-                  // Dynamic library entries. In reorder mode: select to pick up,
-                  // move with up/down, select again to drop.
-                  for (int i = 0; i < _orderedLibraries.length; i++)
-                    _NavItem(
-                      key: ValueKey('nav_${_orderedLibraries[i].key}'),
-                      focusNode: _itemFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
-                      icon: _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
-                      label: _orderedLibraries[i].title,
-                      isSelected: widget.activeDestination == NavDestination.library &&
-                          widget.selectedLibrary?.key == _orderedLibraries[i].key,
-                      isExpanded: effectiveExpanded,
-                      isReorderMode: _isReorderMode,
-                      isReorderPicked: _activeReorderKey == _orderedLibraries[i].key,
-                      onUp: () {
-                        if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
-                          _moveLibrary(_orderedLibraries[i], -1);
-                          return;
-                        }
-                        if (i == 0) {
-                          if (effectiveExpanded) {
-                            _reorderToggleFocusNode.requestFocus();
-                          } else {
-                            _watchlistFocusNode.requestFocus();
-                          }
-                        } else {
-                          _itemFocusNodes[_orderedLibraries[i - 1].key]?.requestFocus();
-                        }
-                      },
-                      onDown: () {
-                        if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
-                          _moveLibrary(_orderedLibraries[i], 1);
-                          return;
-                        }
-                        if (i == _orderedLibraries.length - 1) {
-                          _settingsFocusNode.requestFocus();
-                        } else {
-                          _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
-                        }
-                      },
-                      onNavigateRight: widget.onNavigateRight,
-                      onTap: () => _handleLibraryTap(_orderedLibraries[i]),
-                    ),
+                  // Dynamic library entries. In reorder mode:
+                  // On mobile landscape, show grab/grip section and support drag-and-drop reordering.
+                  // On TV/desktop, select to pick up, move with up/down, select again to drop.
+                  if (_orderedLibraries.isNotEmpty)
+                    _isReorderMode && isMobileLandscape
+                        ? ReorderableListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            buildDefaultDragHandles: false,
+                            itemCount: _orderedLibraries.length,
+                            onReorder: (oldIndex, newIndex) {
+                              if (oldIndex < newIndex) {
+                                newIndex -= 1;
+                              }
+                              setState(() {
+                                final item = _orderedLibraries.removeAt(oldIndex);
+                                _orderedLibraries.insert(newIndex, item);
+                                _activeReorderKey = item.key;
+                              });
+                              widget.onLibrariesReordered?.call(List.from(_orderedLibraries));
+                            },
+                            itemBuilder: (context, i) {
+                              final lib = _orderedLibraries[i];
+                              return _NavItem(
+                                key: ValueKey('nav_${lib.key}'),
+                                focusNode: _itemFocusNodes.putIfAbsent(lib.key, () => FocusNode()),
+                                icon: lib.isMovie ? Icons.movie_rounded : Icons.tv_rounded,
+                                label: lib.title,
+                                isSelected: widget.activeDestination == NavDestination.library &&
+                                    widget.selectedLibrary?.key == lib.key,
+                                isExpanded: effectiveExpanded,
+                                isReorderMode: _isReorderMode,
+                                isReorderPicked: _activeReorderKey == lib.key,
+                                trailing: ReorderableDragStartListener(
+                                  index: i,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                    child: const Icon(
+                                      Icons.drag_handle_rounded,
+                                      color: Colors.white70,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                                onUp: () {
+                                  if (_isReorderMode && _activeReorderKey == lib.key) {
+                                    _moveLibrary(lib, -1);
+                                    return;
+                                  }
+                                  if (i == 0) {
+                                    if (effectiveExpanded) {
+                                      _reorderToggleFocusNode.requestFocus();
+                                    } else {
+                                      _watchlistFocusNode.requestFocus();
+                                    }
+                                  } else {
+                                    _itemFocusNodes[_orderedLibraries[i - 1].key]?.requestFocus();
+                                  }
+                                },
+                                onDown: () {
+                                  if (_isReorderMode && _activeReorderKey == lib.key) {
+                                    _moveLibrary(lib, 1);
+                                    return;
+                                  }
+                                  if (i == _orderedLibraries.length - 1) {
+                                    _settingsFocusNode.requestFocus();
+                                  } else {
+                                    _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
+                                  }
+                                },
+                                onNavigateRight: widget.onNavigateRight,
+                                onTap: () => _handleLibraryTap(lib),
+                              );
+                            },
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (int i = 0; i < _orderedLibraries.length; i++)
+                                _NavItem(
+                                  key: ValueKey('nav_${_orderedLibraries[i].key}'),
+                                  focusNode: _itemFocusNodes.putIfAbsent(_orderedLibraries[i].key, () => FocusNode()),
+                                  icon: _orderedLibraries[i].isMovie ? Icons.movie_rounded : Icons.tv_rounded,
+                                  label: _orderedLibraries[i].title,
+                                  isSelected: widget.activeDestination == NavDestination.library &&
+                                      widget.selectedLibrary?.key == _orderedLibraries[i].key,
+                                  isExpanded: effectiveExpanded,
+                                  isReorderMode: _isReorderMode,
+                                  isReorderPicked: _activeReorderKey == _orderedLibraries[i].key,
+                                  trailing: null,
+                                  onUp: () {
+                                    if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
+                                      _moveLibrary(_orderedLibraries[i], -1);
+                                      return;
+                                    }
+                                    if (i == 0) {
+                                      if (effectiveExpanded) {
+                                        _reorderToggleFocusNode.requestFocus();
+                                      } else {
+                                        _watchlistFocusNode.requestFocus();
+                                      }
+                                    } else {
+                                      _itemFocusNodes[_orderedLibraries[i - 1].key]?.requestFocus();
+                                    }
+                                  },
+                                  onDown: () {
+                                    if (_isReorderMode && _activeReorderKey == _orderedLibraries[i].key) {
+                                      _moveLibrary(_orderedLibraries[i], 1);
+                                      return;
+                                    }
+                                    if (i == _orderedLibraries.length - 1) {
+                                      _settingsFocusNode.requestFocus();
+                                    } else {
+                                      _itemFocusNodes[_orderedLibraries[i + 1].key]?.requestFocus();
+                                    }
+                                  },
+                                  onNavigateRight: widget.onNavigateRight,
+                                  onTap: () => _handleLibraryTap(_orderedLibraries[i]),
+                                ),
+                            ],
+                          ),
 
                   const Divider(color: PlixTheme.cardBorder, height: 20),
 
@@ -525,6 +604,7 @@ class _NavItem extends StatefulWidget {
   final bool isExpanded;
   final bool isReorderMode;
   final bool isReorderPicked;
+  final Widget? trailing;
   final VoidCallback onTap;
   final VoidCallback? onNavigateRight;
   final FocusNode? focusNode;
@@ -542,6 +622,7 @@ class _NavItem extends StatefulWidget {
     required this.isExpanded,
     this.isReorderMode = false,
     this.isReorderPicked = false,
+    this.trailing,
     required this.onTap,
     this.onNavigateRight,
     this.focusNode,
@@ -767,6 +848,10 @@ class _NavItemState extends State<_NavItem> {
                               ),
                             ),
                           ),
+                          if (widget.trailing != null) ...[
+                            const SizedBox(width: 8),
+                            widget.trailing!,
+                          ],
                         ],
                       ],
                     ),

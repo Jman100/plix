@@ -1,3 +1,4 @@
+import '../services/iphone_duo_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -113,6 +114,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   StreamSubscription<String>? _errSub;
   StreamSubscription<void>? _endedSub;
   StreamSubscription<String>? _subCueSub;
+  StreamSubscription<IPhoneDuoInfo>? _duoSub;
 
   Timer? _hideControlsTimer;
   Timer? _centerFeedbackTimer;
@@ -282,6 +284,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         if (isBenign && _isPlaying) {
           return;
         }
+        if (Platform.isIOS && _selectedQuality.isDirectPlay) {
+          _changeQuality(VideoQualityOption.directStream, force: true);
+          return;
+        }
         setState(() {
           _hasError = true;
           _errorMessage = err;
@@ -358,6 +364,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _fetchAdjacentEpisodes();
     _loadPortraitSeasonEpisodes();
     _checkWatchlist();
+    if (Platform.isIOS) {
+      _duoSub = IPhoneDuoService.onPostureChanged.listen((_) {
+        if (mounted) setState(() {});
+      });
+    }
 
     if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
       SystemChrome.setPreferredOrientations([
@@ -708,6 +719,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     if (Platform.isWindows || PlixDeviceHelper.isTelevision) return;
     if (_isInPip) return;
 
+    if (IPhoneDuoService.isTabletop(context)) {
+      final mq = MediaQuery.of(context);
+      final dpr = mq.devicePixelRatio;
+      final screenWidth = mq.size.width;
+      final videoWidth = (screenWidth - 24.0).clamp(320.0, 645.0);
+      final videoHeight = videoWidth / 1.77778;
+      final x = (screenWidth - videoWidth) / 2.0;
+      const y = 81.0;
+
+      _nativePlayer.setVideoBounds(
+        x: (x * dpr).round(),
+        y: (y * dpr).round(),
+        width: (videoWidth * dpr).round(),
+        height: (videoHeight * dpr).round(),
+      );
+      return;
+    }
+
     final currentOrientation = MediaQuery.of(context).orientation;
     if (currentOrientation != _lastAppliedOrientation) {
       _lastAppliedOrientation = currentOrientation;
@@ -794,6 +823,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     showModalBottomSheet(
       context: context,
       backgroundColor: PlixTheme.surface,
+      constraints: BoxConstraints(
+        maxHeight: IPhoneDuoService.isTabletop(context)
+            ? (MediaQuery.of(context).size.height - 495).clamp(200.0, 440.0)
+            : double.infinity,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -835,6 +869,27 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         _audioNeedsTranscode = isDtsOrLossless || !isSupported;
         if (_audioNeedsTranscode) {
           _selectedQuality = VideoQualityOption.directStream;
+        }
+      }
+      if (Platform.isIOS && _selectedQuality.isDirectPlay) {
+        final container = (_currentItem.container ?? '').toLowerCase();
+        final videoCodec = (_currentItem.videoCodec ?? '').toLowerCase();
+        final isAppleContainer = container == 'mp4' || container == 'm4v' || container == 'mov';
+        final isAppleVideo = videoCodec.isEmpty ||
+            videoCodec.contains('h264') ||
+            videoCodec.contains('avc') ||
+            videoCodec.contains('hevc') ||
+            videoCodec.contains('h265');
+        final isAppleAudio = audioCodec.isEmpty ||
+            audioCodec.contains('aac') ||
+            audioCodec.contains('ac3') ||
+            audioCodec.contains('eac3') ||
+            audioCodec.contains('alac') ||
+            audioCodec.contains('mp3');
+
+        if (!isAppleContainer || !isAppleVideo || !isAppleAudio) {
+          _selectedQuality = VideoQualityOption.directStream;
+          _audioNeedsTranscode = !isAppleAudio;
         }
       }
       if (_currentItem.isTrailer && _selectedQuality.isDirectPlay) {
@@ -1545,6 +1600,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     showModalBottomSheet(
       context: context,
       backgroundColor: PlixTheme.surface,
+      constraints: BoxConstraints(
+        maxHeight: IPhoneDuoService.isTabletop(context)
+            ? (MediaQuery.of(context).size.height - 495).clamp(200.0, 440.0)
+            : double.infinity,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1614,6 +1674,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     showModalBottomSheet(
       context: context,
       backgroundColor: PlixTheme.surface,
+      constraints: BoxConstraints(
+        maxHeight: IPhoneDuoService.isTabletop(context)
+            ? (MediaQuery.of(context).size.height - 495).clamp(200.0, 440.0)
+            : double.infinity,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1651,6 +1716,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     showModalBottomSheet(
       context: context,
       backgroundColor: PlixTheme.surface,
+      constraints: BoxConstraints(
+        maxHeight: IPhoneDuoService.isTabletop(context)
+            ? (MediaQuery.of(context).size.height - 495).clamp(200.0, 440.0)
+            : double.infinity,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1760,6 +1830,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _durSub?.cancel();
     _playSub?.cancel();
     _errSub?.cancel();
+    _duoSub?.cancel();
     _endedSub?.cancel();
     _subCueSub?.cancel();
     _subBitmapSub?.cancel();
@@ -1807,6 +1878,321 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     super.dispose();
+  }
+
+  Widget _buildDuoTabletopLayout(BuildContext context, double progressMs, double maxMs) {
+    final mq = MediaQuery.of(context);
+    final screenWidth = mq.size.width;
+    final videoWidth = (screenWidth - 24.0).clamp(320.0, 645.0);
+    final videoHeight = videoWidth / 1.77778;
+    final horizontalPad = (screenWidth - videoWidth) / 2.0;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // Upper Half: Top Status bar & Video (y: 0 to 443.5)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 81.0,
+            child: Container(
+              color: Colors.black,
+              padding: EdgeInsets.only(top: mq.padding.top, left: 12, right: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                    onPressed: () {
+                      _nativePlayer.stop();
+                      _timelineService.stop(_currentPositionMs);
+                      _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentItem.isEpisode ? _currentItem.title : _currentItem.displayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white, size: 22),
+                    tooltip: 'Picture in Picture',
+                    onPressed: () => _nativePlayer.enterPipMode(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Upper Video Box (16:9, y: 81 to 443.5)
+          Positioned(
+            top: 81.0,
+            left: horizontalPad,
+            width: videoWidth,
+            height: videoHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTapDown: _handleDoubleTapSeek,
+                  onTap: () {
+                    setState(() {
+                      _showControls = !_showControls;
+                    });
+                    if (_showControls) {
+                      _scheduleHideControls();
+                    }
+                  },
+                  child: const SizedBox.expand(),
+                ),
+
+                // Subtitle overlays
+                if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
+                  Positioned(
+                    bottom: 12,
+                    left: 16,
+                    right: 16,
+                    child: Center(
+                      child: Image.memory(_subtitleBitmapBytes!, fit: BoxFit.contain),
+                    ),
+                  )
+                else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
+                  Positioned(
+                    bottom: 12,
+                    left: 16,
+                    right: 16,
+                    child: Center(
+                      child: Text(
+                        _currentSubtitleText,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
+                            Shadow(color: Colors.black, blurRadius: 4, offset: Offset(-1, -1)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Skip Intro Button
+                if (_showSkipIntroButton)
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: PlixButton(
+                      label: 'Skip Intro',
+                      icon: const Icon(Icons.skip_next_rounded, size: 16),
+                      fontSize: 12,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      onPressed: _skipIntro,
+                    ),
+                  ),
+
+                // Buffering & Switching Quality
+                if (_isSwitchingQuality)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Switching quality...', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_isBuffering)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Lower Half Base (starting 24 pt under fold, y = 500)
+          Positioned(
+            top: 500.0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              color: Colors.black.withOpacity(0.92),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Scrubber Row (44 pt height)
+                  SizedBox(
+                    height: 44.0,
+                    child: Row(
+                      children: [
+                        Text(
+                          _formatDuration(Duration(milliseconds: progressMs.toInt())),
+                          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: PlixTheme.plexGold,
+                              inactiveTrackColor: Colors.white24,
+                              thumbColor: PlixTheme.plexGold,
+                              trackHeight: 3.5,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                            ),
+                            child: Slider(
+                              value: progressMs.clamp(0.0, maxMs),
+                              min: 0.0,
+                              max: maxMs,
+                              onChanged: (val) {
+                                _seekToTarget(val.round());
+                              },
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(Duration(milliseconds: _durationMs)),
+                          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Main Playback Controls Row (44 pt tall row)
+                  SizedBox(
+                    height: 52.0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_previousEpisodeItem != null)
+                          IconButton(
+                            iconSize: 28,
+                            icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
+                            tooltip: 'Previous Episode: ${_previousEpisodeItem!.displayTitle}',
+                            onPressed: () => _playEpisode(_previousEpisodeItem!),
+                          ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          iconSize: 34,
+                          icon: const Icon(Icons.replay_10_rounded, color: Colors.white),
+                          tooltip: 'Rewind 10s',
+                          onPressed: () => _accumulateSeek(-_quickRewindSeconds),
+                        ),
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: _togglePlayPause,
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: PlixTheme.plexGold,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: PlixTheme.plexGold.withOpacity(0.35),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isPlaying && !_isPaused ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              size: 34,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton(
+                          iconSize: 34,
+                          icon: const Icon(Icons.forward_10_rounded, color: Colors.white),
+                          tooltip: 'Forward 10s',
+                          onPressed: () => _accumulateSeek(_quickRewindSeconds),
+                        ),
+                        const SizedBox(width: 12),
+                        if (_nextEpisodeItem != null)
+                          IconButton(
+                            iconSize: 28,
+                            icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
+                            tooltip: 'Next Episode: ${_nextEpisodeItem!.displayTitle}',
+                            onPressed: () => _playEpisode(_nextEpisodeItem!),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Secondary Controls Row (44 pt height: Audio, Subtitles, Quality, Speed)
+                  SizedBox(
+                    height: 44.0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _DuoTabletopButton(
+                          icon: Icons.audiotrack_rounded,
+                          label: _selectedAudio?.displayTitle ?? 'Audio',
+                          onPressed: _showAudioSelector,
+                        ),
+                        _DuoTabletopButton(
+                          icon: Icons.subtitles_rounded,
+                          label: _selectedSubtitle?.displayTitle ?? 'Subtitles',
+                          isHighlight: _selectedSubtitle != null,
+                          onPressed: _showSubtitleSelector,
+                        ),
+                        _DuoTabletopButton(
+                          icon: Icons.tune_rounded,
+                          label: _selectedQuality.label.split(' ').first,
+                          onPressed: _showQualitySelector,
+                        ),
+                        _DuoTabletopButton(
+                          icon: Icons.speed_rounded,
+                          label: '${_playbackSpeed}x',
+                          onPressed: _showSpeedSelector,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPortraitLayout(BuildContext context, double progressMs, double maxMs) {
@@ -2446,8 +2832,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+    final isDuoTabletop = IPhoneDuoService.isTabletop(context);
+
     return PopScope(
-      canPop: isPortrait || !_showControls,
+      canPop: isDuoTabletop || isPortrait || !_showControls,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           _nativePlayer.stop();
@@ -2460,9 +2848,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
           _playerFocusNode.requestFocus();
         }
       },
-      child: isPortrait
-          ? _buildPortraitLayout(context, effectiveProgressMs, maxMs)
-          : Scaffold(
+      child: isDuoTabletop
+          ? _buildDuoTabletopLayout(context, effectiveProgressMs, maxMs)
+          : isPortrait
+              ? _buildPortraitLayout(context, effectiveProgressMs, maxMs)
+              : Scaffold(
         backgroundColor: Colors.transparent,
         body: MouseRegion(
           cursor: (Platform.isWindows && !_showControls)
@@ -4337,6 +4727,59 @@ class _PlayerDialogButtonState extends State<_PlayerDialogButton> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+class _DuoTabletopButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isHighlight;
+  final VoidCallback onPressed;
+
+  const _DuoTabletopButton({
+    required this.icon,
+    required this.label,
+    this.isHighlight = false,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isHighlight ? PlixTheme.plexGold.withOpacity(0.18) : Colors.white10,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isHighlight ? PlixTheme.plexGold : Colors.white24,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: isHighlight ? PlixTheme.plexGold : Colors.white70),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 80),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isHighlight ? PlixTheme.plexGold : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'services/iphone_duo_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +17,9 @@ void main() async {
   PlixImageCache.configure();
 
   await PlixDeviceHelper.initDeviceName();
+  if (Platform.isIOS) {
+    await IPhoneDuoService.init();
+  }
   TvSoundService.instance.init();
 
   if (Platform.isWindows) {

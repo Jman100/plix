@@ -1,3 +1,4 @@
+import 'iphone_duo_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -174,6 +175,9 @@ class NativePlayerService {
       case 'onBufferingChanged':
         final isBuffering = call.arguments?['isBuffering'] as bool? ?? false;
         _bufferingController.add(isBuffering);
+        break;
+      case 'onDuoPostureChanged':
+        IPhoneDuoService.updateFromNative(call.arguments as Map<dynamic, dynamic>?);
         break;
     }
   }
