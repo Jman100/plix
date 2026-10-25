@@ -1,5 +1,5 @@
-$version = "1.2.9"
-$versionCode = 28
+$version = "1.3.0"
+$versionCode = 29
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -36,15 +36,12 @@ if (Test-Path $networkPlixDir) {
 
     $manifestPath = "$networkPlixDir\plix.json"
     $releaseNotes = @"
-- Update Modal: Fixed focus trap on app launch to prevent background remote navigation
-- Theme Music: Restored show theme music playback when opening episode details and show pages
-- Episode Details: Blocked right navigation from the Series button to keep focus stable
-- Navigation: Down arrow from detail page action buttons now focuses the first Cast & Crew card
-- TV System Sound: Remote navigation sounds now only play when the cursor actually moves
-- Actor Details: Added video resolution badge to items in the 'Appears In' section
-- Audio Persistence: Preserved and resumed alternate audio tracks when continuing playback
-- Mobile Background Audio: Added settings toggle to continue playback with screen turned off
-- App Version Bump: Updated to v1.2.9 (versionCode 28)
+- Show Episodes: Selecting an episode from a season list now opens its episode detail page
+- Episode Tiles: Removed unnecessary play icon from episode thumbnails in seasons list
+- Background Theme Music: Prevented show theme music from playing when app is minimized or hidden
+- Theme Music Fading: Restored smooth audio fade-in on entry and fade-out on exit for detail and show pages
+- Auto Updates: Enabled automatic update checking by default in settings
+- App Version Bump: Updated to v1.3.0 (versionCode 29)
 "@
 
     $manifest = [ordered]@{

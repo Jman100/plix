@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -8,9 +9,11 @@ import 'plex_media_service.dart';
 import 'plix_device_helper.dart';
 import 'update_service.dart';
 
-class ThemeMusicService {
+class ThemeMusicService with WidgetsBindingObserver {
   static final ThemeMusicService instance = ThemeMusicService._internal();
-  ThemeMusicService._internal();
+  ThemeMusicService._internal() {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   String? _currentShowKey;
   String? get currentShowKey => _currentShowKey;
@@ -32,6 +35,14 @@ class ThemeMusicService {
 
   static const double windowsMaxVolume = 25.0;
   static const double androidMaxVolume = 0.25;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      // Immediately stop theme playback when app is minimized/hidden/paused
+      stopImmediate(clearScreens: false);
+    }
+  }
 
   static String normalizeKey(String? key) {
     if (key == null) return '';
@@ -65,11 +76,7 @@ class ThemeMusicService {
     final hasActiveScreenForCurrentShow = _activeScreenTokens.values
         .any((k) => isSameShow(k, _currentShowKey));
     if (!hasActiveScreenForCurrentShow) {
-      if (_activeScreenTokens.isEmpty) {
-        stopImmediate(clearScreens: true);
-      } else {
-        fadeOutAndStop();
-      }
+      fadeOutAndStop();
     }
   }
 
@@ -79,6 +86,12 @@ class ThemeMusicService {
     required PlexMediaService mediaService,
     required String clientId,
   }) async {
+    // Guard: Do not play if app is minimized or not in foreground
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final enabled = prefs.getBool('play_tv_show_themes') ?? true;
@@ -102,6 +115,12 @@ class ThemeMusicService {
 
     // Re-check after stopping previous playback (in case screen was closed during await)
     if (!_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
+      return;
+    }
+
+    // Double check app lifecycle hasn't changed during await
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
 
@@ -153,6 +172,7 @@ class ThemeMusicService {
         _winVolumeSub?.cancel();
         _winCompletedSub?.cancel();
 
+        bool isFadingIn = true;
         await p.setVolume(0.0);
         await p.open(Media(themeUrl, httpHeaders: headers));
         if (!_isPlaying || !_activeScreenTokens.values.any((k) => isSameShow(k, normShowKey))) {
@@ -164,9 +184,9 @@ class ThemeMusicService {
         // Single play: no looping
         await p.setPlaylistMode(PlaylistMode.none);
 
-        // Guard: whenever MPV/media_kit attempts to raise volume above 25.0, clamp it
+        // Guard: whenever MPV/media_kit attempts to raise volume above 25.0 after fading in, clamp it
         _winVolumeSub = p.stream.volume.listen((vol) {
-          if (_isPlaying && vol > (windowsMaxVolume + 0.1)) {
+          if (!isFadingIn && _isPlaying && vol > (windowsMaxVolume + 0.1)) {
             p.setVolume(windowsMaxVolume);
           }
         });
@@ -180,7 +200,7 @@ class ThemeMusicService {
           }
         });
 
-        // Fade in to 25.0 over 2.0s (20 steps of 100ms) starting ONLY once audio actually begins playing
+        // Fade in to 25.0 over 2.0s (20 steps of 100ms)
         int step = 0;
         const totalSteps = 20;
         _fadeTimer?.cancel();
@@ -189,12 +209,13 @@ class ThemeMusicService {
             timer.cancel();
             return;
           }
-          if (p.state.playing && p.state.position > Duration.zero) {
+          if ((p.state.playing && !p.state.buffering) || p.state.position > Duration.zero) {
             step++;
             final vol = (windowsMaxVolume * (step / totalSteps)).clamp(0.0, windowsMaxVolume);
             p.setVolume(vol);
             if (step >= totalSteps) {
               timer.cancel();
+              isFadingIn = false;
               p.setVolume(windowsMaxVolume);
               // Start persistent volume guard heartbeat on Windows
               _winHeartbeatTimer = Timer.periodic(const Duration(milliseconds: 250), (hb) {
@@ -240,7 +261,7 @@ class ThemeMusicService {
         await controller.setVolume(0.0);
         await controller.play();
 
-        // Fade in to 0.25 over 2.0s (20 steps of 100ms) starting once controller begins playing
+        // Fade in to 0.25 over 2.0s (20 steps of 100ms)
         int step = 0;
         const totalSteps = 20;
         _fadeTimer?.cancel();
@@ -249,7 +270,8 @@ class ThemeMusicService {
             timer.cancel();
             return;
           }
-          if (controller.value.isPlaying && controller.value.position > Duration.zero) {
+          if ((controller.value.isPlaying && !controller.value.isBuffering) ||
+              controller.value.position > Duration.zero) {
             step++;
             final vol = (androidMaxVolume * (step / totalSteps)).clamp(0.0, androidMaxVolume);
             controller.setVolume(vol);
@@ -270,6 +292,12 @@ class ThemeMusicService {
     if (!_isPlaying) return;
     _fadeTimer?.cancel();
     _winHeartbeatTimer?.cancel();
+
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      stopImmediate(clearScreens: true);
+      return;
+    }
 
     int step = 0;
     const totalSteps = 10;

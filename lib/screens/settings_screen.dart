@@ -40,7 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _skipAheadSeconds = 30;
 
   // Update settings state
-  bool _autoCheckUpdates = false;
+  bool _autoCheckUpdates = true;
   bool _isCheckingUpdate = false;
   final FocusNode _autoUpdateFocusNode = FocusNode();
   final FocusNode _checkUpdateBtnFocusNode = FocusNode();

@@ -39,7 +39,7 @@ class DetailsScreen extends StatefulWidget {
   State<DetailsScreen> createState() => _DetailsScreenState();
 }
 
-class _DetailsScreenState extends State<DetailsScreen> {
+class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserver {
   final Object _screenToken = Object();
   late PlexMediaService _mediaService;
   late PlexMediaItem _item;
@@ -117,6 +117,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _item = widget.initialItem;
     _mediaService = PlexMediaService(server: widget.server);
     _loadFullDetails();
@@ -142,7 +143,17 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (mounted) _startThemeIfAllowed();
+    } else {
+      _stopTheme(immediate: true);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     ThemeMusicService.instance.unregisterScreen(_screenToken);
     _scrollController.dispose();
     _firstEpisodeFocusNode.dispose();
@@ -163,6 +174,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   Future<void> _startThemeIfAllowed() async {
     if (!mounted || (!_item.isShow && !_item.isEpisode)) return;
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
 
     final showKey = _showRatingKey;
     ThemeMusicService.instance.registerScreen(_screenToken, showKey);
@@ -377,9 +392,31 @@ class _DetailsScreenState extends State<DetailsScreen> {
         setState(() {
           _isLoadingDetails = false;
         });
-        _startThemeIfAllowed();
+        if (WidgetsBinding.instance.lifecycleState == null ||
+            WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+          _startThemeIfAllowed();
+        }
       }
     }
+  }
+
+  void _openEpisodeDetails(PlexMediaItem episode) {
+    _lastPlayedEpisodeKey = episode.ratingKey;
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute(
+        builder: (_) => DetailsScreen(
+          initialItem: episode,
+          server: widget.server,
+          clientId: widget.clientId,
+        ),
+      ),
+    )
+        .then((_) {
+      if (mounted) {
+        _loadFullDetails(restoreFocus: true);
+      }
+    });
   }
 
   void _playTrailer() {
@@ -1665,10 +1702,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                                     episodeIndex: index + 1,
                                     seasonIndex: _selectedSeason?.index,
                                     epThumb: epThumb,
-                                    onPlay: () => _playMedia(
-                                      item: ep,
-                                      resumeMs: ep.viewOffset ?? 0,
-                                    ),
+                                    onSelect: () => _openEpisodeDetails(ep),
                                   );
                                 },
                               ),
@@ -1742,7 +1776,7 @@ class _EpisodeTile extends StatefulWidget {
   final int episodeIndex;
   final int? seasonIndex;
   final String epThumb;
-  final VoidCallback onPlay;
+  final VoidCallback onSelect;
   final FocusNode? focusNode;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
@@ -1756,7 +1790,7 @@ class _EpisodeTile extends StatefulWidget {
     required this.episodeIndex,
     this.seasonIndex,
     required this.epThumb,
-    required this.onPlay,
+    required this.onSelect,
     this.focusNode,
     this.onUp,
     this.onDown,
@@ -1849,7 +1883,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               key == LogicalKeyboardKey.space ||
               key == LogicalKeyboardKey.gameButtonA ||
               key == LogicalKeyboardKey.numpadEnter)) {
-            widget.onPlay();
+            widget.onSelect();
             return KeyEventResult.handled;
           }
         }
@@ -1859,7 +1893,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         scale: isHighlighted ? 1.02 : 1.0,
         duration: const Duration(milliseconds: 150),
         child: InkWell(
-          onTap: widget.onPlay,
+          onTap: widget.onSelect,
           onHover: (hovered) {
             if (Platform.isWindows && mounted) {
               setState(() => _isHovered = hovered);
@@ -1923,20 +1957,6 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                               minHeight: 3,
                             ),
                           ),
-                        Center(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.play_arrow_rounded,
-                              color: isHighlighted ? PlixTheme.plexGold : Colors.white70,
-                              size: 28,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),

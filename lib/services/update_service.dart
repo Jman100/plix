@@ -53,8 +53,8 @@ class UpdateInfo {
 class UpdateService {
   static const String manifestUrl = 'https://plix.jman100.com/plix.json';
   // Keep in sync with the version in pubspec.yaml.
-  static const String currentVersion = '1.2.9';
-  static const int currentVersionCode = 28;
+  static const String currentVersion = '1.3.0';
+  static const int currentVersionCode = 29;
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');
@@ -77,7 +77,7 @@ class UpdateService {
 
   static Future<bool> isAutoCheckEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_prefAutoCheckKey) ?? false;
+    return prefs.getBool(_prefAutoCheckKey) ?? true;
   }
 
   static Future<void> setAutoCheckEnabled(bool enabled) async {
