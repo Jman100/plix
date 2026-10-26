@@ -175,12 +175,7 @@ class PlixTheme {
         ),
       ),
       focusColor: primary.withOpacity(0.35),
-      cardTheme: CardTheme(
-        color: card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
+      cardColor: card,
     );
   }
 }
