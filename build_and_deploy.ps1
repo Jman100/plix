@@ -33,20 +33,11 @@ if (Test-Path $innoCompiler) {
         exit $LASTEXITCODE
     }
 
-    Write-Host "Compiling Windows x64 Installer with Inno Setup..." -ForegroundColor Cyan
-    & $innoCompiler "/DMyAppVersion=$version" "/DMyAppArch=x64" "/DMyAppSourceDir=build\windows\x64\runner\Release" "/DMyAppOutputBaseFilename=plix_windows" "windows_installer.iss"
+    Write-Host "Compiling Unified Windows Installer (x64 & ARM64) with Inno Setup..." -ForegroundColor Cyan
+    & $innoCompiler "/DMyAppVersion=$version" "/DMyAppOutputBaseFilename=plix_windows" "windows_installer.iss"
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Inno Setup compiler failed with code $LASTEXITCODE"
         exit $LASTEXITCODE
-    }
-
-    $armSourceDir = "build\windows\arm64\runner\Release"
-    if (Test-Path $armSourceDir) {
-        Write-Host "Compiling Windows ARM64 Installer with Inno Setup..." -ForegroundColor Cyan
-        & $innoCompiler "/DMyAppVersion=$version" "/DMyAppArch=arm64" "/DMyAppSourceDir=$armSourceDir" "/DMyAppOutputBaseFilename=plix_windows_arm64" "windows_installer.iss"
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "Inno Setup ARM64 build failed"
-        }
     }
 } else {
     Write-Warning "Inno Setup compiler not found at $innoCompiler, skipping Windows installer compilation."
@@ -61,20 +52,13 @@ if (Test-Path $networkPlixDir) {
     $apkSize = (Get-Item "$networkPlixDir\plix_android_tv.apk").Length
     Write-Host "Published plix_android_tv.apk ($apkSize bytes) successfully!" -ForegroundColor Green
 
-    # Publish Windows x64 Installer
+    # Publish Unified Windows Installer
     $installerSource = "build\installer\plix_windows.exe"
     if (Test-Path $installerSource) {
         Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force
+        Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows_arm64.exe" -Force
         $winSize = (Get-Item "$networkPlixDir\plix_windows.exe").Length
-        Write-Host "Published plix_windows.exe ($winSize bytes) successfully!" -ForegroundColor Green
-    }
-
-    # Publish Windows ARM64 Installer
-    $armInstallerSource = "build\installer\plix_windows_arm64.exe"
-    if (Test-Path $armInstallerSource) {
-        Copy-Item $armInstallerSource -Destination "$networkPlixDir\plix_windows_arm64.exe" -Force
-        $armWinSize = (Get-Item "$networkPlixDir\plix_windows_arm64.exe").Length
-        Write-Host "Published plix_windows_arm64.exe ($armWinSize bytes) successfully!" -ForegroundColor Green
+        Write-Host "Published unified plix_windows.exe ($winSize bytes) successfully!" -ForegroundColor Green
     }
 
     # Publish Website
