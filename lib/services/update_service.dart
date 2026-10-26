@@ -32,7 +32,13 @@ class UpdateInfo {
         ? (json['versionCode'] as num).toInt()
         : int.tryParse(json['versionCode']?.toString() ?? '') ?? 1;
     final apk = json['apkUrl']?.toString() ?? 'https://plix.jman100.com/plix_android_tv.apk';
-    final winUrl = json['windowsUrl']?.toString() ?? 'https://plix.jman100.com/plix_windows.exe';
+    final winArm64Url = json['windowsArm64Url']?.toString();
+    final isArm64 = Platform.isWindows &&
+        ((Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() == 'ARM64') ||
+         (Platform.environment['PROCESSOR_ARCHITEW6432']?.toUpperCase() == 'ARM64'));
+    final winUrl = (isArm64 && winArm64Url != null && winArm64Url.isNotEmpty)
+        ? winArm64Url
+        : (json['windowsUrl']?.toString() ?? 'https://plix.jman100.com/plix_windows.exe');
     final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 

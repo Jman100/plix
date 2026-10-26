@@ -17,19 +17,34 @@ if (-not (Test-Path $innoCompiler)) {
     exit 1
 }
 
-Write-Host "Compiling Windows Installer with Inno Setup..."
-& $innoCompiler "windows_installer.iss"
+Write-Host "Compiling Windows x64 Installer with Inno Setup..."
+& $innoCompiler "/DMyAppVersion=$version" "/DMyAppArch=x64" "/DMyAppSourceDir=build\windows\x64\runner\Release" "/DMyAppOutputBaseFilename=plix_windows" "windows_installer.iss"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Inno Setup build failed"
+    Write-Error "Inno Setup x64 build failed"
     exit $LASTEXITCODE
 }
 
+$armSourceDir = "build\windows\arm64\runner\Release"
+if (Test-Path $armSourceDir) {
+    Write-Host "Compiling Windows ARM64 Installer with Inno Setup..."
+    & $innoCompiler "/DMyAppVersion=$version" "/DMyAppArch=arm64" "/DMyAppSourceDir=$armSourceDir" "/DMyAppOutputBaseFilename=plix_windows_arm64" "windows_installer.iss"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Inno Setup ARM64 build failed"
+    }
+}
+
 $installerSource = "build\installer\plix_windows.exe"
+$armInstallerSource = "build\installer\plix_windows_arm64.exe"
 $networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
 
 if (Test-Path $networkPlixDir) {
     Write-Host "Publishing Windows installer to network folder $networkPlixDir..."
     Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force
+    if (Test-Path $armInstallerSource) {
+        Copy-Item $armInstallerSource -Destination "$networkPlixDir\plix_windows_arm64.exe" -Force
+        $armWinSize = (Get-Item "$networkPlixDir\plix_windows_arm64.exe").Length
+        Write-Host "Published plix_windows_arm64.exe ($armWinSize bytes) successfully!"
+    }
     if (Test-Path "web_site\index.html") {
         Copy-Item "web_site\*" -Destination "$networkPlixDir" -Recurse -Force
     }
@@ -48,6 +63,7 @@ if (Test-Path $networkPlixDir) {
         versionCode = $versionCode
         apkUrl = "https://plix.jman100.com/plix_android_tv.apk?v=$version"
         windowsUrl = "https://plix.jman100.com/plix_windows.exe?v=$version"
+        windowsArm64Url = "https://plix.jman100.com/plix_windows_arm64.exe?v=$version"
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
