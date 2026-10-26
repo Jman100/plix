@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.3.2"
-$versionCode = 31
+$version = "1.3.3"
+$versionCode = 32
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -73,7 +73,10 @@ if (Test-Path $networkPlixDir) {
 - iOS Playback UI: Fully resolved playback UI visibility and touch responsiveness in portrait and landscape
 - Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active
 - iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware
-- Version Bump: v1.3.2 (versionCode 31)
+- Windows on ARM Playback: Fixed black screen on Windows for ARM (Direct3D 12_1/12_0 & updated ANGLE swapchain rendering pipeline)
+- Episode HDR Badges: Specific HDR format display (HDR10, HDR10+, Dolby Vision, HLG) on episodes across all views
+- Continue Watching Hero Duration: Added media content runtime length to the hero detail section
+- Version Bump: v1.3.3 (versionCode 32)
 "@
 
     $manifest = [ordered]@{

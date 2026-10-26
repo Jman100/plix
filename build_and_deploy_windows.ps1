@@ -1,5 +1,5 @@
-$version = "1.3.2"
-$versionCode = 31
+$version = "1.3.3"
+$versionCode = 32
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -46,7 +46,10 @@ if (Test-Path $networkPlixDir) {
 - Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active
 - iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware
 - Windows Native ARM64: Redesigned Windows build with native ARM64 support and unified dual-architecture installer
-- Version Bump: v1.3.2 (versionCode 31)
+- Windows on ARM Playback: Fixed black screen on Windows for ARM (Direct3D 12_1/12_0 & updated ANGLE swapchain rendering pipeline)
+- Episode HDR Badges: Specific HDR format display (HDR10, HDR10+, Dolby Vision, HLG) on episodes across all views
+- Continue Watching Hero Duration: Added media content runtime length to the hero detail section
+- Version Bump: v1.3.3 (versionCode 32)
 "@
 
     $manifest = [ordered]@{

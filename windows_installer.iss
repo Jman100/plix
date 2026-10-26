@@ -3,7 +3,7 @@
   #define MyAppName "Plix"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "1.3.2"
+  #define MyAppVersion "1.3.3"
 #endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "Plix"

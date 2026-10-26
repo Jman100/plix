@@ -1,0 +1,65 @@
+// This file is a part of media_kit
+// (https://github.com/media-kit/media-kit).
+//
+// Copyright © 2021 & onwards, Hitesh Kumar Saini <saini123hitesh@gmail.com>.
+// All rights reserved.
+// Use of this source code is governed by MIT license that can be found in the
+// LICENSE file.
+#ifndef MEDIA_KIT_VIDEO_PLUGIN_H_
+#define MEDIA_KIT_VIDEO_PLUGIN_H_
+
+#include <Windows.h>
+#include <flutter/method_channel.h>
+#include <flutter/plugin_registrar_windows.h>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <unordered_map>
+
+#include "utils.h"
+#include "video_output_manager.h"
+
+namespace media_kit_video {
+
+class MediaKitVideoPlugin : public flutter::Plugin {
+ public:
+  static void RegisterWithRegistrar(flutter::PluginRegistrarWindows* registrar);
+
+  MediaKitVideoPlugin(flutter::PluginRegistrarWindows* registrar);
+
+  virtual ~MediaKitVideoPlugin();
+
+  MediaKitVideoPlugin(const MediaKitVideoPlugin&) = delete;
+  MediaKitVideoPlugin& operator=(const MediaKitVideoPlugin&) = delete;
+
+ private:
+  static constexpr UINT kMainThreadTaskMessage = WM_USER + 1001;
+
+  void HandleMethodCall(
+      const flutter::MethodCall<flutter::EncodableValue>& method_call,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+  // Posts |task| to the task window so platform-channel callbacks run on
+  // the platform thread, including those originating on rendering workers.
+  void RunOnMainThread(std::function<void()> task);
+  static LRESULT CALLBACK WindowProcDelegate(HWND hwnd,
+                                             UINT message,
+                                             WPARAM wParam,
+                                             LPARAM lParam);
+  void ProcessMainThreadTasks();
+
+  flutter::PluginRegistrarWindows* registrar_ = nullptr;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_ =
+      nullptr;
+  std::unique_ptr<VideoOutputManager> video_output_manager_ = nullptr;
+  // A message-only window dispatches callbacks even without an implicit view.
+  HWND task_window_ = nullptr;
+  std::queue<std::function<void()>> main_thread_tasks_;
+  std::mutex main_thread_tasks_mutex_;
+  std::unordered_map<flutter::FlutterViewId, Utils::FullscreenState>
+      fullscreen_windows_;
+};
+
+}  // namespace media_kit_video
+
+#endif  // MEDIA_KIT_VIDEO_PLUGIN_H_

@@ -927,6 +927,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                           const SizedBox(width: 6),
                         ],
+                        if (item.formattedDuration.isNotEmpty) ...[
+                          Text(
+                            item.formattedDuration,
+                            style: const TextStyle(
+                              color: PlixTheme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         if (item.contentRating != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
@@ -968,7 +979,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               border: Border.all(color: PlixTheme.plexGold.withOpacity(0.6)),
                             ),
                             child: Text(
-                              item.hdrBadge.isNotEmpty ? item.hdrBadge : 'HDR',
+                              item.hdrBadge.isNotEmpty ? item.hdrBadge : 'HDR10',
                               style: TextStyle(
                                 color: PlixTheme.plexGold,
                                 fontSize: 10,
@@ -1151,7 +1162,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                         child: Text(
-                          _heroItem!.hdrBadge.isNotEmpty ? _heroItem!.hdrBadge : 'HDR',
+                          _heroItem!.hdrBadge.isNotEmpty ? _heroItem!.hdrBadge : 'HDR10',
                           style: TextStyle(
                             color: PlixTheme.plexGold,
                             fontSize: 11,

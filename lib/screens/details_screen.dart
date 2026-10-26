@@ -842,7 +842,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
               ),
             if (_item.isHdr)
               _Badge(
-                label: _item.hdrBadge.isNotEmpty ? _item.hdrBadge : 'HDR',
+                label: _item.hdrBadge.isNotEmpty ? _item.hdrBadge : 'HDR10',
                 isHighlight: true,
               ),
             if (_item.videoCodec != null) _Badge(label: _item.videoCodec!.toUpperCase()),
@@ -1206,7 +1206,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                           ),
                                         if (_item.isHdr)
                                           _Badge(
-                                            label: _item.hdrBadge.isNotEmpty ? _item.hdrBadge : 'HDR',
+                                            label: _item.hdrBadge.isNotEmpty ? _item.hdrBadge : 'HDR10',
                                             isHighlight: true,
                                           ),
                                         if (_item.videoCodec != null) _Badge(label: _item.videoCodec!.toUpperCase()),
@@ -2081,7 +2081,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                                         ),
                                       ),
                                       child: Text(
-                                        ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR',
+                                        ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR10',
                                         style: TextStyle(
                                           color: PlixTheme.plexGold,
                                           fontSize: 10,
@@ -2125,7 +2125,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                                           ),
                                         ),
                                         child: Text(
-                                          ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR',
+                                          ep.hdrBadge.isNotEmpty ? ep.hdrBadge : 'HDR10',
                                           style: TextStyle(
                                             color: PlixTheme.plexGold,
                                             fontSize: 10,

@@ -3287,7 +3287,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                                 _OsdBadge(
                                                   label: _currentItem.hdrBadge.isNotEmpty
                                                       ? _currentItem.hdrBadge
-                                                      : 'HDR',
+                                                      : 'HDR10',
                                                   isHighlight: true,
                                                   color: Colors.amberAccent,
                                                 ),

@@ -366,9 +366,14 @@ class PlexMediaItem {
         hType.contains('dolby') ||
         prof.contains('dovi') ||
         dov.contains('dolby vision') ||
+        dov.contains('dolby') ||
         dov.contains('dovi') ||
         disp.contains('dovi') ||
-        disp.contains('dolby vision')) {
+        disp.contains('dolby vision') ||
+        disp.contains('dolby') ||
+        extDisp.contains('dovi') ||
+        extDisp.contains('dolby vision') ||
+        extDisp.contains('dolby')) {
       return 'Dolby Vision';
     }
 
@@ -391,7 +396,11 @@ class PlexMediaItem {
     }
 
     // 3. HLG
-    if (hType.contains('hlg') || trc.contains('arib') || trc.contains('hlg') || disp.contains('hlg')) {
+    if (hType.contains('hlg') ||
+        trc.contains('arib') ||
+        trc.contains('hlg') ||
+        disp.contains('hlg') ||
+        extDisp.contains('hlg')) {
       return 'HLG';
     }
 
@@ -400,13 +409,14 @@ class PlexMediaItem {
         trc.contains('smpte2084') ||
         trc.contains('2084') ||
         prof.contains('hdr10') ||
-        disp.contains('hdr10')) {
+        disp.contains('hdr10') ||
+        extDisp.contains('hdr10')) {
       return 'HDR10';
     }
 
-    // 5. Generic HDR
+    // 5. Generic HDR defaults to HDR10
     if (isHdr) {
-      return 'HDR';
+      return 'HDR10';
     }
 
     return '';
@@ -519,12 +529,16 @@ class PlexMediaItem {
   }
 
   String get formattedDuration {
-    if (duration == null) return '';
+    if (duration == null || duration! <= 0) return '';
     final totalMinutes = (duration! / (1000 * 60)).round();
+    if (totalMinutes <= 0) return '';
     final hours = totalMinutes ~/ 60;
     final minutes = totalMinutes % 60;
     if (hours > 0) {
-      return '${hours}h ${minutes}m';
+      if (minutes > 0) {
+        return '${hours}h ${minutes}m';
+      }
+      return '${hours}h';
     }
     return '${minutes}m';
   }
@@ -632,7 +646,19 @@ class PlexMediaItem {
       }
       dovProf ??= (firstMedia['DOVIProfile'] is num)
           ? (firstMedia['DOVIProfile'] as num).toInt()
-          : int.tryParse(firstMedia['DOVIProfile']?.toString() ?? '');
+          : (firstMedia['doviProfile'] is num)
+              ? (firstMedia['doviProfile'] as num).toInt()
+              : int.tryParse(firstMedia['DOVIProfile']?.toString() ?? firstMedia['doviProfile']?.toString() ?? '');
+      if (firstMedia['DOVIPresent'] == true ||
+          firstMedia['DOVIPresent'] == 'true' ||
+          firstMedia['DOVIPresent'] == 1 ||
+          firstMedia['DOVIPresent'] == '1' ||
+          firstMedia['doviPresent'] == true ||
+          firstMedia['doviPresent'] == 'true' ||
+          firstMedia['doviPresent'] == 1 ||
+          firstMedia['doviPresent'] == '1') {
+        dovProf ??= 0;
+      }
       hType ??= firstMedia['hdrType']?.toString();
       final fmTitleCheck = '${firstMedia['displayTitle'] ?? ''} ${firstMedia['extendedDisplayTitle'] ?? ''}'.toLowerCase();
       if (fmTitleCheck.contains('hdr10+') || fmTitleCheck.contains('hdr10plus') || fmTitleCheck.contains('2094')) {
@@ -680,7 +706,20 @@ class PlexMediaItem {
               colPrim = stMap['colorPrimaries'] as String? ?? colPrim;
               final stDovProf = (stMap['DOVIProfile'] is num)
                   ? (stMap['DOVIProfile'] as num).toInt()
-                  : int.tryParse(stMap['DOVIProfile']?.toString() ?? '');
+                  : (stMap['doviProfile'] is num)
+                      ? (stMap['doviProfile'] as num).toInt()
+                      : int.tryParse(stMap['DOVIProfile']?.toString() ?? stMap['doviProfile']?.toString() ?? '');
+              dovProf = stDovProf ?? dovProf;
+              if (stMap['DOVIPresent'] == true ||
+                  stMap['DOVIPresent'] == 'true' ||
+                  stMap['DOVIPresent'] == 1 ||
+                  stMap['DOVIPresent'] == '1' ||
+                  stMap['doviPresent'] == true ||
+                  stMap['doviPresent'] == 'true' ||
+                  stMap['doviPresent'] == 1 ||
+                  stMap['doviPresent'] == '1') {
+                dovProf ??= 0;
+              }
               dovProf = stDovProf ?? dovProf;
               dovTitle = stMap['DOVITitle'] as String? ?? stMap['doviTitle'] as String? ?? dovTitle;
               vScan ??= stMap['scanType']?.toString() ?? stMap['videoScanType']?.toString();
