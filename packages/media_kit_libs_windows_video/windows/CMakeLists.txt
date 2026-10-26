@@ -23,6 +23,10 @@ else()
   set(IS_ARM64 FALSE)
 endif()
 
+# Find archive extractors
+find_program(SEVENZ_EXECUTABLE NAMES 7z 7za)
+find_program(TAR_EXECUTABLE NAMES tar PATHS "C:/Windows/System32" "$ENV{SystemRoot}/System32")
+
 # ------------------------------------------------------------------------------
 function(download_and_verify url hash_type hash_val archive_path)
   if(EXISTS "${archive_path}")
@@ -94,11 +98,29 @@ if(NOT EXISTS "${LIBMPV_SRC}/libmpv.dll.a")
   message(STATUS "Extracting ${LIBMPV} to ${LIBMPV_SRC}...")
   file(REMOVE_RECURSE "${LIBMPV_SRC}")
   file(MAKE_DIRECTORY "${LIBMPV_SRC}")
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E tar xvf "${LIBMPV_ARCHIVE}"
-    WORKING_DIRECTORY "${LIBMPV_SRC}"
-    RESULT_VARIABLE EXTRACT_RES
-  )
+
+  if(SEVENZ_EXECUTABLE)
+    message(STATUS "Using 7zip for libmpv extraction: ${SEVENZ_EXECUTABLE}")
+    execute_process(
+      COMMAND "${SEVENZ_EXECUTABLE}" x -y "${LIBMPV_ARCHIVE}"
+      WORKING_DIRECTORY "${LIBMPV_SRC}"
+      RESULT_VARIABLE EXTRACT_RES
+    )
+  elseif(TAR_EXECUTABLE)
+    message(STATUS "Using tar for libmpv extraction: ${TAR_EXECUTABLE}")
+    execute_process(
+      COMMAND "${TAR_EXECUTABLE}" -xf "${LIBMPV_ARCHIVE}" -C "${LIBMPV_SRC}"
+      RESULT_VARIABLE EXTRACT_RES
+    )
+  else()
+    message(STATUS "Using cmake -E tar for libmpv extraction")
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E tar xvf "${LIBMPV_ARCHIVE}"
+      WORKING_DIRECTORY "${LIBMPV_SRC}"
+      RESULT_VARIABLE EXTRACT_RES
+    )
+  endif()
+
   if(NOT EXTRACT_RES EQUAL 0)
     message(FATAL_ERROR "Failed to extract ${LIBMPV_ARCHIVE}")
   endif()
@@ -128,11 +150,29 @@ if(NOT EXISTS "${ANGLE_SRC}/lib/libEGL.dll.lib")
   message(STATUS "Extracting ${ANGLE} to ${ANGLE_SRC}...")
   file(REMOVE_RECURSE "${ANGLE_SRC}")
   file(MAKE_DIRECTORY "${ANGLE_SRC}")
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E tar xvf "${ANGLE_ARCHIVE}"
-    WORKING_DIRECTORY "${ANGLE_SRC}"
-    RESULT_VARIABLE ANGLE_EXTRACT_RES
-  )
+
+  if(SEVENZ_EXECUTABLE)
+    message(STATUS "Using 7zip for ANGLE extraction: ${SEVENZ_EXECUTABLE}")
+    execute_process(
+      COMMAND "${SEVENZ_EXECUTABLE}" x -y "${ANGLE_ARCHIVE}"
+      WORKING_DIRECTORY "${ANGLE_SRC}"
+      RESULT_VARIABLE ANGLE_EXTRACT_RES
+    )
+  elseif(TAR_EXECUTABLE)
+    message(STATUS "Using tar for ANGLE extraction: ${TAR_EXECUTABLE}")
+    execute_process(
+      COMMAND "${TAR_EXECUTABLE}" -xf "${ANGLE_ARCHIVE}" -C "${ANGLE_SRC}"
+      RESULT_VARIABLE ANGLE_EXTRACT_RES
+    )
+  else()
+    message(STATUS "Using cmake -E tar for ANGLE extraction")
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E tar xvf "${ANGLE_ARCHIVE}"
+      WORKING_DIRECTORY "${ANGLE_SRC}"
+      RESULT_VARIABLE ANGLE_EXTRACT_RES
+    )
+  endif()
+
   if(NOT ANGLE_EXTRACT_RES EQUAL 0)
     message(FATAL_ERROR "Failed to extract ${ANGLE_ARCHIVE}")
   endif()
@@ -142,6 +182,14 @@ if(NOT EXISTS "${ANGLE_SRC}/lib/libEGL.dll.lib")
   foreach(dll IN LISTS ANGLE_DLLS)
     file(COPY "${dll}" DESTINATION "${ANGLE_SRC}")
   endforeach()
+
+  # Ensure EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE is defined for media_kit_video compatibility
+  if(EXISTS "${ANGLE_SRC}/include/EGL/eglext_angle.h")
+    file(READ "${ANGLE_SRC}/include/EGL/eglext_angle.h" EGLEXT_CONTENT)
+    if(NOT EGLEXT_CONTENT MATCHES "EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE")
+      file(APPEND "${ANGLE_SRC}/include/EGL/eglext_angle.h" "\n#ifndef EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE\n#define EGL_PLATFORM_ANGLE_TYPE_D3D9_ANGLE 0x3207\n#endif\n")
+    endif()
+  endif()
 endif()
 
 # ------------------------------------------------------------------------------

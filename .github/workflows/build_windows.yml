@@ -43,6 +43,10 @@ jobs:
           flutter --version
           flutter doctor -v
 
+      - name: Install 7-Zip
+        shell: pwsh
+        run: choco install 7zip -y --no-progress
+
       - name: Install Dependencies
         shell: pwsh
         run: flutter pub get
