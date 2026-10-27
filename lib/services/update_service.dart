@@ -1,3 +1,4 @@
+import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -58,9 +59,24 @@ class UpdateInfo {
 
 class UpdateService {
   static const String manifestUrl = 'https://plix.jman100.com/plix.json';
-  // Keep in sync with the version in pubspec.yaml.
-  static const String currentVersion = '1.3.2';
-  static const int currentVersionCode = 31;
+  static String _currentVersion = '1.3.3';
+  static int _currentVersionCode = 32;
+
+  static String get currentVersion => _currentVersion;
+  static int get currentVersionCode => _currentVersionCode;
+
+  static Future<void> initVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) {
+        _currentVersion = info.version;
+      }
+      final parsedCode = int.tryParse(info.buildNumber);
+      if (parsedCode != null && parsedCode > 0) {
+        _currentVersionCode = parsedCode;
+      }
+    } catch (_) {}
+  }
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');

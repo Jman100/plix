@@ -11,7 +11,7 @@ $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$too
 $networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
 
 Write-Host "=== Building Stable Release APK (v$version, versionCode $versionCode) ===" -ForegroundColor Cyan
-& "$toolsDir\flutter\bin\flutter.bat" build apk --release
+& "$toolsDir\flutter\bin\flutter.bat" build apk --release --build-name=$version --build-number=$versionCode
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Flutter APK build failed with code $LASTEXITCODE"
     exit $LASTEXITCODE
@@ -27,7 +27,7 @@ if (-not (Test-Path $apkSource)) {
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 if (Test-Path $innoCompiler) {
     Write-Host "`n=== Building Stable Windows Release (v$version) ===" -ForegroundColor Cyan
-    & "$toolsDir\flutter\bin\flutter.bat" build windows --release
+    & "$toolsDir\flutter\bin\flutter.bat" build windows --release --build-name=$version --build-number=$versionCode
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Flutter Windows build failed with code $LASTEXITCODE"
         exit $LASTEXITCODE

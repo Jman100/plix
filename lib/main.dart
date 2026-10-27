@@ -11,10 +11,12 @@ import 'services/plex_server_service.dart';
 import 'services/plix_device_helper.dart';
 import 'services/plix_image_cache.dart';
 import 'services/tv_sound_service.dart';
+import 'services/update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   PlixImageCache.configure();
+  await UpdateService.initVersion();
 
   await PlixDeviceHelper.initDeviceName();
   if (Platform.isIOS) {

@@ -183,7 +183,7 @@ class JellyfinMediaService {
             (cTransfer?.toLowerCase().contains('2084') ?? false) ||
             (cTransfer?.toLowerCase().contains('smpte2084') ?? false) ||
             (cPrimaries?.toLowerCase().contains('2020') ?? false)) {
-          hdrType = 'HDR';
+          hdrType = 'HDR10';
         }
       }
     }

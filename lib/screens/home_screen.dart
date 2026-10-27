@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _heroMetadataDebounceTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
         final full = await _mediaService.getItemMetadata(ratingKey);
-        if (mounted && _heroItem?.ratingKey == ratingKey) {
+        if (mounted && (_heroItem?.ratingKey == ratingKey || _heroItem?.targetRatingKey == ratingKey)) {
           setState(() {
             _heroItem = full;
           });
@@ -294,6 +294,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
+        if (_heroItem!.ratingKey.isNotEmpty) {
+          _fetchHeroFullMetadata(_heroItem!.targetRatingKey ?? _heroItem!.ratingKey);
+        }
       }
 
       // Fetch recently added for each library (limit to 15 on home screen)
@@ -1099,6 +1102,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     if (_heroItem!.year != null) ...[
                       Text(
                         _heroItem!.year.toString(),
+                        style: const TextStyle(
+                          color: PlixTheme.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (_heroItem!.formattedDuration.isNotEmpty) ...[
+                      Text(
+                        _heroItem!.formattedDuration,
                         style: const TextStyle(
                           color: PlixTheme.textSecondary,
                           fontSize: 13,
