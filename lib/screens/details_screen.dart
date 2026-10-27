@@ -514,6 +514,33 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             _focusFirstEpisode();
           });
         }
+
+        // Hydrate episodes in background to obtain full stream/dynamic HDR metadata
+        final currentSeasonKey = season.ratingKey;
+        _mediaService.getItemsMetadata(eps.map((e) => e.ratingKey).toList()).then((fullEps) {
+          if (!mounted || _selectedSeason?.ratingKey != currentSeasonKey) return;
+          if (fullEps.isEmpty) return;
+          final fullMap = {for (final f in fullEps) f.ratingKey: f};
+          bool changed = false;
+          final updated = _episodes.map((ep) {
+            final full = fullMap[ep.ratingKey];
+            if (full != null) {
+              if (ep.hdrBadge != full.hdrBadge ||
+                  ep.isHdr != full.isHdr ||
+                  ep.formattedResolution != full.formattedResolution) {
+                changed = true;
+              }
+              return full;
+            }
+            return ep;
+          }).toList();
+
+          if (changed && mounted && _selectedSeason?.ratingKey == currentSeasonKey) {
+            setState(() {
+              _episodes = updated;
+            });
+          }
+        }).catchError((_) {});
       }
     } catch (_) {
       if (mounted) {

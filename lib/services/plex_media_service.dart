@@ -619,6 +619,44 @@ class PlexMediaService {
     return PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
   }
 
+  Future<List<PlexMediaItem>> getItemsMetadata(List<String> ratingKeys) async {
+    if (ratingKeys.isEmpty) return [];
+    if (server.isJellyfin) {
+      final results = await Future.wait(
+        ratingKeys.map((k) => getItemMetadata(k).then<PlexMediaItem?>((v) => v).catchError((_) => null)),
+      );
+      return results.whereType<PlexMediaItem>().toList();
+    }
+    try {
+      final keys = ratingKeys.join(',');
+      final url = Uri.parse('$baseUrl/library/metadata/$keys?includeStreams=1&includeMarkers=1');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+        final metadata = (container['Metadata'] as List<dynamic>?) ??
+            (container['Video'] as List<dynamic>?) ??
+            [];
+        if (metadata.isNotEmpty) {
+          return metadata
+              .whereType<Map<String, dynamic>>()
+              .map(PlexMediaItem.fromJson)
+              .toList();
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to parallel individual requests
+    try {
+      final results = await Future.wait(
+        ratingKeys.map((k) => getItemMetadata(k).then<PlexMediaItem?>((v) => v).catchError((_) => null)),
+      );
+      return results.whereType<PlexMediaItem>().toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<PlexMediaItem>> getShowSeasons(String showRatingKey) async {
     if (server.isJellyfin) {
       return _jfService.getShowSeasons(showRatingKey);
