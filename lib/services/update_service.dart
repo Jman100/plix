@@ -13,6 +13,7 @@ class UpdateInfo {
   final int versionCode;
   final String apkUrl;
   final String windowsUrl;
+  final String linuxUrl;
   final String releaseNotes;
   final String releaseDate;
   final bool hasUpdate;
@@ -22,6 +23,7 @@ class UpdateInfo {
     required this.versionCode,
     required this.apkUrl,
     this.windowsUrl = '',
+    this.linuxUrl = '',
     this.releaseNotes = '',
     this.releaseDate = '',
     required this.hasUpdate,
@@ -40,6 +42,7 @@ class UpdateInfo {
     final winUrl = (isArm64 && winArm64Url != null && winArm64Url.isNotEmpty)
         ? winArm64Url
         : (json['windowsUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe');
+    final linux = json['linuxUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
     final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 
@@ -50,6 +53,7 @@ class UpdateInfo {
       versionCode: vc,
       apkUrl: apk,
       windowsUrl: winUrl,
+      linuxUrl: linux,
       releaseNotes: notes,
       releaseDate: date,
       hasUpdate: hasUpdate,
@@ -62,8 +66,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.3.3';
-  static int _currentVersionCode = 32;
+  static String _currentVersion = '1.4.0';
+  static int _currentVersionCode = 33;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -114,7 +118,9 @@ class UpdateService {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 6);
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      if (host.contains('plix.jman100.com') || host.contains('local.jman100.com') || host.contains('192.168.0.')) {
+      if (host.contains('plix.jman100.com') ||
+          host.contains('local.jman100.com') ||
+          RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)').hasMatch(host)) {
         return true;
       }
       return false;
@@ -170,6 +176,7 @@ class UpdateService {
         final assets = json['assets'] as List<dynamic>? ?? [];
         String apkUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_android.apk';
         String windowsUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe';
+        String linuxUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
         for (final a in assets) {
           final name = a['name']?.toString() ?? '';
           final dUrl = a['browser_download_url']?.toString();
@@ -178,6 +185,8 @@ class UpdateService {
               apkUrl = dUrl;
             } else if (name == 'plix_windows.exe') {
               windowsUrl = dUrl;
+            } else if (name == 'plix_linux.deb') {
+              linuxUrl = dUrl;
             }
           }
         }
@@ -189,6 +198,7 @@ class UpdateService {
           versionCode: currentVersionCode,
           apkUrl: apkUrl,
           windowsUrl: windowsUrl,
+          linuxUrl: linuxUrl,
           releaseNotes: notes,
           releaseDate: date,
           hasUpdate: hasUpdate,
@@ -202,8 +212,62 @@ class UpdateService {
   static Future<void> downloadAndInstall({
     required String apkUrl,
     String? windowsUrl,
+    String? linuxUrl,
     required void Function(double progress) onProgress,
   }) async {
+    if (Platform.isLinux) {
+      final downloadUrl = (linuxUrl != null && linuxUrl.isNotEmpty)
+          ? linuxUrl
+          : 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
+      final tempDir = Directory.systemTemp.createTempSync('plix_update_');
+      final targetFile = File('${tempDir.path}/plix_linux.deb');
+
+      if (await targetFile.exists()) {
+        try {
+          await targetFile.delete();
+        } catch (_) {}
+      }
+
+      final uri = Uri.parse(downloadUrl);
+      final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
+      final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
+          ? uri
+          : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
+
+      final client = _createHttpClient();
+      final request = await client.getUrl(downloadUri);
+      request.followRedirects = true;
+      request.maxRedirects = 5;
+      request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      request.headers.set('Pragma', 'no-cache');
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download update: HTTP ${response.statusCode}');
+      }
+
+      final totalBytes = response.contentLength;
+      int receivedBytes = 0;
+      final sink = targetFile.openWrite();
+
+      try {
+        await for (final chunk in response) {
+          sink.add(chunk);
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            onProgress(receivedBytes / totalBytes);
+          }
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+
+      onProgress(1.0);
+      await Process.start('xdg-open', [targetFile.path], mode: ProcessStartMode.detached);
+      exit(0);
+    }
+
     if (Platform.isWindows) {
       final downloadUrl = (windowsUrl != null && windowsUrl.isNotEmpty)
           ? windowsUrl
@@ -413,6 +477,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       await UpdateService.downloadAndInstall(
         apkUrl: widget.updateInfo.apkUrl,
         windowsUrl: widget.updateInfo.windowsUrl,
+        linuxUrl: widget.updateInfo.linuxUrl,
         onProgress: (p) {
           if (mounted) {
             setState(() {

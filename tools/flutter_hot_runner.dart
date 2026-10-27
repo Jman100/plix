@@ -4,7 +4,7 @@
 // Usage:
 //   dart tools/flutter_hot_runner.dart [device-id]
 //
-// The device defaults to the Android TV at 192.168.0.81:5555.
+// The device can be specified as an argument or via ADB_DEVICE environment variable.
 //
 // Manual commands can be written to %TEMP%\plix_flutter_command.txt:
 //   {"method":"hotReload"}
@@ -20,7 +20,7 @@ import 'dart:io';
 
 const String _flutterBat =
     r'C:\Users\joshc\Documents\AISTUFF\tools\flutter\bin\flutter.bat';
-const String _defaultDevice = '192.168.0.81:5555';
+final String _defaultDevice = Platform.environment['ADB_DEVICE'] ?? '';
 
 late final File _logFile;
 late final File _commandFile;

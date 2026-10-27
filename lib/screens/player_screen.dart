@@ -21,6 +21,7 @@ import '../services/subtitle_parser.dart';
 import '../services/theme_music_service.dart';
 import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import '../widgets/plix_button.dart';
 import 'details_screen.dart';
 
@@ -176,6 +177,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   final FocusNode _playerFocusNode = FocusNode();
   final FocusNode _backBtnFocusNode = FocusNode();
+  final FocusNode _homeBtnFocusNode = FocusNode();
   final FocusNode _scrubberFocusNode = FocusNode();
   bool _isScrubberFocused = false;
   final FocusNode _playPauseBtnFocusNode = FocusNode();
@@ -1853,6 +1855,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     _playerFocusNode.dispose();
     _backBtnFocusNode.dispose();
+    _homeBtnFocusNode.dispose();
     _scrubberFocusNode.dispose();
     _skipIntroFocusNode.dispose();
     _playPauseBtnFocusNode.dispose();
@@ -1909,6 +1912,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                       _timelineService.stop(_currentPositionMs);
                       _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
                       Navigator.of(context).pop();
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.home_rounded, color: Colors.white, size: 24),
+                    onPressed: () {
+                      _nativePlayer.stop();
+                      _timelineService.stop(_currentPositionMs);
+                      _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                   ),
                   const SizedBox(width: 8),
@@ -2401,6 +2413,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                       _timelineService.stop(_currentPositionMs);
                                       _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
                                       Navigator.of(context).pop();
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.home_rounded, color: Colors.white, size: 22),
+                                    onPressed: () {
+                                      _nativePlayer.stop();
+                                      _timelineService.stop(_currentPositionMs);
+                                      _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                                      Navigator.of(context).popUntil((route) => route.isFirst);
                                     },
                                   ),
                                   Expanded(
@@ -3214,6 +3235,19 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                         Navigator.of(context).pop();
                                       },
                                       onDown: () => _scrubberFocusNode.requestFocus(),
+                                      onRight: () => _homeBtnFocusNode.requestFocus(),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    PlixHomeButton(
+                                      focusNode: _homeBtnFocusNode,
+                                      onPressed: () {
+                                        _nativePlayer.stop();
+                                        _timelineService.stop(_currentPositionMs);
+                                        _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+                                        Navigator.of(context).popUntil((route) => route.isFirst);
+                                      },
+                                      onDown: () => _scrubberFocusNode.requestFocus(),
+                                      onLeft: () => _backBtnFocusNode.requestFocus(),
                                       onRight: _scheduleHideControls,
                                     ),
                                     const SizedBox(width: 16),

@@ -1,9 +1,10 @@
 {
-  "version": "1.3.3",
-  "versionCode": 32,
+  "version": "1.4.0",
+  "versionCode": 33,
   "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
   "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-  "releaseNotes": "- MPV Player for iOS: Integrated libmpv media_kit video player on iOS for native direct play of MKV, DTS, TrueHD, and advanced codecs\n- iOS Playback UI: Fully resolved playback UI visibility and touch responsiveness in portrait and landscape\n- Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active\n- iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware\n- Windows on ARM Playback: Fixed black screen on Windows for ARM (Direct3D 12_1/12_0 & updated ANGLE swapchain rendering pipeline)\n- Episode HDR Badges: Specific HDR format display (HDR10, HDR10+, Dolby Vision, HLG) on episodes across all views\n- Continue Watching Hero Duration: Added media content runtime length to the hero detail section\n- Version Bump: v1.3.3 (versionCode 32)",
+  "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
+  "releaseNotes": "- Quick Navigation: Added Home button next to back button on all screens to quickly return home\n- Linux Support: Added native Linux support packaged as a Debian (.deb) package with libmpv hardware acceleration\n- Windows Dual-Arch: Unified installer for Windows 10 & 11 natively supporting both x86_64 and ARM64\n- Android Packaging: Streamlined single unified APK distribution for all Android devices\n- Security & Privacy: Cleaned and hardened public source code\n- Version Bump: v1.4.0 (versionCode 33)",
   "releaseDate": "2026-10-26"
 }

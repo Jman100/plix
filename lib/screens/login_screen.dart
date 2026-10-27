@@ -6,6 +6,7 @@ import '../models/plex_pin.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import '../widgets/plix_button.dart';
 import 'home_screen.dart';
 import 'server_select_screen.dart';
@@ -26,6 +27,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final FocusNode _backFocusNode = FocusNode();
+  final FocusNode _homeFocusNode = FocusNode();
+  final FocusNode _getNewCodeFocusNode = FocusNode();
   PlexPin? _currentPin;
   bool _isLoading = true;
   String? _errorMessage;
@@ -128,6 +132,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _backFocusNode.dispose();
+    _homeFocusNode.dispose();
+    _getNewCodeFocusNode.dispose();
     super.dispose();
   }
 
@@ -145,8 +152,23 @@ class _LoginScreenState extends State<LoginScreen> {
               Positioned(
                 top: 16,
                 left: 20,
-                child: PlixBackButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PlixBackButton(
+                      focusNode: _backFocusNode,
+                      onRight: () => _homeFocusNode.requestFocus(),
+                      onDown: () => _getNewCodeFocusNode.requestFocus(),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeFocusNode,
+                      onLeft: () => _backFocusNode.requestFocus(),
+                      onDown: () => _getNewCodeFocusNode.requestFocus(),
+                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                    ),
+                  ],
                 ),
               ),
             Center(
@@ -502,6 +524,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 28),
 
                 PlixButton(
+                  focusNode: _getNewCodeFocusNode,
+                  onUp: () => _backFocusNode.requestFocus(),
                   isPrimary: false,
                   label: 'Get New Code',
                   icon: const Icon(Icons.refresh),

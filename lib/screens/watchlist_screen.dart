@@ -8,6 +8,7 @@ import '../services/plex_media_service.dart';
 import '../services/plex_server_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
 import '../services/plix_device_helper.dart';
 import '../widgets/plix_bottom_nav.dart';
@@ -38,6 +39,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   int? _lastSelectedIndex;
   final Map<int, FocusNode> _focusNodes = {};
   final FocusNode _backButtonFocusNode = FocusNode();
+  final FocusNode _homeButtonFocusNode = FocusNode();
   final ScrollController _gridScrollController = ScrollController();
 
   @override
@@ -50,6 +52,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   @override
   void dispose() {
     _backButtonFocusNode.dispose();
+    _homeButtonFocusNode.dispose();
     _gridScrollController.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
@@ -382,6 +385,17 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                     children: [
                       PlixBackButton(
                         focusNode: _backButtonFocusNode,
+                        onRight: () => _homeButtonFocusNode.requestFocus(),
+                        onDown: () {
+                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                            _focusNodes[0]?.requestFocus();
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      PlixHomeButton(
+                        focusNode: _homeButtonFocusNode,
+                        onLeft: () => _backButtonFocusNode.requestFocus(),
                         onDown: () {
                           if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
                             _focusNodes[0]?.requestFocus();

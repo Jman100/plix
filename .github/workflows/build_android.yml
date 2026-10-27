@@ -44,7 +44,6 @@ jobs:
         run: |
           mkdir -p build/staged_apk
           cp build/app/outputs/flutter-apk/app-release.apk build/staged_apk/plix_android.apk
-          cp build/app/outputs/flutter-apk/app-release.apk build/staged_apk/plix_android_tv.apk
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
@@ -61,7 +60,6 @@ jobs:
         with:
           files: |
             build/staged_apk/plix_android.apk
-            build/staged_apk/plix_android_tv.apk
             web_site/plix.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

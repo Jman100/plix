@@ -1,14 +1,14 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.3.3"
-$versionCode = 32
+$version = "1.4.0"
+$versionCode = 33
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
 $env:ANDROID_HOME = "$toolsDir\android-sdk"
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:PATH"
 
-$networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
+$networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 Write-Host "=== Building Stable Release APK (v$version, versionCode $versionCode) ===" -ForegroundColor Cyan
 & "$toolsDir\flutter\bin\flutter.bat" build apk --release --build-name=$version --build-number=$versionCode
@@ -45,14 +45,12 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- MPV Player for iOS: Integrated libmpv media_kit video player on iOS for native direct play of MKV, DTS, TrueHD, and advanced codecs
-- iOS Playback UI: Fully resolved playback UI visibility and touch responsiveness in portrait and landscape
-- Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active
-- iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware
-- Windows on ARM Playback: Fixed black screen on Windows for ARM (Direct3D 12_1/12_0 & updated ANGLE swapchain rendering pipeline)
-- Episode HDR Badges: Specific HDR format display (HDR10, HDR10+, Dolby Vision, HLG) on episodes across all views
-- Continue Watching Hero Duration: Added media content runtime length to the hero detail section
-- Version Bump: v1.3.3 (versionCode 32)
+- Quick Navigation: Added Home button next to back button on all screens to quickly return home
+- Linux Platform Support: Added native Linux support packaged as a Debian (.deb) package with libmpv hardware acceleration
+- Windows Dual-Arch: Unified installer for Windows 10 & 11 natively supporting both x86_64 and ARM64
+- Android Packaging: Streamlined single unified APK distribution for all Android devices
+- Security & Privacy: Cleaned and hardened public source code
+- Version Bump: v1.4.0 (versionCode 33)
 "@
 
     $manifest = [ordered]@{
@@ -61,6 +59,7 @@ if (Test-Path $innoCompiler) {
         apkUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk"
         windowsUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         windowsArm64Url = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
+        linuxUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb"
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
@@ -75,7 +74,6 @@ if (Test-Path $innoCompiler) {
     $installerSource = "build\installer\plix_windows.exe"
     $filesToUpload = @(
         "$apkSource:plix_android.apk",
-        "$apkSource:plix_android_tv.apk",
         "web_site\plix.json:plix.json"
     )
     if (Test-Path $installerSource) {
@@ -92,7 +90,6 @@ if (Test-Path $innoCompiler) {
     # Optional local network mirror (if available)
     if (Test-Path $networkPlixDir) {
         Write-Host "`n=== Mirroring to Local Network Folder $networkPlixDir ===" -ForegroundColor Yellow
-        Copy-Item $apkSource -Destination "$networkPlixDir\plix_android_tv.apk" -Force
         Copy-Item $apkSource -Destination "$networkPlixDir\plix_android.apk" -Force
         if (Test-Path $installerSource) {
             Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force

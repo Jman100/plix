@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../models/plex_server.dart';
 import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
 import '../services/native_player_service.dart';
@@ -27,6 +28,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final Map<String, FocusNode> _colorFocusNodes = {};
   final FocusNode _backButtonFocusNode = FocusNode();
+  final FocusNode _homeButtonFocusNode = FocusNode();
 
   // Playback settings state
   bool _autoplayNextEpisode = true;
@@ -213,6 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     PlixTheme.currentThemeOption.removeListener(_onThemeChanged);
     _scrollController.dispose();
     _backButtonFocusNode.dispose();
+    _homeButtonFocusNode.dispose();
     _autoplayFocusNode.dispose();
     _skipIntroFocusNode.dispose();
     _themeFocusNode.dispose();
@@ -258,6 +261,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   PlixBackButton(
                     focusNode: _backButtonFocusNode,
                     autofocus: false,
+                    onRight: () => _homeButtonFocusNode.requestFocus(),
+                    onDown: () {
+                      _colorFocusNodes[PlixTheme.colorOptions.first.id]?.requestFocus();
+                      if (PlixDeviceHelper.isTelevision) _scrollToTop();
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  PlixHomeButton(
+                    focusNode: _homeButtonFocusNode,
+                    onLeft: () => _backButtonFocusNode.requestFocus(),
                     onDown: () {
                       _colorFocusNodes[PlixTheme.colorOptions.first.id]?.requestFocus();
                       if (PlixDeviceHelper.isTelevision) _scrollToTop();

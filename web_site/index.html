@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plix — Modern Media Client for Plex & Jellyfin</title>
-  <meta name="description" content="Plix is a sleek, modern, unified media client for Plex and Jellyfin servers, crafted for Android TV and Windows with native 4K HDR direct playback.">
+  <meta name="description" content="Plix is a sleek, modern, unified media client for Plex and Jellyfin servers, crafted for Android, Windows (x86_64 & ARM64), and Linux with native 4K HDR direct playback.">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="apple-touch-icon" href="app_icon.png">
 
@@ -171,7 +171,7 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-black tracking-tight text-white">PLIX</span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
-              v1.3.3
+              v1.4.0
             </span>
           </div>
           <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
@@ -215,7 +215,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.3.3</strong> is now live</span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.4.0</strong> is now live</span>
         <span class="text-neutral-500">•</span>
         <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
           <span>Release Notes</span>
@@ -231,11 +231,11 @@
 
       <!-- Subtitle -->
       <p class="text-lg sm:text-xl md:text-2xl font-normal text-neutral-300 max-w-3xl mx-auto leading-relaxed mb-12">
-        Engineered specifically for remote controls on <strong>Android TV</strong> and high-performance desktop playback on <strong>Windows</strong>. Pure direct play, zero clutter, instant server switching.
+        Engineered specifically for remote controls on <strong>Android TV</strong>, high-performance desktop playback on <strong>Windows</strong> (x86_64 & ARM64), and native <strong>Linux</strong>. Pure direct play, zero clutter, instant server switching.
       </p>
 
       <!-- Direct Download Action Cards -->
-      <div id="downloads" class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-5 mb-14">
+      <div id="downloads" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-5 mb-14">
         
         <!-- Windows Download Card -->
         <div class="glass-card rounded-2xl p-6 text-left relative overflow-hidden group border-amber-500/20 hover:border-amber-400/50">
@@ -248,18 +248,17 @@
               </svg>
             </div>
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/20">
-              Desktop Edition
+              x86_64 &amp; ARM64
             </span>
           </div>
 
           <h3 class="text-xl font-bold text-white mb-1">Plix for Windows</h3>
           <p class="text-xs text-neutral-400 mb-6">
-            Optimized for Windows 10 & 11 (64-bit). Full hardware accelerated libmpv playback, mouse & keyboard navigation, and theme music.
+            Unified installer for Windows 10 & 11 natively supporting both x86_64 and ARM64. Full hardware-accelerated libmpv playback and theme music.
           </p>
 
           <a id="btnDownloadWindows" 
              href="https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe" 
-             
              class="glow-gold w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-neutral-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-amber-200/50">
             <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
               <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
@@ -268,8 +267,8 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.3.3</span>
-            <span>Installer • ~25.0 MB</span>
+            <span id="winVersionLabel">Version 1.4.0</span>
+            <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
 
@@ -286,18 +285,17 @@
               </svg>
             </div>
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-purple-400/10 text-purple-300 border border-purple-400/20">
-              Phones &amp; TV Edition
+              Phones &amp; TV
             </span>
           </div>
 
           <h3 class="text-xl font-bold text-white mb-1">Plix for Android</h3>
           <p class="text-xs text-neutral-400 mb-6">
-            Crafted for Android Phones, Tablets, and Android TV / Google TV. Touch and remote-first layouts, vertical playback, Picture-in-Picture, and HDR direct play.
+            Single unified APK for Android Phones, Tablets, and Android TV / Google TV. Remote &amp; touch-first UI, Picture-in-Picture, and 4K HDR direct play.
           </p>
 
           <a id="btnDownloadAndroid" 
              href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" 
-             
              class="glow-purple w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-purple-400/30">
             <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
               <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
@@ -306,8 +304,43 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.3.3</span>
-            <span>Direct APK • ~25.7 MB</span>
+            <span id="androidVersionLabel">Version 1.4.0</span>
+            <span>Universal APK • ~25.7 MB</span>
+          </div>
+        </div>
+
+        <!-- Linux Download Card -->
+        <div class="glass-card rounded-2xl p-6 text-left relative overflow-hidden group border-cyan-500/20 hover:border-cyan-400/50">
+          <div class="absolute -right-12 -top-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all"></div>
+          
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                <path d="M12 2a4 4 0 0 0-4 4c0 .8.24 1.55.65 2.18C7.57 9.17 6.5 10.96 6.5 13c0 2.1.84 3.96 2.17 5.25L8 20.5a1.5 1.5 0 0 0 2.2 1.32L12 20.73l1.8 1.09A1.5 1.5 0 0 0 16 20.5l-.67-2.25C16.66 16.96 17.5 15.1 17.5 13c0-2.04-1.07-3.83-2.15-4.82.41-.63.65-1.38.65-2.18a4 4 0 0 0-4-4zm-1.5 5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+              </svg>
+            </div>
+            <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
+              Debian / Ubuntu
+            </span>
+          </div>
+
+          <h3 class="text-xl font-bold text-white mb-1">Plix for Linux</h3>
+          <p class="text-xs text-neutral-400 mb-6">
+            Engineered for Ubuntu, Debian, Linux Mint, and derivatives (.deb package). Full hardware-accelerated mpv video playback and desktop integration.
+          </p>
+
+          <a id="btnDownloadLinux" 
+             href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" 
+             class="glow-cyan w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-neutral-950 bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-500 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-cyan-200/50">
+            <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            <span class="truncate">Download for Linux (.deb)</span>
+          </a>
+
+          <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
+            <span id="linuxVersionLabel">Version 1.4.0</span>
+            <span>Debian Package • ~26 MB</span>
           </div>
         </div>
 
@@ -486,7 +519,7 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.3.3</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.4.0</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
               <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">October 24, 2026</span></p>
@@ -532,7 +565,7 @@
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.3.3 (versionCode 29).</div>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.4.0 (versionCode 29).</div>
             </li>
           </ul>
         </div>
@@ -547,7 +580,7 @@
         <p class="text-3xl sm:text-4xl font-extrabold text-white">How to Install Plix</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         <!-- Windows Guide -->
         <div class="glass-card rounded-2xl p-7 border-amber-500/20">
@@ -557,22 +590,22 @@
             </div>
             <div>
               <h3 class="text-lg font-bold text-white">Installing on Windows</h3>
-              <p class="text-xs text-neutral-400">Windows 10 / 11 (64-bit)</p>
+              <p class="text-xs text-neutral-400">Windows 10 / 11 (x86_64 &amp; ARM64)</p>
             </div>
           </div>
 
           <ol class="space-y-4 text-sm text-neutral-300">
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-              <div>Click the <strong>Download for Windows</strong> button above to download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-amber-300">plix_windows.exe</code>.</div>
+              <div>Download the unified <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-amber-300">plix_windows.exe</code> installer.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-              <div>Run the installer. It installs per-user directly into your local app directory without requiring administrator permissions.</div>
+              <div>Run setup. It automatically selects and installs the native build for your CPU architecture (Intel/AMD or Qualcomm ARM).</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-              <div>Launch Plix from the desktop shortcut or Start Menu, and select whether you want to sign in to <strong>Plex</strong> or <strong>Jellyfin</strong>.</div>
+              <div>Launch Plix and sign in to <strong>Plex</strong> or <strong>Jellyfin</strong>.</div>
             </li>
           </ol>
         </div>
@@ -584,23 +617,51 @@
               2
             </div>
             <div>
-              <h3 class="text-lg font-bold text-white">Installing on Android TV / Fire TV</h3>
-              <p class="text-xs text-neutral-400">Google TV • Fire OS • NVIDIA Shield</p>
+              <h3 class="text-lg font-bold text-white">Installing on Android / TV</h3>
+              <p class="text-xs text-neutral-400">Google TV • Fire TV • Android Mobile</p>
             </div>
           </div>
 
           <ol class="space-y-4 text-sm text-neutral-300">
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-              <div>On your TV, open the <strong>Downloader</strong> app (available in the Play Store / Fire TV store) or open your TV web browser.</div>
+              <div>On your TV or phone, open your browser or the <strong>Downloader</strong> app.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-              <div>Enter this webpage URL or download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">plix_android_tv.apk</code> directly.</div>
+              <div>Download the universal <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">plix_android.apk</code>.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-              <div>Click Install. Once launched, sign in effortlessly using the displayed <strong>Quick Connect</strong> or Plex TV link code.</div>
+              <div>Click Install. Sign in effortlessly using <strong>Quick Connect</strong> or Plex TV link code.</div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Linux Guide -->
+        <div class="glass-card rounded-2xl p-7 border-cyan-500/20">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center font-bold">
+              3
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Installing on Linux</h3>
+              <p class="text-xs text-neutral-400">Ubuntu • Debian • Linux Mint</p>
+            </div>
+          </div>
+
+          <ol class="space-y-4 text-sm text-neutral-300">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div>Download the Debian package <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">plix_linux.deb</code>.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div>Double-click to install via Software Center, or run <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">sudo apt install ./plix_linux.deb</code>.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <div>Launch Plix from your app drawer with native hardware accelerated playback.</div>
             </li>
           </ol>
         </div>
@@ -690,7 +751,9 @@
       <div class="flex items-center gap-4 text-[11px] text-neutral-500">
         <a href="https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe" class="hover:text-amber-400 transition-colors">Windows (.exe)</a>
         <span>•</span>
-        <a href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" class="hover:text-purple-400 transition-colors">Android TV (.apk)</a>
+        <a href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" class="hover:text-purple-400 transition-colors">Android (.apk)</a>
+        <span>•</span>
+        <a href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" class="hover:text-cyan-400 transition-colors">Linux (.deb)</a>
       </div>
 
     </div>
@@ -739,6 +802,9 @@
         const androidVersionLabel = document.getElementById('androidVersionLabel');
         if (androidVersionLabel) androidVersionLabel.textContent = `Version ${version}`;
 
+        const linuxVersionLabel = document.getElementById('linuxVersionLabel');
+        if (linuxVersionLabel) linuxVersionLabel.textContent = `Version ${version}`;
+
         // 2. Download URLs
         const btnDownloadWindows = document.getElementById('btnDownloadWindows');
         if (btnDownloadWindows && data.windowsUrl) {
@@ -748,6 +814,11 @@
         const btnDownloadAndroid = document.getElementById('btnDownloadAndroid');
         if (btnDownloadAndroid && data.apkUrl) {
           btnDownloadAndroid.href = data.apkUrl;
+        }
+
+        const btnDownloadLinux = document.getElementById('btnDownloadLinux');
+        if (btnDownloadLinux && data.linuxUrl) {
+          btnDownloadLinux.href = data.linuxUrl;
         }
 
         // 3. Release Date

@@ -8,6 +8,7 @@ import '../services/plix_image_cache.dart';
 import '../services/plex_media_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
 
 class PersonScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class _PersonScreenState extends State<PersonScreen> {
   String? _errorMessage;
 
   final FocusNode _backFocusNode = FocusNode();
+  final FocusNode _homeFocusNode = FocusNode();
   final Map<String, FocusNode> _mediaFocusNodes = {};
   final Map<String, GlobalKey> _mediaKeys = {};
   final ScrollController _gridController = ScrollController();
@@ -49,6 +51,7 @@ class _PersonScreenState extends State<PersonScreen> {
   @override
   void dispose() {
     _backFocusNode.dispose();
+    _homeFocusNode.dispose();
     _gridController.dispose();
     for (final node in _mediaFocusNodes.values) {
       node.dispose();
@@ -150,6 +153,13 @@ class _PersonScreenState extends State<PersonScreen> {
                   PlixBackButton(
                     focusNode: _backFocusNode,
                     autofocus: true,
+                    onRight: () => _homeFocusNode.requestFocus(),
+                    onDown: _focusFirstMedia,
+                  ),
+                  const SizedBox(width: 10),
+                  PlixHomeButton(
+                    focusNode: _homeFocusNode,
+                    onLeft: () => _backFocusNode.requestFocus(),
                     onDown: _focusFirstMedia,
                   ),
                   const SizedBox(width: 16),

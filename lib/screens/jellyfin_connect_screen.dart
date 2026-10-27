@@ -9,6 +9,7 @@ import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
 import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import 'home_screen.dart';
 
 class JellyfinConnectScreen extends StatefulWidget {
@@ -33,6 +34,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   final FocusNode _connectBtnFocusNode = FocusNode();
   final FocusNode _cancelBtnFocusNode = FocusNode();
   final FocusNode _backBtnFocusNode = FocusNode();
+  final FocusNode _homeBtnFocusNode = FocusNode();
 
   bool _isStep2QuickConnect = false;
   bool _isLoading = false;
@@ -61,6 +63,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
     _connectBtnFocusNode.dispose();
     _cancelBtnFocusNode.dispose();
     _backBtnFocusNode.dispose();
+    _homeBtnFocusNode.dispose();
     for (final node in _lanServerFocusNodes.values) {
       node.dispose();
     }
@@ -232,15 +235,32 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
             Positioned(
               top: 16,
               left: 20,
-              child: PlixBackButton(
-                focusNode: _backBtnFocusNode,
-                onPressed: () {
-                  if (_isStep2QuickConnect) {
-                    _cancelQuickConnect();
-                  } else {
-                    Navigator.of(context).maybePop();
-                  }
-                },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PlixBackButton(
+                    focusNode: _backBtnFocusNode,
+                    onRight: () => _homeBtnFocusNode.requestFocus(),
+                    onPressed: () {
+                      if (_isStep2QuickConnect) {
+                        _cancelQuickConnect();
+                      } else {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  PlixHomeButton(
+                    focusNode: _homeBtnFocusNode,
+                    onLeft: () => _backBtnFocusNode.requestFocus(),
+                    onPressed: () {
+                      if (_isStep2QuickConnect) {
+                        _cancelQuickConnect();
+                      }
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                  ),
+                ],
               ),
             ),
             Center(
@@ -348,7 +368,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                 focusNode: _urlFocusNode,
                 style: const TextStyle(color: Colors.white, fontSize: 16),
                 decoration: const InputDecoration(
-                  hintText: 'https://jellyfin.example.com or 192.168.0.x:8096',
+                  hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
                   hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: InputBorder.none,

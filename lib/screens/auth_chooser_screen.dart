@@ -33,7 +33,7 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   }
 
   void _choosePlex() {
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LoginScreen(
           authService: widget.authService,
@@ -44,7 +44,7 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   }
 
   void _chooseJellyfin() {
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => JellyfinConnectScreen(
           authService: widget.authService,

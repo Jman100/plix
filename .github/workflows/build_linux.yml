@@ -1,0 +1,130 @@
+name: Build Linux DEB Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (.deb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install System Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            liblzma-dev \
+            libmpv-dev \
+            mpv \
+            libepoxy-dev \
+            dpkg-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Linux Bundle (Release)
+        run: flutter build linux --release
+
+      - name: Package DEB Installer
+        run: |
+          VERSION="1.4.0"
+          ARCH="amd64"
+          DIST_DIR="dist/plix_${VERSION}_${ARCH}"
+          
+          mkdir -p "${DIST_DIR}/DEBIAN"
+          mkdir -p "${DIST_DIR}/usr/bin"
+          mkdir -p "${DIST_DIR}/usr/lib/plix"
+          mkdir -p "${DIST_DIR}/usr/share/applications"
+          mkdir -p "${DIST_DIR}/usr/share/pixmaps"
+          mkdir -p "${DIST_DIR}/usr/share/icons/hicolor/512x512/apps"
+          
+          # Copy release bundle
+          cp -r build/linux/x64/release/bundle/* "${DIST_DIR}/usr/lib/plix/"
+          
+          # Create launcher wrapper
+          cat << 'EOF' > "${DIST_DIR}/usr/bin/plix"
+#!/bin/bash
+exec /usr/lib/plix/plix "$@"
+EOF
+          chmod +x "${DIST_DIR}/usr/bin/plix"
+          chmod +x "${DIST_DIR}/usr/lib/plix/plix"
+          
+          # Desktop entry
+          cat << 'EOF' > "${DIST_DIR}/usr/share/applications/plix.desktop"
+[Desktop Entry]
+Name=Plix
+Comment=Modern Streaming Client for Plex & Jellyfin
+Exec=/usr/bin/plix %u
+Icon=plix
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Player;
+Keywords=Plex;Jellyfin;Streaming;Media;Player;
+EOF
+          
+          # App icon
+          if [ -f "web_site/app_icon.png" ]; then
+            cp "web_site/app_icon.png" "${DIST_DIR}/usr/share/pixmaps/plix.png"
+            cp "web_site/app_icon.png" "${DIST_DIR}/usr/share/icons/hicolor/512x512/apps/plix.png"
+          fi
+          
+          # Control file
+          cat << EOF > "${DIST_DIR}/DEBIAN/control"
+Package: plix
+Version: ${VERSION}
+Architecture: ${ARCH}
+Maintainer: Plix Team <support@plix.tv>
+Depends: libc6, libgtk-3-0, libmpv1 | libmpv2 | libmpv-dev, libepoxy0
+Section: video
+Priority: optional
+Homepage: https://plix.jman100.com
+Description: Plix - Modern Streaming Client for Plex & Jellyfin
+ A beautifully crafted, modern streaming client for Plex and Jellyfin servers.
+EOF
+          
+          # Build .deb package
+          mkdir -p build/staged_linux
+          dpkg-deb --build --root-owner-group "${DIST_DIR}" build/staged_linux/plix_linux.deb
+
+      - name: Upload Linux DEB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plix_linux_deb
+          path: build/staged_linux/plix_linux.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          files: |
+            build/staged_linux/plix_linux.deb
+            web_site/plix.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

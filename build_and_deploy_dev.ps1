@@ -5,7 +5,7 @@ $env:JAVA_HOME = "$toolsDir\jdk17"
 $env:ANDROID_HOME = "$toolsDir\android-sdk"
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:PATH"
 
-$networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
+$networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 Write-Host "=== Building Android APK for Dev (Phone & TV support) ===" -ForegroundColor Cyan
 & "$toolsDir\flutter\bin\flutter.bat" build apk --release

@@ -6,6 +6,7 @@ import '../models/plex_server.dart';
 import '../services/plex_media_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
 import '../services/plix_device_helper.dart';
 import '../widgets/plix_bottom_nav.dart';
@@ -32,6 +33,8 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   int? _lastSelectedIndex;
+  final FocusNode _backFocusNode = FocusNode();
+  final FocusNode _homeFocusNode = FocusNode();
   final Map<int, FocusNode> _focusNodes = {};
   final ScrollController _gridScrollController = ScrollController();
 
@@ -45,6 +48,8 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
   @override
   void dispose() {
     _gridScrollController.dispose();
+    _backFocusNode.dispose();
+    _homeFocusNode.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
     }
@@ -319,7 +324,26 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                 ),
                 child: Row(
                   children: [
-                    const PlixBackButton(autofocus: false),
+                    PlixBackButton(
+                      focusNode: _backFocusNode,
+                      autofocus: false,
+                      onRight: () => _homeFocusNode.requestFocus(),
+                      onDown: () {
+                        if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                          _focusNodes[0]?.requestFocus();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeFocusNode,
+                      onLeft: () => _backFocusNode.requestFocus(),
+                      onDown: () {
+                        if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                          _focusNodes[0]?.requestFocus();
+                        }
+                      },
+                    ),
                     SizedBox(width: isCompact ? 10 : 20),
                     Icon(
                       widget.library.isMovie ? Icons.movie_outlined : Icons.tv_outlined,

@@ -10,6 +10,7 @@ import '../services/plex_media_service.dart';
 import '../services/plix_device_helper.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
 import '../widgets/plix_bottom_nav.dart';
 
@@ -43,6 +44,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   // Header focus nodes
   final FocusNode _backButtonFocus = FocusNode();
+  final FocusNode _homeButtonFocus = FocusNode();
   final FocusNode _micButtonFocus = FocusNode();
   final FocusNode _clearButtonFocus = FocusNode();
 
@@ -88,6 +90,7 @@ class _SearchScreenState extends State<SearchScreen> {
     _textController.dispose();
     _textFieldFocusNode.dispose();
     _backButtonFocus.dispose();
+    _homeButtonFocus.dispose();
     _micButtonFocus.dispose();
     _clearButtonFocus.dispose();
     for (final node in _keyFocusNodes.values) {
@@ -290,6 +293,13 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           PlixBackButton(
             focusNode: _backButtonFocus,
+            onRight: () => _homeButtonFocus.requestFocus(),
+            onDown: () => _keyFocusNodes['1']?.requestFocus(),
+          ),
+          const SizedBox(width: 10),
+          PlixHomeButton(
+            focusNode: _homeButtonFocus,
+            onLeft: () => _backButtonFocus.requestFocus(),
             onDown: () => _keyFocusNodes['1']?.requestFocus(),
           ),
           SizedBox(width: isCompact ? 12 : 20),

@@ -12,6 +12,7 @@ import '../services/plix_image_cache.dart';
 import '../services/theme_music_service.dart';
 import '../widgets/cast_row.dart';
 import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/plix_bottom_nav.dart';
 import '../services/plix_device_helper.dart';
@@ -55,6 +56,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   final FocusNode _firstEpisodeFocusNode = FocusNode();
   final FocusNode _firstSeasonFocusNode = FocusNode();
   final FocusNode _backButtonFocusNode = FocusNode();
+  final FocusNode _homeButtonFocusNode = FocusNode();
   final FocusNode _firstActionFocusNode = FocusNode();
   final FocusNode _showPlayFocusNode = FocusNode();
   final FocusNode _firstCastFocusNode = FocusNode();
@@ -160,6 +162,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     _firstSeasonFocusNode.dispose();
     _seasonDropdownFocusNode.dispose();
     _backButtonFocusNode.dispose();
+    _homeButtonFocusNode.dispose();
     _firstActionFocusNode.dispose();
     _showPlayFocusNode.dispose();
     _firstCastFocusNode.dispose();
@@ -1149,18 +1152,36 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Back button placed naturally at top of content so it scrolls away
+                        // Back & Home buttons placed naturally at top of content so it scrolls away
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: PlixBackButton(
-                            focusNode: _backButtonFocusNode,
-                            onDown: () {
-                              if (_item.isShow) {
-                                _showPlayFocusNode.requestFocus();
-                              } else {
-                                _firstActionFocusNode.requestFocus();
-                              }
-                            },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PlixBackButton(
+                                focusNode: _backButtonFocusNode,
+                                onRight: () => _homeButtonFocusNode.requestFocus(),
+                                onDown: () {
+                                  if (_item.isShow) {
+                                    _showPlayFocusNode.requestFocus();
+                                  } else {
+                                    _firstActionFocusNode.requestFocus();
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 10),
+                              PlixHomeButton(
+                                focusNode: _homeButtonFocusNode,
+                                onLeft: () => _backButtonFocusNode.requestFocus(),
+                                onDown: () {
+                                  if (_item.isShow) {
+                                    _showPlayFocusNode.requestFocus();
+                                  } else {
+                                    _firstActionFocusNode.requestFocus();
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         ),
                         // Top Overview Block (Poster + Info + Actions)

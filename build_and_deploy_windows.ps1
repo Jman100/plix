@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.3.3"
-$versionCode = 32
+$version = "1.4.0"
+$versionCode = 33
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -27,7 +27,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $installerSource = "build\installer\plix_windows.exe"
-$networkPlixDir = "\\192.168.0.200\appdata\apachephp8\html\plix"
+$networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 # Generate and update plix.json release manifest
 $releaseNotes = @"
