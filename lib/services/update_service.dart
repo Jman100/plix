@@ -32,14 +32,14 @@ class UpdateInfo {
     final vc = (json['versionCode'] is num)
         ? (json['versionCode'] as num).toInt()
         : int.tryParse(json['versionCode']?.toString() ?? '') ?? 1;
-    final apk = json['apkUrl']?.toString() ?? 'https://plix.jman100.com/plix_android_tv.apk';
+    final apk = json['apkUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_android.apk';
     final winArm64Url = json['windowsArm64Url']?.toString();
     final isArm64 = Platform.isWindows &&
         ((Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() == 'ARM64') ||
          (Platform.environment['PROCESSOR_ARCHITEW6432']?.toUpperCase() == 'ARM64'));
     final winUrl = (isArm64 && winArm64Url != null && winArm64Url.isNotEmpty)
         ? winArm64Url
-        : (json['windowsUrl']?.toString() ?? 'https://plix.jman100.com/plix_windows.exe');
+        : (json['windowsUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe');
     final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 
@@ -58,7 +58,10 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String manifestUrl = 'https://plix.jman100.com/plix.json';
+  static const String manifestUrl = 'https://raw.githubusercontent.com/Jman100/plix/main/web_site/plix.json';
+  static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
+  static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
+  static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
   static String _currentVersion = '1.3.3';
   static int _currentVersionCode = 32;
 
@@ -120,28 +123,79 @@ class UpdateService {
   }
 
   static Future<UpdateInfo?> checkForUpdate() async {
+    final candidateUrls = [
+      githubReleaseManifestUrl,
+      manifestUrl,
+      customDomainManifestUrl,
+    ];
+
+    for (final url in candidateUrls) {
+      try {
+        final client = _createHttpClient();
+        final uri = Uri.parse(url);
+        final isGithubRelease = uri.host.contains('github.com') && uri.path.contains('releases');
+        final manifestUri = isGithubRelease ? uri : Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
+        final request = await client.getUrl(manifestUri);
+        request.headers.set('Accept', 'application/json');
+        request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        request.headers.set('Pragma', 'no-cache');
+        final response = await request.close().timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          var body = await response.transform(utf8.decoder).join();
+          if (body.startsWith('\uFEFF')) {
+            body = body.substring(1);
+          }
+          final json = jsonDecode(body) as Map<String, dynamic>;
+          return UpdateInfo.fromJson(
+            json,
+            currentVersion: currentVersion,
+            currentVersionCode: currentVersionCode,
+          );
+        }
+      } catch (_) {}
+    }
+
+    // Direct fallback to GitHub Releases API
     try {
       final client = _createHttpClient();
-      final manifestUri = Uri.parse('$manifestUrl?t=${DateTime.now().millisecondsSinceEpoch}');
-      final request = await client.getUrl(manifestUri);
-      request.headers.set('Accept', 'application/json');
-      request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      request.headers.set('Pragma', 'no-cache');
+      final request = await client.getUrl(Uri.parse(githubApiReleaseUrl));
+      request.headers.set('Accept', 'application/vnd.github+json');
+      request.headers.set('User-Agent', 'Plix-App');
       final response = await request.close().timeout(const Duration(seconds: 6));
-
       if (response.statusCode == 200) {
-        var body = await response.transform(utf8.decoder).join();
-        if (body.startsWith('\uFEFF')) {
-          body = body.substring(1);
-        }
+        final body = await response.transform(utf8.decoder).join();
         final json = jsonDecode(body) as Map<String, dynamic>;
-        return UpdateInfo.fromJson(
-          json,
-          currentVersion: currentVersion,
-          currentVersionCode: currentVersionCode,
+        final tagName = json['tag_name']?.toString().replaceFirst(RegExp(r'^v'), '') ?? '1.0.0';
+        final assets = json['assets'] as List<dynamic>? ?? [];
+        String apkUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_android.apk';
+        String windowsUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe';
+        for (final a in assets) {
+          final name = a['name']?.toString() ?? '';
+          final dUrl = a['browser_download_url']?.toString();
+          if (dUrl != null) {
+            if (name == 'plix_android.apk' || name == 'plix_android_tv.apk') {
+              apkUrl = dUrl;
+            } else if (name == 'plix_windows.exe') {
+              windowsUrl = dUrl;
+            }
+          }
+        }
+        final notes = json['body']?.toString() ?? '';
+        final date = (json['published_at']?.toString() ?? '').split('T').first;
+        final hasUpdate = isVersionNewer(tagName, currentVersion);
+        return UpdateInfo(
+          version: tagName,
+          versionCode: currentVersionCode,
+          apkUrl: apkUrl,
+          windowsUrl: windowsUrl,
+          releaseNotes: notes,
+          releaseDate: date,
+          hasUpdate: hasUpdate,
         );
       }
     } catch (_) {}
+
     return null;
   }
 
@@ -153,7 +207,7 @@ class UpdateService {
     if (Platform.isWindows) {
       final downloadUrl = (windowsUrl != null && windowsUrl.isNotEmpty)
           ? windowsUrl
-          : 'https://plix.jman100.com/plix_windows.exe';
+          : 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe';
       final tempDir = Directory.systemTemp.createTempSync('plix_update_');
       final targetFile = File('${tempDir.path}\\plix_setup.exe');
 
@@ -164,12 +218,15 @@ class UpdateService {
       }
 
       final uri = Uri.parse(downloadUrl);
-      final downloadUri = uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t')
+      final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
+      final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
           ? uri
           : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
 
       final client = _createHttpClient();
       final request = await client.getUrl(downloadUri);
+      request.followRedirects = true;
+      request.maxRedirects = 5;
       request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       request.headers.set('Pragma', 'no-cache');
       final response = await request.close();
@@ -218,12 +275,15 @@ class UpdateService {
     }
 
     final uri = Uri.parse(apkUrl);
-    final downloadUri = uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t')
+    final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
+    final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
         ? uri
         : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
 
     final client = _createHttpClient();
     final request = await client.getUrl(downloadUri);
+    request.followRedirects = true;
+    request.maxRedirects = 5;
     request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     request.headers.set('Pragma', 'no-cache');
     final response = await request.close();

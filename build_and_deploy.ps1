@@ -43,30 +43,6 @@ if (Test-Path $innoCompiler) {
     Write-Warning "Inno Setup compiler not found at $innoCompiler, skipping Windows installer compilation."
 }
 
-if (Test-Path $networkPlixDir) {
-    Write-Host "`n=== Publishing to Network Folder $networkPlixDir ===" -ForegroundColor Green
-
-    # Publish Android APK (both plix_android_tv.apk and plix_android.apk for compatibility)
-    Copy-Item $apkSource -Destination "$networkPlixDir\plix_android_tv.apk" -Force
-    Copy-Item $apkSource -Destination "$networkPlixDir\plix_android.apk" -Force
-    $apkSize = (Get-Item "$networkPlixDir\plix_android_tv.apk").Length
-    Write-Host "Published plix_android_tv.apk ($apkSize bytes) successfully!" -ForegroundColor Green
-
-    # Publish Unified Windows Installer
-    $installerSource = "build\installer\plix_windows.exe"
-    if (Test-Path $installerSource) {
-        Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force
-        Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows_arm64.exe" -Force
-        $winSize = (Get-Item "$networkPlixDir\plix_windows.exe").Length
-        Write-Host "Published unified plix_windows.exe ($winSize bytes) successfully!" -ForegroundColor Green
-    }
-
-    # Publish Website
-    if (Test-Path "web_site\index.html") {
-        Copy-Item "web_site\*" -Destination "$networkPlixDir" -Recurse -Force
-        Write-Host "Published website index.html and assets successfully!" -ForegroundColor Green
-    }
-
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
 - MPV Player for iOS: Integrated libmpv media_kit video player on iOS for native direct play of MKV, DTS, TrueHD, and advanced codecs
@@ -82,20 +58,51 @@ if (Test-Path $networkPlixDir) {
     $manifest = [ordered]@{
         version = $version
         versionCode = $versionCode
-        apkUrl = "https://plix.jman100.com/plix_android_tv.apk?v=$version"
-        windowsUrl = "https://plix.jman100.com/plix_windows.exe?v=$version"
-        windowsArm64Url = "https://plix.jman100.com/plix_windows_arm64.exe?v=$version"
+        apkUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk"
+        windowsUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
+        windowsArm64Url = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
 
     # Write UTF-8 without a BOM so the app's jsonDecode can parse the manifest.
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText("$networkPlixDir\plix.json", $manifest, $utf8NoBom)
-    Write-Host "Published plix.json release manifest successfully!" -ForegroundColor Green
+    [System.IO.File]::WriteAllText("web_site\plix.json", $manifest, $utf8NoBom)
+    Write-Host "Updated web_site\plix.json successfully!" -ForegroundColor Green
 
-} else {
-    Write-Warning "Network directory $networkPlixDir not reachable."
-}
+    # Publish to GitHub Releases
+    Write-Host "`n=== Publishing to GitHub Releases (v$version) ===" -ForegroundColor Cyan
+    $installerSource = "build\installer\plix_windows.exe"
+    $filesToUpload = @(
+        "$apkSource:plix_android.apk",
+        "$apkSource:plix_android_tv.apk",
+        "web_site\plix.json:plix.json"
+    )
+    if (Test-Path $installerSource) {
+        $filesToUpload += "$installerSource:plix_windows.exe"
+    }
+
+    & python "scripts\github_release.py" "v$version" "Plix v$version" "web_site\plix.json" @filesToUpload
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "GitHub release upload exited with code $LASTEXITCODE"
+    } else {
+        Write-Host "Published to GitHub Releases successfully!" -ForegroundColor Green
+    }
+
+    # Optional local network mirror (if available)
+    if (Test-Path $networkPlixDir) {
+        Write-Host "`n=== Mirroring to Local Network Folder $networkPlixDir ===" -ForegroundColor Yellow
+        Copy-Item $apkSource -Destination "$networkPlixDir\plix_android_tv.apk" -Force
+        Copy-Item $apkSource -Destination "$networkPlixDir\plix_android.apk" -Force
+        if (Test-Path $installerSource) {
+            Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows.exe" -Force
+            Copy-Item $installerSource -Destination "$networkPlixDir\plix_windows_arm64.exe" -Force
+        }
+        if (Test-Path "web_site\index.html") {
+            Copy-Item "web_site\*" -Destination "$networkPlixDir" -Recurse -Force
+        }
+        [System.IO.File]::WriteAllText("$networkPlixDir\plix.json", $manifest, $utf8NoBom)
+        Write-Host "Mirrored to local network folder successfully!" -ForegroundColor Green
+    }
 
 Write-Host "`n=== Stable Build and Deploy Complete (v$version, versionCode $versionCode) ===" -ForegroundColor Green
