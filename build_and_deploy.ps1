@@ -74,11 +74,11 @@ if (Test-Path $innoCompiler) {
     Write-Host "`n=== Publishing to GitHub Releases (v$version) ===" -ForegroundColor Cyan
     $installerSource = "build\installer\plix_windows.exe"
     $filesToUpload = @(
-        "$apkSource:plix_android.apk",
+        "$($apkSource):plix_android.apk",
         "web_site\plix.json:plix.json"
     )
     if (Test-Path $installerSource) {
-        $filesToUpload += "$installerSource:plix_windows.exe"
+        $filesToUpload += "$($installerSource):plix_windows.exe"
     }
 
     & python "scripts\github_release.py" "v$version" "Plix v$version" "web_site\plix.json" @filesToUpload
@@ -89,7 +89,7 @@ if (Test-Path $innoCompiler) {
     }
 
     # Optional local network mirror (if available)
-    if (Test-Path $networkPlixDir) {
+    if ($networkPlixDir -and (Test-Path $networkPlixDir)) {
         Write-Host "`n=== Mirroring to Local Network Folder $networkPlixDir ===" -ForegroundColor Yellow
         Copy-Item $apkSource -Destination "$networkPlixDir\plix_android.apk" -Force
         if (Test-Path $installerSource) {
