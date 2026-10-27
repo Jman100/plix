@@ -170,20 +170,29 @@ class JellyfinMediaService {
           doviTitle ??= vDoVi;
         }
 
-        final allVideoInfo = '$vRange $vRangeType $vDoVi ${cTransfer ?? ''} ${cPrimaries ?? ''} ${vProfile ?? ''}'.toLowerCase();
-        if (allVideoInfo.contains('dovi') || allVideoInfo.contains('dolby') || vDoVi.isNotEmpty) {
+        final titleCheck = (streamMap['Title'] ?? streamMap['DisplayTitle'] ?? '').toString();
+        final allVideoInfo = '$vRange $vRangeType $vDoVi ${cTransfer ?? ''} ${cPrimaries ?? ''} ${vProfile ?? ''} $titleCheck'.toLowerCase();
+        if (allVideoInfo.contains('dovi') || allVideoInfo.contains('dolby') || vDoVi.isNotEmpty || allVideoInfo.contains('dvhe')) {
           hdrType = 'DOVI';
-        } else if (allVideoInfo.contains('hdr10+') || allVideoInfo.contains('hdr10plus') || allVideoInfo.contains('2094')) {
-          hdrType = 'HDR10+';
+        } else if (allVideoInfo.contains('hdr10+') ||
+            allVideoInfo.contains('hdr10plus') ||
+            allVideoInfo.contains('hdr10 plus') ||
+            allVideoInfo.contains('hdr 10+') ||
+            allVideoInfo.contains('hdr 10 plus') ||
+            allVideoInfo.contains('hdr10-plus') ||
+            allVideoInfo.contains('hdr-10+') ||
+            allVideoInfo.contains('hdr10.plus') ||
+            allVideoInfo.contains('2094')) {
+          if (hdrType != 'DOVI') hdrType = 'HDR10+';
         } else if (allVideoInfo.contains('hlg') || (cTransfer?.toLowerCase().contains('arib') ?? false)) {
-          hdrType = 'HLG';
-        } else if (allVideoInfo.contains('hdr10')) {
-          hdrType = 'HDR10';
+          if (hdrType != 'DOVI' && hdrType != 'HDR10+') hdrType = 'HLG';
+        } else if (allVideoInfo.contains('hdr10') || allVideoInfo.contains('hdr 10')) {
+          if (hdrType != 'DOVI' && hdrType != 'HDR10+' && hdrType != 'HLG') hdrType = 'HDR10';
         } else if (allVideoInfo.contains('hdr') ||
             (cTransfer?.toLowerCase().contains('2084') ?? false) ||
             (cTransfer?.toLowerCase().contains('smpte2084') ?? false) ||
             (cPrimaries?.toLowerCase().contains('2020') ?? false)) {
-          hdrType = 'HDR10';
+          if (hdrType != 'DOVI' && hdrType != 'HDR10+' && hdrType != 'HLG') hdrType = 'HDR10';
         }
       }
     }
@@ -247,6 +256,7 @@ class JellyfinMediaService {
       colorTrc: colorTrc,
       colorPrimaries: colorPrimaries,
       doviTitle: doviTitle,
+      hasDynamicMetadata: hdrType == "HDR10+" || hdrType == "DOVI",
       hdrType: hdrType,
       people: people,
     );

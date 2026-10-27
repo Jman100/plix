@@ -683,13 +683,13 @@ class PlexMediaService {
     }
     Uri url;
     if (seasonRatingKey.isNotEmpty && seasonRatingKey != '0') {
-      url = Uri.parse('$baseUrl/library/metadata/$seasonRatingKey/children?includeStreams=1');
+      url = Uri.parse('$baseUrl/library/metadata/$seasonRatingKey/children?includeStreams=1&includeGuids=1&includeMarkers=1');
     } else if (seasonKey != null && seasonKey.isNotEmpty) {
       final baseStr = seasonKey.startsWith('http') ? seasonKey : '$baseUrl$seasonKey';
       final sep = baseStr.contains('?') ? '&' : '?';
       url = Uri.parse('$baseStr${sep}includeStreams=1');
     } else if (showRatingKey != null && showRatingKey.isNotEmpty) {
-      url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1');
+      url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
     } else {
       return [];
     }

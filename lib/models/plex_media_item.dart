@@ -359,58 +359,52 @@ class PlexMediaItem {
     final dov = doviTitle?.toLowerCase() ?? '';
     final disp = videoDisplayTitle?.toLowerCase() ?? '';
     final extDisp = videoExtendedDisplayTitle?.toLowerCase() ?? '';
+    final pKey = partKey?.toLowerCase() ?? '';
 
-    // 1. Dolby Vision (if it has profile or explicit DoVi indicator)
+    final allText = '$hType $trc $prof $dov $disp $extDisp $pKey';
+
+    // 1. Dolby Vision (Highest HDR format)
     if (doviProfile != null ||
-        hType.contains('dovi') ||
-        hType.contains('dolby') ||
-        prof.contains('dovi') ||
-        dov.contains('dolby vision') ||
-        dov.contains('dolby') ||
-        dov.contains('dovi') ||
-        disp.contains('dovi') ||
-        disp.contains('dolby vision') ||
-        disp.contains('dolby') ||
-        extDisp.contains('dovi') ||
-        extDisp.contains('dolby vision') ||
-        extDisp.contains('dolby')) {
+        allText.contains('dovi') ||
+        allText.contains('dolby vision') ||
+        allText.contains('dolbyvision') ||
+        allText.contains('dolby') ||
+        allText.contains('dvhe') ||
+        allText.contains('dvh1')) {
       return 'Dolby Vision';
     }
 
-    // 2. HDR10+ (Dynamic metadata, SMPTE 2094, HDR10+ profile or titles)
+    // 2. HDR10+ (Second highest format: Dynamic metadata, SMPTE 2094, HDR10+ profiles/titles)
     if (hasDynamicMetadata ||
-        hType.contains('hdr10+') ||
-        hType.contains('hdr10plus') ||
-        hType.contains('2094') ||
-        prof.contains('hdr10+') ||
-        prof.contains('hdr10plus') ||
-        prof.contains('2094') ||
-        dov.contains('hdr10+') ||
-        disp.contains('hdr10+') ||
-        disp.contains('hdr10plus') ||
-        extDisp.contains('hdr10+') ||
-        extDisp.contains('hdr10plus') ||
-        trc.contains('hdr10+') ||
-        trc.contains('2094')) {
+        allText.contains('hdr10+') ||
+        allText.contains('hdr10plus') ||
+        allText.contains('hdr10 plus') ||
+        allText.contains('hdr 10+') ||
+        allText.contains('hdr 10 plus') ||
+        allText.contains('hdr10-plus') ||
+        allText.contains('hdr-10+') ||
+        allText.contains('hdr10.plus') ||
+        allText.contains('hdr10_plus') ||
+        allText.contains('2094') ||
+        allText.contains('smpte2094') ||
+        allText.contains('smpte 2094')) {
       return 'HDR10+';
     }
 
     // 3. HLG
-    if (hType.contains('hlg') ||
-        trc.contains('arib') ||
-        trc.contains('hlg') ||
-        disp.contains('hlg') ||
-        extDisp.contains('hlg')) {
+    if (allText.contains('hlg') ||
+        allText.contains('arib') ||
+        allText.contains('b67')) {
       return 'HLG';
     }
 
     // 4. HDR10
-    if (hType.contains('hdr10') ||
-        trc.contains('smpte2084') ||
-        trc.contains('2084') ||
-        prof.contains('hdr10') ||
-        disp.contains('hdr10') ||
-        extDisp.contains('hdr10')) {
+    if (allText.contains('hdr10') ||
+        allText.contains('hdr 10') ||
+        allText.contains('hdr-10') ||
+        allText.contains('smpte2084') ||
+        allText.contains('smpte 2084') ||
+        allText.contains('2084')) {
       return 'HDR10';
     }
 
@@ -638,6 +632,8 @@ class PlexMediaItem {
       vRes = firstMedia['videoResolution']?.toString();
       vScan ??= firstMedia['videoScanType']?.toString() ?? firstMedia['scanType']?.toString();
       vFrameRate ??= firstMedia['videoFrameRate']?.toString();
+      vDispTitle ??= firstMedia['displayTitle'] as String? ?? json['displayTitle'] as String?;
+      vExtDispTitle ??= firstMedia['extendedDisplayTitle'] as String? ?? json['extendedDisplayTitle'] as String?;
       colTrc ??= firstMedia['colorTrc'] as String? ?? json['colorTrc'] as String?;
       colPrim ??= firstMedia['colorPrimaries'] as String? ?? json['colorPrimaries'] as String?;
       final colSpace = firstMedia['colorSpace'] as String? ?? json['colorSpace'] as String?;
@@ -659,11 +655,7 @@ class PlexMediaItem {
           firstMedia['doviPresent'] == '1') {
         dovProf ??= 0;
       }
-      hType ??= firstMedia['hdrType']?.toString();
-      final fmTitleCheck = '${firstMedia['displayTitle'] ?? ''} ${firstMedia['extendedDisplayTitle'] ?? ''}'.toLowerCase();
-      if (fmTitleCheck.contains('hdr10+') || fmTitleCheck.contains('hdr10plus') || fmTitleCheck.contains('2094')) {
-        hasDynamic = true;
-      }
+      hType ??= firstMedia['hdrType']?.toString() ?? firstMedia['hdr']?.toString();
       dovTitle ??= firstMedia['DOVITitle'] as String? ?? firstMedia['doviTitle'] as String?;
       aChannels = (firstMedia['audioChannels'] is num)
           ? (firstMedia['audioChannels'] as num).toInt()
@@ -672,99 +664,136 @@ class PlexMediaItem {
       bRate = (firstMedia['bitrate'] is num)
           ? (firstMedia['bitrate'] as num).toInt()
           : int.tryParse(firstMedia['bitrate']?.toString() ?? '');
-      vProf = firstMedia['videoProfile'] as String? ?? json['videoProfile'] as String?;
-      if (firstMedia['hasDynamicMetadata'] == '1' ||
-          firstMedia['hasDynamicMetadata'] == 1 ||
-          firstMedia['hasDynamicMetadata'] == true ||
-          firstMedia['hasDynamicMetadata'] == 'true') {
-        hasDynamic = true;
+      vProf = firstMedia['videoProfile'] as String? ?? firstMedia['profile'] as String? ?? json['videoProfile'] as String?;
+
+      // Scan all Media, Part, and Stream entries for highest HDR format detection
+      bool checkIsHdr10Plus(String text) {
+        final t = text.toLowerCase();
+        return t.contains('hdr10+') ||
+            t.contains('hdr10plus') ||
+            t.contains('hdr10 plus') ||
+            t.contains('hdr 10+') ||
+            t.contains('hdr 10 plus') ||
+            t.contains('hdr10-plus') ||
+            t.contains('hdr-10+') ||
+            t.contains('hdr10.plus') ||
+            t.contains('hdr10_plus') ||
+            t.contains('2094') ||
+            t.contains('smpte2094') ||
+            t.contains('smpte 2094');
       }
 
-      final rawParts = firstMedia['Part'];
-      final parts = rawParts is List ? rawParts : (rawParts is Map ? [rawParts] : null);
-      if (parts != null && parts.isNotEmpty) {
-        final firstPart = parts.first is Map<String, dynamic>
-            ? parts.first as Map<String, dynamic>
-            : <String, dynamic>{};
-        pKey = firstPart['key'] as String?;
-        pId = firstPart['id']?.toString();
+      bool checkIsDovi(String text) {
+        final t = text.toLowerCase();
+        return t.contains('dovi') ||
+            t.contains('dolby vision') ||
+            t.contains('dolbyvision') ||
+            t.contains('dolby') ||
+            t.contains('dvhe') ||
+            t.contains('dvh1');
+      }
 
-        final rawStreams = firstPart['Stream'];
-        final streams = rawStreams is List ? rawStreams : (rawStreams is Map ? [rawStreams] : null);
-        if (streams != null) {
-          int subIdx = 0;
-          int audioIdx = 0;
-          for (final s in streams) {
-            if (s is! Map<String, dynamic>) continue;
-            final stMap = s;
-            final streamType = (stMap['streamType'] is num)
-                ? (stMap['streamType'] as num).toInt()
-                : int.tryParse(stMap['streamType']?.toString() ?? '');
-            if (streamType == 1) {
-              // Video Stream
-              colTrc = stMap['colorTrc'] as String? ?? colTrc;
-              colPrim = stMap['colorPrimaries'] as String? ?? colPrim;
-              final stDovProf = (stMap['DOVIProfile'] is num)
-                  ? (stMap['DOVIProfile'] as num).toInt()
-                  : (stMap['doviProfile'] is num)
-                      ? (stMap['doviProfile'] as num).toInt()
-                      : int.tryParse(stMap['DOVIProfile']?.toString() ?? stMap['doviProfile']?.toString() ?? '');
-              dovProf = stDovProf ?? dovProf;
-              if (stMap['DOVIPresent'] == true ||
-                  stMap['DOVIPresent'] == 'true' ||
-                  stMap['DOVIPresent'] == 1 ||
-                  stMap['DOVIPresent'] == '1' ||
-                  stMap['doviPresent'] == true ||
-                  stMap['doviPresent'] == 'true' ||
-                  stMap['doviPresent'] == 1 ||
-                  stMap['doviPresent'] == '1') {
-                dovProf ??= 0;
-              }
-              dovProf = stDovProf ?? dovProf;
-              dovTitle = stMap['DOVITitle'] as String? ?? stMap['doviTitle'] as String? ?? dovTitle;
-              vScan ??= stMap['scanType']?.toString() ?? stMap['videoScanType']?.toString();
-              vFrameRate ??= stMap['videoFrameRate']?.toString();
-              vDispTitle = stMap['displayTitle'] as String?;
-              vExtDispTitle = stMap['extendedDisplayTitle'] as String?;
-              hType ??= stMap['hdrType']?.toString();
-              final stProf = stMap['profile']?.toString().toLowerCase() ?? '';
-              if (stProf.contains('hdr10+') || stProf.contains('2094')) {
-                hasDynamic = true;
-              }
+      for (final m in mediaList) {
+        if (m is! Map<String, dynamic>) continue;
+        final mDynamic = m['hasDynamicMetadata'] == '1' ||
+            m['hasDynamicMetadata'] == 1 ||
+            m['hasDynamicMetadata'] == true ||
+            m['hasDynamicMetadata'] == 'true' ||
+            m['dynamicMetadata'] == '1' ||
+            m['dynamicMetadata'] == 1 ||
+            m['dynamicMetadata'] == true ||
+            m['dynamicMetadata'] == 'true';
+        if (mDynamic) hasDynamic = true;
 
-              final titleLower = '${vDispTitle ?? ''} ${vExtDispTitle ?? ''}'.toLowerCase();
-              if (titleLower.contains('hdr10+') ||
-                  titleLower.contains('hdr10plus') ||
-                  titleLower.contains('2094')) {
-                hasDynamic = true;
+        final mText = '${m['displayTitle'] ?? ''} ${m['extendedDisplayTitle'] ?? ''} ${m['hdrType'] ?? ''} ${m['hdr'] ?? ''} ${m['dynamicRange'] ?? ''} ${m['videoProfile'] ?? ''} ${m['profile'] ?? ''}'.toLowerCase();
+        if (checkIsHdr10Plus(mText)) hasDynamic = true;
+        if (checkIsDovi(mText) || m['DOVIProfile'] != null || m['doviProfile'] != null || m['DOVIPresent'] == true || m['DOVIPresent'] == 'true' || m['DOVIPresent'] == 1 || m['DOVIPresent'] == '1') {
+          dovProf ??= 0;
+        }
+
+        final rawParts = m['Part'];
+        final parts = rawParts is List ? rawParts : (rawParts is Map ? [rawParts] : null);
+        if (parts != null) {
+          for (final p in parts) {
+            if (p is! Map<String, dynamic>) continue;
+            pKey ??= p['key'] as String?;
+            pId ??= p['id']?.toString();
+            final fStr = (p['file'] ?? '').toString().toLowerCase();
+            if (checkIsHdr10Plus(fStr)) hasDynamic = true;
+            if (checkIsDovi(fStr)) dovProf ??= 0;
+
+            final rawStreams = p['Stream'];
+            final streams = rawStreams is List ? rawStreams : (rawStreams is Map ? [rawStreams] : null);
+            if (streams != null) {
+              int subIdx = subs.length;
+              int audioIdx = audios.length;
+              for (final s in streams) {
+                if (s is! Map<String, dynamic>) continue;
+                final stMap = s;
+                final streamType = (stMap['streamType'] is num)
+                    ? (stMap['streamType'] as num).toInt()
+                    : int.tryParse(stMap['streamType']?.toString() ?? '');
+                if (streamType == 1) {
+                  colTrc ??= stMap['colorTrc'] as String?;
+                  colPrim ??= stMap['colorPrimaries'] as String?;
+                  final stDovProf = (stMap['DOVIProfile'] is num)
+                      ? (stMap['DOVIProfile'] as num).toInt()
+                      : (stMap['doviProfile'] is num)
+                          ? (stMap['doviProfile'] as num).toInt()
+                          : int.tryParse(stMap['DOVIProfile']?.toString() ?? stMap['doviProfile']?.toString() ?? '');
+                  if (stDovProf != null) dovProf = stDovProf;
+                  if (stMap['DOVIPresent'] == true ||
+                      stMap['DOVIPresent'] == 'true' ||
+                      stMap['DOVIPresent'] == 1 ||
+                      stMap['DOVIPresent'] == '1' ||
+                      stMap['doviPresent'] == true ||
+                      stMap['doviPresent'] == 'true' ||
+                      stMap['doviPresent'] == 1 ||
+                      stMap['doviPresent'] == '1') {
+                    dovProf ??= 0;
+                  }
+                  dovTitle ??= stMap['DOVITitle'] as String? ?? stMap['doviTitle'] as String?;
+                  vScan ??= stMap['scanType']?.toString() ?? stMap['videoScanType']?.toString();
+                  vFrameRate ??= stMap['videoFrameRate']?.toString();
+                  vDispTitle ??= stMap['displayTitle'] as String?;
+                  vExtDispTitle ??= stMap['extendedDisplayTitle'] as String?;
+                  hType ??= stMap['hdrType']?.toString();
+
+                  final sDynamic = stMap['hasDynamicMetadata'] == '1' ||
+                      stMap['hasDynamicMetadata'] == 1 ||
+                      stMap['hasDynamicMetadata'] == true ||
+                      stMap['hasDynamicMetadata'] == 'true' ||
+                      stMap['dynamicMetadata'] == '1' ||
+                      stMap['dynamicMetadata'] == 1 ||
+                      stMap['dynamicMetadata'] == true ||
+                      stMap['dynamicMetadata'] == 'true';
+                  if (sDynamic) hasDynamic = true;
+
+                  final sText = '${stMap['displayTitle'] ?? ''} ${stMap['extendedDisplayTitle'] ?? ''} ${stMap['hdrType'] ?? ''} ${stMap['profile'] ?? ''} ${stMap['colorTrc'] ?? ''}'.toLowerCase();
+                  if (checkIsHdr10Plus(sText)) hasDynamic = true;
+                  if (checkIsDovi(sText)) dovProf ??= 0;
+
+                  if (bRate == null && stMap['bitrate'] != null) {
+                    bRate = (stMap['bitrate'] is num)
+                        ? (stMap['bitrate'] as num).toInt()
+                        : int.tryParse(stMap['bitrate']?.toString() ?? '');
+                  }
+                } else if (streamType == 2 && audios.isEmpty) {
+                  audios.add(PlexAudioStream.fromJson(stMap, streamIndex: audioIdx));
+                  audioIdx++;
+                  if (aCodec == null || stMap['selected'] == 1 || stMap['selected'] == true) {
+                    aCodec = stMap['codec'] as String?;
+                    aChannels = (stMap['channels'] is num)
+                        ? (stMap['channels'] as num).toInt()
+                        : int.tryParse(stMap['channels']?.toString() ?? '');
+                    aProf = stMap['profile'] as String? ?? stMap['audioChannelLayout'] as String?;
+                    aTitle = stMap['displayTitle'] as String? ?? stMap['extendedDisplayTitle'] as String?;
+                  }
+                } else if (streamType == 3 && subs.isEmpty) {
+                  subs.add(PlexSubtitleStream.fromJson(stMap, streamIndex: subIdx));
+                  subIdx++;
+                }
               }
-              if (stMap['hasDynamicMetadata'] == '1' ||
-                  stMap['hasDynamicMetadata'] == 1 ||
-                  stMap['hasDynamicMetadata'] == true ||
-                  stMap['hasDynamicMetadata'] == 'true') {
-                hasDynamic = true;
-              }
-              if (bRate == null && stMap['bitrate'] != null) {
-                bRate = (stMap['bitrate'] is num)
-                    ? (stMap['bitrate'] as num).toInt()
-                    : int.tryParse(stMap['bitrate']?.toString() ?? '');
-              }
-            } else if (streamType == 2) {
-              // Audio Stream
-              audios.add(PlexAudioStream.fromJson(stMap, streamIndex: audioIdx));
-              audioIdx++;
-              if (aCodec == null || stMap['selected'] == 1 || stMap['selected'] == true) {
-                aCodec = stMap['codec'] as String?;
-                aChannels = (stMap['channels'] is num)
-                    ? (stMap['channels'] as num).toInt()
-                    : int.tryParse(stMap['channels']?.toString() ?? '');
-                aProf = stMap['profile'] as String? ?? stMap['audioChannelLayout'] as String?;
-                aTitle = stMap['displayTitle'] as String? ?? stMap['extendedDisplayTitle'] as String?;
-              }
-            } else if (streamType == 3) {
-              // Subtitle Stream
-              subs.add(PlexSubtitleStream.fromJson(stMap, streamIndex: subIdx));
-              subIdx++;
             }
           }
         }
