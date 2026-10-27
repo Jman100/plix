@@ -310,6 +310,8 @@ class _MediaCardState extends State<MediaCard> {
                               ),
                             ),
                           ),
+
+
                       ],
                     ),
                   ),
@@ -324,7 +326,7 @@ class _MediaCardState extends State<MediaCard> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isHighlighted ? PlixTheme.textPrimary : PlixTheme.textSecondary,
-                    fontSize: 13,
+                    fontSize: widget.width < 125 ? 12 : 13,
                     fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
@@ -341,9 +343,9 @@ class _MediaCardState extends State<MediaCard> {
                             widget.item.cardSubtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: PlixTheme.textMuted,
-                              fontSize: 11,
+                              fontSize: widget.width < 125 ? 10 : 11,
                             ),
                           ),
                         )

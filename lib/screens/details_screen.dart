@@ -116,12 +116,45 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     }
   }
 
+  double? _nativeThumbnailAspectRatio;
+
+  void _resolveThumbnailAspectRatio() {
+    if (!_item.isEpisode) return;
+    final thumbPath = _item.thumb ?? _item.art;
+    if (thumbPath == null || thumbPath.isEmpty) return;
+    final url = _mediaService.buildImageUrl(thumbPath);
+    if (url.isEmpty) return;
+    final provider = CachedNetworkImageProvider(url);
+    final stream = provider.resolve(const ImageConfiguration());
+    ImageStreamListener? listener;
+    listener = ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        if (!mounted) return;
+        final w = info.image.width;
+        final h = info.image.height;
+        if (w > 0 && h > 0) {
+          final ratio = w / h;
+          final is43 = ratio <= 1.5;
+          final resolved = is43 ? (4.0 / 3.0) : (16.0 / 9.0);
+          if (_nativeThumbnailAspectRatio != resolved) {
+            setState(() {
+              _nativeThumbnailAspectRatio = resolved;
+            });
+          }
+        }
+      },
+      onError: (_, __) {},
+    );
+    stream.addListener(listener);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _item = widget.initialItem;
     _mediaService = PlexMediaService(server: widget.server);
+    _resolveThumbnailAspectRatio();
     _loadFullDetails();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startThemeIfAllowed();
@@ -254,6 +287,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         setState(() {
           _item = full;
         });
+        _resolveThumbnailAspectRatio();
       }
     } catch (_) {}
 
@@ -755,14 +789,55 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
   bool get _isLandscapeArtwork => _item.isEpisode;
 
+  String get _showTitleLine {
+    final show = _item.grandparentTitle ?? '';
+    if (!_item.isEpisode) return show;
+
+    final season = _item.parentIndex;
+    final episode = _item.index;
+    String se = '';
+    if (season != null && episode != null) {
+      se = 'S$season:E$episode';
+    } else if (season != null) {
+      se = 'S$season';
+    } else if (episode != null) {
+      se = 'E$episode';
+    }
+
+    if (show.isNotEmpty && se.isNotEmpty) {
+      return '$show - $se';
+    }
+    return show.isNotEmpty ? show : se;
+  }
+
+  bool get _isEpisode4by3 {
+    if (!_item.isEpisode) return false;
+    if (_nativeThumbnailAspectRatio != null) {
+      return (_nativeThumbnailAspectRatio! - 4.0 / 3.0).abs() < 0.1;
+    }
+    if (_item.aspectRatio != null && _item.aspectRatio! < 1.5) return true;
+    if (_item.videoWidth != null && _item.videoHeight != null && _item.videoHeight! > 0) {
+      return (_item.videoWidth! / _item.videoHeight!) < 1.5;
+    }
+    return false;
+  }
+
   double _artworkWidth(bool isCompact) {
     if (_item.isEpisode) {
+      if (_isEpisode4by3) {
+        return isCompact ? 190 : 230;
+      }
       return isCompact ? 250 : 260;
     }
     return isCompact ? 140 : 180;
   }
 
-  double get _artworkAspectRatio => _item.isEpisode ? 16 / 9 : 2 / 3;
+  double get _artworkAspectRatio {
+    if (_item.isEpisode) {
+      return _isEpisode4by3 ? (4.0 / 3.0) : (16.0 / 9.0);
+    }
+    return 2.0 / 3.0;
+  }
 
   Widget _buildArtwork({
     required String posterUrl,
@@ -842,10 +917,10 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           ),
         ),
 
-        if (_item.grandparentTitle != null) ...[
+        if (_showTitleLine.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
-            _item.grandparentTitle!,
+            _showTitleLine,
             style: TextStyle(
               color: PlixTheme.plexGold,
               fontSize: 15,
@@ -863,7 +938,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             if (_item.formattedAirDate.isNotEmpty) _Badge(label: _item.formattedAirDate),
-            if (_item.duration != null && _item.duration! > 0) _Badge(label: _item.formattedDuration),
+            if (!_item.isShow && _item.duration != null && _item.duration! > 0) _Badge(label: _item.formattedDuration),
             if (_item.contentRating != null) _Badge(label: _item.contentRating!),
             if (_item.formattedResolution.isNotEmpty)
               _Badge(
@@ -1038,7 +1113,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final posterUrl = _mediaService.buildImageUrl(
       _item.thumb ?? _item.art,
       width: _isLandscapeArtwork ? 960 : 400,
-      height: _isLandscapeArtwork ? 540 : 600,
+      height: _isLandscapeArtwork ? (_isEpisode4by3 ? 720 : 540) : 600,
     );
     final artworkDecodeWidth = PlixImageCache.decodeWidth(
       context,
@@ -1048,7 +1123,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final artworkDecodeHeight = PlixImageCache.decodeHeight(
       context,
       artworkHeight,
-      cap: _isLandscapeArtwork ? 540 : 600,
+      cap: _isLandscapeArtwork ? (_isEpisode4by3 ? 720 : 540) : 600,
     );
     final backdropDecodeWidth = PlixImageCache.decodeWidth(
       context,
@@ -1223,10 +1298,10 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                       ),
                                     ),
 
-                                    if (_item.grandparentTitle != null) ...[
+                                    if (_showTitleLine.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       Text(
-                                        _item.grandparentTitle!,
+                                        _showTitleLine,
                                         style: TextStyle(
                                           color: PlixTheme.plexGold,
                                           fontSize: 18,
@@ -1244,7 +1319,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                       crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         if (_item.formattedAirDate.isNotEmpty) _Badge(label: _item.formattedAirDate),
-                                        if (_item.duration != null && _item.duration! > 0)
+                                        if (!_item.isShow && _item.duration != null && _item.duration! > 0)
                                           _Badge(label: _item.formattedDuration),
                                         if (_item.contentRating != null) _Badge(label: _item.contentRating!),
                                         if (_item.formattedResolution.isNotEmpty)

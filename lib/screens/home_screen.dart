@@ -70,6 +70,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final Map<String, int> _rowLastFocusedIndices = {};
   FocusNode? _lastFocusedContentNode;
   String? _lastFocusedRowId;
+
+  String? _heroViewMoreTitle;
+
+  bool get _showHeroButtons {
+    if (_heroViewMoreTitle != null) return false;
+    if (_heroPlayFocusNode.hasFocus || _heroDetailsFocusNode.hasFocus) return true;
+    if (_lastFocusedRowId == 'continue_watching') return true;
+    if (_lastFocusedRowId == null && _continueWatching.isNotEmpty) return true;
+    return false;
+  }
   bool _isSidebarFocused = false;
   Timer? _heroMetadataDebounceTimer;
   Timer? _heroHoverTimer;
@@ -107,21 +117,54 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _heroItem = item;
           });
           if (item.ratingKey.isNotEmpty) {
-            _fetchHeroFullMetadata(item.targetRatingKey ?? item.ratingKey);
+            _fetchHeroFullMetadata(item);
           }
         }
       });
     }
   }
 
-  void _fetchHeroFullMetadata(String ratingKey) {
+  void _fetchHeroFullMetadata(PlexMediaItem currentHeroItem) {
     _heroMetadataDebounceTimer?.cancel();
+    final isSeasonTarget = currentHeroItem.targetType == 'season';
+    final fetchKey = isSeasonTarget ? currentHeroItem.ratingKey : (currentHeroItem.targetRatingKey ?? currentHeroItem.ratingKey);
+    if (fetchKey.isEmpty) return;
+
+    final cached = _mediaService.getDetailedCachedMetadata(fetchKey);
+    if (cached != null) {
+      if (isSeasonTarget) {
+        _heroItem = cached.copyWith(
+          title: currentHeroItem.title,
+          grandparentTitle: currentHeroItem.grandparentTitle,
+          addedSubtitle: currentHeroItem.addedSubtitle,
+          targetType: 'season',
+          targetSeasonKey: currentHeroItem.targetSeasonKey,
+          targetRatingKey: currentHeroItem.targetRatingKey,
+          clearDuration: true,
+        );
+      } else {
+        _heroItem = cached;
+      }
+    }
+
     _heroMetadataDebounceTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
-        final full = await _mediaService.getItemMetadata(ratingKey);
-        if (mounted && (_heroItem?.ratingKey == ratingKey || _heroItem?.targetRatingKey == ratingKey)) {
+        final full = await _mediaService.getItemMetadata(fetchKey);
+        if (mounted && (_heroItem?.ratingKey == currentHeroItem.ratingKey || _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey)) {
           setState(() {
-            _heroItem = full;
+            if (isSeasonTarget) {
+              _heroItem = full.copyWith(
+                title: currentHeroItem.title,
+                grandparentTitle: currentHeroItem.grandparentTitle,
+                addedSubtitle: currentHeroItem.addedSubtitle,
+                targetType: 'season',
+                targetSeasonKey: currentHeroItem.targetSeasonKey,
+                targetRatingKey: currentHeroItem.targetRatingKey,
+                clearDuration: true,
+              );
+            } else {
+              _heroItem = full;
+            }
           });
         }
       } catch (_) {}
@@ -231,13 +274,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _onHeroFocusChanged() {
     if (_heroPlayFocusNode.hasFocus || _heroDetailsFocusNode.hasFocus) {
-      _lastFocusedRowId = null;
+      _lastFocusedRowId = 'continue_watching';
       _lastFocusedContentNode = _heroPlayFocusNode.hasFocus ? _heroPlayFocusNode : _heroDetailsFocusNode;
-      _scrollController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-      );
+      if (mounted) setState(() {});
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
   }
 
@@ -295,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
         if (_heroItem!.ratingKey.isNotEmpty) {
-          _fetchHeroFullMetadata(_heroItem!.targetRatingKey ?? _heroItem!.ratingKey);
+          _fetchHeroFullMetadata(_heroItem!);
         }
       }
 
@@ -372,7 +418,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final targetIdx = currentIdx + delta;
     if (delta < 0 && targetIdx < 0) {
-      _heroDetailsFocusNode.requestFocus();
+      if (_showHeroButtons && _heroDetailsFocusNode.canRequestFocus) {
+        _heroDetailsFocusNode.requestFocus();
+      }
       return;
     }
 
@@ -396,34 +444,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _onViewMoreCardFocused(BuildContext rowContext, String rowId, FocusNode node, String title) {
+    _lastFocusedContentNode = node;
+    final rowChanged = _lastFocusedRowId != rowId;
+    if (rowChanged) {
+      _lastFocusedRowId = rowId;
+    }
+    _heroMetadataDebounceTimer?.cancel();
+    setState(() {
+      _heroViewMoreTitle = 'View More $title';
+      _heroItem = null;
+    });
+
+    if (rowChanged) {
+      Scrollable.ensureVisible(
+        rowContext,
+        alignment: 0.0,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   void _onRowItemFocused(PlexMediaItem item, BuildContext rowContext, String rowId, [FocusNode? node, bool isFirstRow = false, int? itemIndex]) {
+    _heroViewMoreTitle = null;
     if (node != null) {
       _lastFocusedContentNode = node;
-
     }
     if (itemIndex != null) {
       _rowLastFocusedIndices[rowId] = itemIndex;
+    }
+    final rowChanged = _lastFocusedRowId != rowId;
+    if (rowChanged) {
+      _lastFocusedRowId = rowId;
     }
     setState(() {
       _heroItem = item;
     });
     if (item.ratingKey.isNotEmpty) {
-      _fetchHeroFullMetadata(item.targetRatingKey ?? item.ratingKey);
+      _fetchHeroFullMetadata(item);
     }
 
     // Only scroll vertically when changing rows (not when navigating horizontally within the same row)
-    if (_lastFocusedRowId != rowId) {
-      _lastFocusedRowId = rowId;
+    if (rowChanged) {
       if (isFirstRow) {
-        _scrollController.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-        );
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+          );
+        }
       } else {
         Scrollable.ensureVisible(
           rowContext,
-          alignment: 0.05,
+          alignment: 0.0,
           duration: const Duration(milliseconds: 280),
           curve: Curves.easeOutCubic,
         );
@@ -882,9 +957,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               children: [
                 SizedBox(
                   height: 18,
-                  child: item.grandparentTitle != null
+                  child: item.heroTopTitle != null && item.heroTopTitle!.isNotEmpty
                       ? Text(
-                          item.grandparentTitle!,
+                          item.heroTopTitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -900,7 +975,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 SizedBox(
                   height: 26,
                   child: Text(
-                    item.displayTitle,
+                    item.heroMainTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -930,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                           const SizedBox(width: 6),
                         ],
-                        if (item.formattedDuration.isNotEmpty) ...[
+                        if (!item.isShow && !item.isSeason && item.targetType != 'season' && item.formattedDuration.isNotEmpty) ...[
                           Text(
                             item.formattedDuration,
                             style: const TextStyle(
@@ -1022,7 +1097,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                         icon: const Icon(Icons.play_arrow_rounded, size: 22),
                         label: Text(
-                          item.isInProgress ? 'Resume' : 'Watch Now',
+                          item.isInProgress
+                              ? (item.formattedResumeTime.isNotEmpty
+                                  ? 'Resume from ${item.formattedResumeTime}'
+                                  : 'Resume')
+                              : 'Watch Now',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         onPressed: () => _quickPlay(item),
@@ -1052,25 +1131,67 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildTvHero() {
+    if (_heroViewMoreTitle != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: SizedBox(
+            height: 120,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 36,
+                  child: Text(
+                    _heroViewMoreTitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PlixTheme.textPrimary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (_heroItem == null) return const SizedBox.shrink();
+    final showButtons = _showHeroButtons;
+    final resumeLabel = _heroItem!.isInProgress
+        ? (_heroItem!.formattedResumeTime.isNotEmpty
+            ? 'Resume from ${_heroItem!.formattedResumeTime}'
+            : 'Resume')
+        : 'Watch Now';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 0),
-        child: SizedBox(
-          height: 168,
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
                 height: 20,
                 child: Visibility(
-                  visible: _heroItem!.grandparentTitle != null,
+                  visible: _heroItem!.heroTopTitle != null && _heroItem!.heroTopTitle!.isNotEmpty,
                   maintainSize: true,
                   maintainAnimation: true,
                   maintainState: true,
                   child: Text(
-                    _heroItem!.grandparentTitle ?? '',
+                    _heroItem!.heroTopTitle ?? '',
                     style: TextStyle(
                       color: PlixTheme.plexGold,
                       fontSize: 15,
@@ -1084,7 +1205,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               SizedBox(
                 height: 36,
                 child: Text(
-                  _heroItem!.displayTitle,
+                  _heroItem!.heroMainTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1110,7 +1231,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(width: 12),
                     ],
-                    if (_heroItem!.formattedDuration.isNotEmpty) ...[
+                    if (!_heroItem!.isShow &&
+                        !_heroItem!.isSeason &&
+                        _heroItem!.targetType != 'season' &&
+                        _heroItem!.formattedDuration.isNotEmpty) ...[
                       Text(
                         _heroItem!.formattedDuration,
                         style: const TextStyle(
@@ -1205,43 +1329,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 40,
-                child: Row(
-                  children: [
-                    PlixButton(
-                      focusNode: _heroPlayFocusNode,
-                      autofocus: _continueWatching.isNotEmpty,
-                      isPrimary: false,
-                      padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                      label: _heroItem!.isInProgress
-                          ? 'Resume'
-                          : 'Watch Now',
-                      blockUp: true,
-                      onUp: () {},
-                      onLeft: () => _sidebarHomeFocusNode.requestFocus(),
-                      onRight: () => _heroDetailsFocusNode.requestFocus(),
-                      onDown: _navigateFromHeroDown,
-                      onPressed: () => _quickPlay(_heroItem!),
-                    ),
-                    const SizedBox(width: 14),
-                    PlixButton(
-                      focusNode: _heroDetailsFocusNode,
-                      isPrimary: false,
-                      padding: const EdgeInsets.only(left: 12, right: 16, top: 6, bottom: 8),
-                      icon: const Icon(Icons.info_outline_rounded, size: 20),
-                      label: 'Details',
-                      blockUp: true,
-                      onUp: () {},
-                      onLeft: () => _heroPlayFocusNode.requestFocus(),
-                      onDown: _navigateFromHeroDown,
-                      onPressed: () => _openDetails(_heroItem!),
-                    ),
-                  ],
+              if (showButtons) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 38,
+                  child: Row(
+                    children: [
+                      PlixButton(
+                        focusNode: _heroPlayFocusNode,
+                        autofocus: _continueWatching.isNotEmpty,
+                        isPrimary: false,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: resumeLabel,
+                        blockUp: true,
+                        onUp: () {},
+                        onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                        onRight: () => _heroDetailsFocusNode.requestFocus(),
+                        onDown: _navigateFromHeroDown,
+                        onPressed: () => _quickPlay(_heroItem!),
+                      ),
+                      const SizedBox(width: 12),
+                      PlixButton(
+                        focusNode: _heroDetailsFocusNode,
+                        isPrimary: false,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        icon: const Icon(Icons.info_outline_rounded, size: 18),
+                        label: 'Details',
+                        blockUp: true,
+                        onUp: () {},
+                        onLeft: () => _heroPlayFocusNode.requestFocus(),
+                        onDown: _navigateFromHeroDown,
+                        onPressed: () => _openDetails(_heroItem!),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1349,7 +1473,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                     )
-                  else
+                  else if (isCompact)
                     RefreshIndicator(
                       onRefresh: _initData,
                       color: PlixTheme.plexGold,
@@ -1357,91 +1481,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: SingleChildScrollView(
                         controller: _scrollController,
                         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                        padding: EdgeInsets.only(
-                          top: isCompact ? 0 : 16,
-                          bottom: isCompact ? 80 : 48,
-                        ),
+                        padding: const EdgeInsets.only(top: 0, bottom: 80),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (isCompact)
-                              _buildMobileHero(context, heroBackdropUrl)
-                            else if (_heroItem != null)
-                              _buildTvHero(),
-
+                            _buildMobileHero(context, heroBackdropUrl),
                             const SizedBox(height: 16),
-
-                            // Row 1: Continue Watching
-                          if (_continueWatching.isNotEmpty)
-                            _HomeRowSection(
-                              key: _rowSectionKeys.putIfAbsent('continue_watching', () => GlobalKey<_HomeRowSectionState>()),
-                              highlightedItemId: isCompact ? _heroItem?.ratingKey : null,
-                              rowId: 'continue_watching',
-                              title: 'Continue Watching',
-                              icon: Icons.history_rounded,
-                              items: _continueWatching,
-                              mediaService: _mediaService,
-                              autofocusFirst: false,
-                              isFirstRow: true,
-                              firstItemFocusNode: _firstContinueWatchingFocusNode,
-                              onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
-                              onRowUp: () => _heroPlayFocusNode.requestFocus(),
-                              onRowDown: () => _navigateRowVertical('continue_watching', 1),
-                              onItemFocused: _onRowItemFocused,
-                              onItemSelected: _openDetails,
-                              onItemHovered: _onMediaTileHover,
-                              isLastRow: _libraries.isEmpty,
-                            ),
-
-                          // Row 2+: Recently Added for each library
-                          () {
-                            bool firstRowFound = false;
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                for (final lib in _libraries)
-                                  if (_recentlyAddedByLibrary[lib.key]?.isNotEmpty == true)
-                                    Builder(builder: (context) {
-                                      final isTopRecentlyAdded = !firstRowFound;
-                                      firstRowFound = true;
-                                      final viewMoreNode = _viewMoreFocusNodes.putIfAbsent(lib.key, () => FocusNode());
-                                      final rowId = 'lib_${lib.key}';
-                                      return _HomeRowSection(
-                                        key: _rowSectionKeys.putIfAbsent(rowId, () => GlobalKey<_HomeRowSectionState>()),
-                                        rowId: rowId,
-                                        title: 'Recently Added in ${lib.title}',
-                                        icon: lib.isMovie
-                                            ? Icons.movie_outlined
-                                            : Icons.tv_outlined,
-                                        onViewMore: () => _openRecentlyAdded(lib),
-                                        viewMoreFocusNode: viewMoreNode,
-                                        items: _recentlyAddedByLibrary[lib.key]!.take(15).toList(),
-                                        mediaService: _mediaService,
-                                        autofocusFirst: _continueWatching.isEmpty && isTopRecentlyAdded,
-                                        isFirstRow: _continueWatching.isEmpty && isTopRecentlyAdded,
-                                        onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
-                                        onRowUp: () {
-                                          if (_continueWatching.isEmpty && isTopRecentlyAdded) {
-                                            _heroPlayFocusNode.requestFocus();
-                                          } else {
-                                            _navigateRowVertical(rowId, -1);
-                                          }
-                                        },
-                                        onRowDown: () => _navigateRowVertical(rowId, 1),
-                                        onItemFocused: _onRowItemFocused,
-                                        onItemSelected: _openDetails,
-                                        onItemHovered: _onMediaTileHover,
-                                        isLastRow: lib == _libraries.last,
-                                      );
-                                    }),
-                              ],
-                            );
-                          }(),
-                        ],
+                            _buildRows(true),
+                          ],
+                        ),
                       ),
+                    )
+                  else
+                    // TV & Desktop: Sticky Hero Section on Top, Scrollable Rows underneath
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_heroItem != null || _heroViewMoreTitle != null) ...[
+                          _buildTvHero(),
+                          Container(
+                            height: 1,
+                            margin: const EdgeInsets.only(left: 40, right: 40, top: 14, bottom: 4),
+                            color: Colors.white.withOpacity(0.08),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            padding: const EdgeInsets.only(top: 2, bottom: 32),
+                            child: _buildRows(false),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
                 ],
               );
 
@@ -1544,6 +1618,86 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ),
     );
   }
+
+  Widget _buildRows(bool isCompact) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Row 1: Continue Watching
+        if (_continueWatching.isNotEmpty)
+          _HomeRowSection(
+            key: _rowSectionKeys.putIfAbsent('continue_watching', () => GlobalKey<_HomeRowSectionState>()),
+            highlightedItemId: isCompact ? _heroItem?.ratingKey : null,
+            rowId: 'continue_watching',
+            title: 'Continue Watching',
+            icon: Icons.history_rounded,
+            items: _continueWatching,
+            mediaService: _mediaService,
+            autofocusFirst: false,
+            isFirstRow: true,
+            firstItemFocusNode: _firstContinueWatchingFocusNode,
+            onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
+            onRowUp: () => _heroPlayFocusNode.requestFocus(),
+            onRowDown: () => _navigateRowVertical('continue_watching', 1),
+            onItemFocused: _onRowItemFocused,
+            onItemSelected: _openDetails,
+            onItemHovered: _onMediaTileHover,
+            isLastRow: _libraries.isEmpty,
+          ),
+
+        // Row 2+: Recently Added for each library
+        () {
+          bool firstRowFound = false;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final lib in _libraries)
+                if (_recentlyAddedByLibrary[lib.key]?.isNotEmpty == true)
+                  Builder(builder: (context) {
+                    final isTopRecentlyAdded = !firstRowFound;
+                    firstRowFound = true;
+                    final viewMoreNode = _viewMoreFocusNodes.putIfAbsent(lib.key, () => FocusNode());
+                    final rowId = 'lib_${lib.key}';
+                    return _HomeRowSection(
+                      key: _rowSectionKeys.putIfAbsent(rowId, () => GlobalKey<_HomeRowSectionState>()),
+                      rowId: rowId,
+                      title: 'Recently Added in ${lib.title}',
+                      icon: lib.isMovie
+                          ? Icons.movie_outlined
+                          : Icons.tv_outlined,
+                      onViewMore: () => _openRecentlyAdded(lib),
+                      viewMoreFocusNode: viewMoreNode,
+                      items: _recentlyAddedByLibrary[lib.key]!.take(15).toList(),
+                      mediaService: _mediaService,
+                      autofocusFirst: _continueWatching.isEmpty && isTopRecentlyAdded,
+                      isFirstRow: _continueWatching.isEmpty && isTopRecentlyAdded,
+                      onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
+                      onRowUp: () {
+                        if (_continueWatching.isEmpty && isTopRecentlyAdded) {
+                          // Top row when continue watching is empty: stay or go left
+                        } else {
+                          _navigateRowVertical(rowId, -1);
+                        }
+                      },
+                      onRowDown: () => _navigateRowVertical(rowId, 1),
+                      onItemFocused: _onRowItemFocused,
+                      onViewMoreFocused: _onViewMoreCardFocused,
+                      onItemSelected: _openDetails,
+                      onItemHovered: _onMediaTileHover,
+                      isLastRow: lib == _libraries.last,
+                    );
+                  }),
+            ],
+          );
+        }(),
+        // Extra bottom spacing so the last row can scroll up directly underneath the hero section
+        SizedBox(height: isCompact ? 24 : 320),
+      ],
+    );
+  }
+
 }
 
 class _HomeRowSection extends StatefulWidget {
@@ -1559,6 +1713,7 @@ class _HomeRowSection extends StatefulWidget {
   final FocusNode? firstItemFocusNode;
   final void Function(PlexMediaItem item, BuildContext rowContext, String rowId, [FocusNode? node, bool isFirstRow, int? itemIndex])
       onItemFocused;
+  final void Function(BuildContext rowContext, String rowId, FocusNode node, String title)? onViewMoreFocused;
   final ValueChanged<PlexMediaItem> onItemSelected;
   final VoidCallback? onLeftAtFirst;
   final VoidCallback? onRowUp;
@@ -1581,6 +1736,7 @@ class _HomeRowSection extends StatefulWidget {
     this.isFirstRow = false,
     this.firstItemFocusNode,
     required this.onItemFocused,
+    this.onViewMoreFocused,
     required this.onItemSelected,
     this.onItemHovered,
     this.onLeftAtFirst,
@@ -1611,7 +1767,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
   void scrollToIndex(int index) {
     if (!_scrollController.hasClients) return;
     final isCompact = PlixDeviceHelper.isCompact(context);
-    final itemWidth = (isCompact ? 120.0 : 130.0) + 16.0;
+    final itemWidth = (isCompact ? 120.0 : 112.0) + 16.0;
     final maxScroll = _scrollController.position.maxScrollExtent;
     final target = (index * itemWidth).clamp(0.0, maxScroll);
     _scrollController.animateTo(
@@ -1652,8 +1808,10 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
         final viewport = _scrollController.position.viewportDimension;
         final maxScroll = _scrollController.position.maxScrollExtent;
         final currentScroll = _scrollController.offset;
-        final itemLeft = 32.0 + index * 146.0;
-        final itemRight = itemLeft + 146.0;
+        final isCompact = PlixDeviceHelper.isCompact(context);
+        final itemWidth = (isCompact ? 120.0 : 112.0) + 16.0;
+        final itemLeft = (isCompact ? 16.0 : 40.0) + index * itemWidth;
+        final itemRight = itemLeft + itemWidth;
 
         if (itemRight > currentScroll + viewport - 120) {
           final target = (itemRight - viewport + 160).clamp(0.0, maxScroll);
@@ -1683,7 +1841,9 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
         curve: Curves.easeOutCubic,
       );
     }
-    if (widget.items.isNotEmpty) {
+    if (widget.onViewMoreFocused != null) {
+      widget.onViewMoreFocused!(sectionContext, widget.rowId, node, widget.title);
+    } else if (widget.items.isNotEmpty) {
       widget.onItemFocused(widget.items.last, sectionContext, widget.rowId, node, widget.isFirstRow, index);
     }
   }
@@ -1702,17 +1862,17 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
             Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: isCompact ? 16 : 40,
-                vertical: 8,
+                vertical: isCompact ? 8 : 4,
               ),
               child: Row(
                 children: [
-                  Icon(widget.icon, color: PlixTheme.plexGold, size: 20),
-                  const SizedBox(width: 10),
+                  Icon(widget.icon, color: PlixTheme.plexGold, size: isCompact ? 20 : 18),
+                  const SizedBox(width: 8),
                   Text(
                     widget.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: PlixTheme.textPrimary,
-                      fontSize: 20,
+                      fontSize: isCompact ? 20 : 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1745,7 +1905,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
               ),
             ),
             SizedBox(
-              height: isCompact ? 245 : 255,
+              height: isCompact ? 245 : 218,
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
@@ -1769,7 +1929,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                       mediaService: widget.mediaService,
                       autofocus: widget.autofocusFirst && isFirst,
                       focusNode: itemNode,
-                      width: isCompact ? 120 : 130,
+                      width: isCompact ? 120 : 112,
                       onLeft: isFirst ? widget.onLeftAtFirst : () => _focusNodeAt(index - 1).requestFocus(),
                       onRight: isLast ? () {} : () => _focusNodeAt(index + 1).requestFocus(),
                       onUp: widget.onRowUp,
@@ -1791,7 +1951,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                     final viewMoreNode = _focusNodeAt(widget.items.length);
                     return _ViewMoreCard(
                       focusNode: viewMoreNode,
-                      width: isCompact ? 120 : 130,
+                      width: isCompact ? 120 : 112,
                       aspectRatio: 2 / 3,
                       blockRight: true,
                       blockDown: widget.isLastRow,

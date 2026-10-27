@@ -228,6 +228,9 @@ class PlexMediaItem {
   final String? targetType;
   final String? targetSeasonKey;
   final String? hdrType;
+  final double? aspectRatio;
+  final int? videoWidth;
+  final int? videoHeight;
   final List<PlexMarker> markers;
   final String? guid;
   final String? grandparentGuid;
@@ -288,6 +291,9 @@ class PlexMediaItem {
     this.targetType,
     this.targetSeasonKey,
     this.hdrType,
+    this.aspectRatio,
+    this.videoWidth,
+    this.videoHeight,
     this.markers = const [],
     this.guid,
     this.grandparentGuid,
@@ -385,6 +391,8 @@ class PlexMediaItem {
         allText.contains('hdr-10+') ||
         allText.contains('hdr10.plus') ||
         allText.contains('hdr10_plus') ||
+        allText.contains('hdr+') ||
+        allText.contains('hdr +') ||
         allText.contains('2094') ||
         allText.contains('smpte2094') ||
         allText.contains('smpte 2094')) {
@@ -490,6 +498,64 @@ class PlexMediaItem {
     return (viewOffset! / duration!).clamp(0.0, 1.0);
   }
 
+  String? get heroTopTitle {
+    if (isEpisode) {
+      if (grandparentTitle != null && grandparentTitle!.isNotEmpty) {
+        return grandparentTitle!;
+      }
+      if (parentTitle != null && parentTitle!.isNotEmpty) {
+        return parentTitle!;
+      }
+      return null;
+    }
+    if (isSeason) {
+      if (parentTitle != null && parentTitle!.isNotEmpty) {
+        return parentTitle!;
+      }
+      if (grandparentTitle != null && grandparentTitle!.isNotEmpty) {
+        return grandparentTitle!;
+      }
+      return null;
+    }
+    if (targetType == 'episode' || targetType == 'season') {
+      if (grandparentTitle != null && grandparentTitle!.isNotEmpty) {
+        return grandparentTitle!;
+      }
+      return title;
+    }
+    return null;
+  }
+
+  String get heroMainTitle {
+    if (targetType == 'episode') {
+      final s = parentIndex != null ? 'S$parentIndex' : '';
+      final e = index != null ? 'E$index' : '';
+      final prefix = [s, e].where((element) => element.isNotEmpty).join('·');
+      final epTitle = addedSubtitle ?? '';
+      if (prefix.isNotEmpty && epTitle.isNotEmpty) {
+        return '$prefix - $epTitle';
+      } else if (prefix.isNotEmpty) {
+        return prefix;
+      } else if (epTitle.isNotEmpty) {
+        return epTitle;
+      }
+      return title;
+    }
+    if (targetType == 'season') {
+      if (addedSubtitle != null && addedSubtitle!.isNotEmpty) {
+        return addedSubtitle!;
+      }
+      return title;
+    }
+    if (isSeason) {
+      if (addedSubtitle != null && addedSubtitle!.isNotEmpty) {
+        return addedSubtitle!;
+      }
+      return title;
+    }
+    return displayTitle;
+  }
+
   String get displayTitle {
     if (isEpisode) {
       final s = parentIndex != null ? 'S$parentIndex' : '';
@@ -535,6 +601,18 @@ class PlexMediaItem {
       return '${hours}h';
     }
     return '${minutes}m';
+  }
+
+  String get formattedResumeTime {
+    if (viewOffset == null || viewOffset! <= 0) return '';
+    final d = Duration(milliseconds: viewOffset!);
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   String get formattedAudio {
@@ -600,6 +678,9 @@ class PlexMediaItem {
     int? dovProf;
     String? dovTitle;
     bool hasDynamic = false;
+    double? aspRatio;
+    int? vWidth;
+    int? vHeight;
     String? hType = json['hdrType']?.toString();
     final List<PlexMarker> markers = [];
     final rawMarkers = json['Marker'];
@@ -665,6 +746,15 @@ class PlexMediaItem {
           ? (firstMedia['bitrate'] as num).toInt()
           : int.tryParse(firstMedia['bitrate']?.toString() ?? '');
       vProf = firstMedia['videoProfile'] as String? ?? firstMedia['profile'] as String? ?? json['videoProfile'] as String?;
+      aspRatio = (firstMedia['aspectRatio'] is num)
+          ? (firstMedia['aspectRatio'] as num).toDouble()
+          : double.tryParse(firstMedia['aspectRatio']?.toString() ?? '');
+      vWidth = (firstMedia['width'] is num)
+          ? (firstMedia['width'] as num).toInt()
+          : int.tryParse(firstMedia['width']?.toString() ?? '');
+      vHeight = (firstMedia['height'] is num)
+          ? (firstMedia['height'] as num).toInt()
+          : int.tryParse(firstMedia['height']?.toString() ?? '');
 
       // Scan all Media, Part, and Stream entries for highest HDR format detection
       bool checkIsHdr10Plus(String text) {
@@ -678,6 +768,8 @@ class PlexMediaItem {
             t.contains('hdr-10+') ||
             t.contains('hdr10.plus') ||
             t.contains('hdr10_plus') ||
+            t.contains('hdr+') ||
+            t.contains('hdr +') ||
             t.contains('2094') ||
             t.contains('smpte2094') ||
             t.contains('smpte 2094');
@@ -758,6 +850,15 @@ class PlexMediaItem {
                   vDispTitle ??= stMap['displayTitle'] as String?;
                   vExtDispTitle ??= stMap['extendedDisplayTitle'] as String?;
                   hType ??= stMap['hdrType']?.toString();
+                  aspRatio ??= (stMap['aspectRatio'] is num)
+                      ? (stMap['aspectRatio'] as num).toDouble()
+                      : double.tryParse(stMap['aspectRatio']?.toString() ?? '');
+                  vWidth ??= (stMap['width'] is num)
+                      ? (stMap['width'] as num).toInt()
+                      : int.tryParse(stMap['width']?.toString() ?? '');
+                  vHeight ??= (stMap['height'] is num)
+                      ? (stMap['height'] as num).toInt()
+                      : int.tryParse(stMap['height']?.toString() ?? '');
 
                   final sDynamic = stMap['hasDynamicMetadata'] == '1' ||
                       stMap['hasDynamicMetadata'] == 1 ||
@@ -903,6 +1004,9 @@ class PlexMediaItem {
       subtitleStreams: subs,
       audioStreams: audios,
       hdrType: hType,
+      aspectRatio: aspRatio,
+      videoWidth: vWidth,
+      videoHeight: vHeight,
       markers: markers,
       guid: parsedGuid,
       grandparentGuid: json['grandparentGuid']?.toString(),
@@ -921,6 +1025,10 @@ class PlexMediaItem {
     String? ratingKey,
     String? title,
     String? type,
+    String? summary,
+    int? year,
+    int? duration,
+    bool clearDuration = false,
     int? viewOffset,
     int? viewCount,
     String? thumb,
@@ -929,12 +1037,30 @@ class PlexMediaItem {
     String? grandparentThumb,
     String? parentThumb,
     String? grandparentTitle,
+    String? parentTitle,
     String? grandparentRatingKey,
+    String? parentRatingKey,
+    int? parentIndex,
+    int? index,
+    String? contentRating,
+    String? studio,
+    String? videoCodec,
     String? audioCodec,
     int? audioChannels,
     String? audioProfile,
     String? audioTitle,
+    String? videoResolution,
+    String? container,
     String? partKey,
+    String? partId,
+    int? bitrate,
+    String? videoProfile,
+    String? colorTrc,
+    String? colorPrimaries,
+    int? doviProfile,
+    String? doviTitle,
+    bool? hasDynamicMetadata,
+    String? originallyAvailableAt,
     List<PlexSubtitleStream>? subtitleStreams,
     List<PlexAudioStream>? audioStreams,
     String? targetRatingKey,
@@ -945,6 +1071,9 @@ class PlexMediaItem {
     String? videoDisplayTitle,
     String? videoExtendedDisplayTitle,
     String? hdrType,
+    double? aspectRatio,
+    int? videoWidth,
+    int? videoHeight,
     List<PlexMarker>? markers,
     String? guid,
     String? grandparentGuid,
@@ -959,27 +1088,27 @@ class PlexMediaItem {
       key: key,
       title: title ?? this.title,
       type: type ?? this.type,
-      summary: summary,
-      year: year,
-      duration: duration,
+      summary: summary ?? this.summary,
+      year: year ?? this.year,
+      duration: clearDuration ? null : (duration ?? this.duration),
       viewOffset: viewOffset ?? this.viewOffset,
       thumb: thumb ?? this.thumb,
       art: art ?? this.art,
       theme: theme ?? this.theme,
       grandparentTitle: grandparentTitle ?? this.grandparentTitle,
-      parentTitle: parentTitle,
+      parentTitle: parentTitle ?? this.parentTitle,
       grandparentThumb: grandparentThumb ?? this.grandparentThumb,
       parentThumb: parentThumb ?? this.parentThumb,
       grandparentRatingKey: grandparentRatingKey ?? this.grandparentRatingKey,
-      parentRatingKey: parentRatingKey,
-      parentIndex: parentIndex,
-      index: index,
+      parentRatingKey: parentRatingKey ?? this.parentRatingKey,
+      parentIndex: parentIndex ?? this.parentIndex,
+      index: index ?? this.index,
       rating: rating,
-      contentRating: contentRating,
-      studio: studio,
-      videoCodec: videoCodec,
+      contentRating: contentRating ?? this.contentRating,
+      studio: studio ?? this.studio,
+      videoCodec: videoCodec ?? this.videoCodec,
       audioCodec: audioCodec ?? this.audioCodec,
-      videoResolution: videoResolution,
+      videoResolution: videoResolution ?? this.videoResolution,
       videoScanType: videoScanType ?? this.videoScanType,
       videoFrameRate: videoFrameRate ?? this.videoFrameRate,
       videoDisplayTitle: videoDisplayTitle ?? this.videoDisplayTitle,
@@ -987,19 +1116,22 @@ class PlexMediaItem {
       audioChannels: audioChannels ?? this.audioChannels,
       audioProfile: audioProfile ?? this.audioProfile,
       audioTitle: audioTitle ?? this.audioTitle,
-      container: container,
+      container: container ?? this.container,
       partKey: partKey ?? this.partKey,
-      partId: partId,
+      partId: partId ?? this.partId,
       viewCount: viewCount ?? this.viewCount,
-      bitrate: bitrate,
-      videoProfile: videoProfile,
-      colorTrc: colorTrc,
-      colorPrimaries: colorPrimaries,
-      doviProfile: doviProfile,
-      doviTitle: doviTitle,
-      hasDynamicMetadata: hasDynamicMetadata,
-      originallyAvailableAt: originallyAvailableAt,
+      bitrate: bitrate ?? this.bitrate,
+      videoProfile: videoProfile ?? this.videoProfile,
+      colorTrc: colorTrc ?? this.colorTrc,
+      colorPrimaries: colorPrimaries ?? this.colorPrimaries,
+      doviProfile: doviProfile ?? this.doviProfile,
+      doviTitle: doviTitle ?? this.doviTitle,
+      hasDynamicMetadata: hasDynamicMetadata ?? this.hasDynamicMetadata,
+      originallyAvailableAt: originallyAvailableAt ?? this.originallyAvailableAt,
       hdrType: hdrType ?? this.hdrType,
+      aspectRatio: aspectRatio ?? this.aspectRatio,
+      videoWidth: videoWidth ?? this.videoWidth,
+      videoHeight: videoHeight ?? this.videoHeight,
       markers: markers ?? this.markers,
       subtitleStreams: subtitleStreams ?? this.subtitleStreams,
       audioStreams: audioStreams ?? this.audioStreams,

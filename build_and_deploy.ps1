@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.4.0"
-$versionCode = 33
+$version = "1.4.1"
+$versionCode = 34
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,12 +45,13 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Quick Navigation: Added Home button next to back button on all screens to quickly return home
-- Linux Platform Support: Added native Linux support packaged as a Debian (.deb) package with libmpv hardware acceleration
-- Windows Dual-Arch: Unified installer for Windows 10 & 11 natively supporting both x86_64 and ARM64
-- Android Packaging: Streamlined single unified APK distribution for all Android devices
-- Security & Privacy: Cleaned and hardened public source code
-- Version Bump: v1.4.0 (versionCode 33)
+- Episode Details Header: Formatted show title line with season and episode numbers (e.g. The Grand Tour (2016) - S1:E2)
+- 4:3 Aspect Ratio Support: Added automatic detection and layout handling for 4:3 classic TV episode thumbnails
+- Sticky Hero Spacing: Refined breathing room above the separator line between hero and rows
+- Search Results Polish: Streamlined poster presentation with clean text-level resolution badges
+- Hero View More Stability: Locked hero height when focusing View More cards to eliminate row layout shifts
+- HDR10+ Detection: Enhanced metadata parsing and prioritization for HDR10+ dynamic range
+- Version Bump: v1.4.1 (versionCode 34)
 "@
 
     $manifest = [ordered]@{

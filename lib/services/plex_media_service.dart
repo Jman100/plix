@@ -241,12 +241,24 @@ class PlexMediaService {
     return keys;
   }
 
+  final Map<String, PlexMediaItem> _metadataCache = {};
+  final Map<String, PlexMediaItem> _detailedMetadataCache = {};
+
+  PlexMediaItem? getCachedMetadata(String ratingKey) => _metadataCache[ratingKey];
+  PlexMediaItem? getDetailedCachedMetadata(String ratingKey) => _detailedMetadataCache[ratingKey];
+
+  void cacheMetadata(PlexMediaItem item) {
+    if (item.ratingKey.isNotEmpty) {
+      _metadataCache[item.ratingKey] = item;
+    }
+  }
+
   Future<List<PlexMediaItem>> getContinueWatching() async {
     if (server.isJellyfin) {
       return _jfService.getContinueWatching();
     }
     final List<PlexMediaItem> rawList = [];
-    final url = Uri.parse('$baseUrl/hubs/continueWatching');
+    final url = Uri.parse('$baseUrl/hubs/continueWatching?includeStreams=1&includeGuids=1');
     try {
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200) {
@@ -255,11 +267,19 @@ class PlexMediaService {
         final hub = container['Hub'] as List<dynamic>?;
         if (hub != null && hub.isNotEmpty) {
           final metadata = hub.first['Metadata'] as List<dynamic>? ?? [];
-          rawList.addAll(metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)));
+          final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
+          for (final it in items) {
+            if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+          }
+          rawList.addAll(items);
         } else {
           final metadata = container['Metadata'] as List<dynamic>? ?? [];
           if (metadata.isNotEmpty) {
-            rawList.addAll(metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)));
+            final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
+            for (final it in items) {
+              if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+            }
+            rawList.addAll(items);
           }
         }
       }
@@ -268,13 +288,17 @@ class PlexMediaService {
     // Fallback to /library/onDeck if hubs/continueWatching returned nothing
     if (rawList.isEmpty) {
       try {
-        final fallbackUrl = Uri.parse('$baseUrl/library/onDeck');
+        final fallbackUrl = Uri.parse('$baseUrl/library/onDeck?includeStreams=1&includeGuids=1');
         final response = await http.get(fallbackUrl, headers: _headers);
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
           final metadata = container['Metadata'] as List<dynamic>? ?? [];
-          rawList.addAll(metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)));
+          final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
+          for (final it in items) {
+            if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+          }
+          rawList.addAll(items);
         }
       } catch (_) {}
     }
@@ -299,7 +323,7 @@ class PlexMediaService {
 
     while (rawItems.length < maxFetch) {
       final url = Uri.parse(
-          '$baseUrl/library/sections/$sectionKey/recentlyAdded?X-Plex-Container-Start=$start&X-Plex-Container-Size=$pageSize');
+          '$baseUrl/library/sections/$sectionKey/recentlyAdded?X-Plex-Container-Start=$start&X-Plex-Container-Size=$pageSize&includeStreams=1&includeGuids=1');
       final response = await http.get(url, headers: _headers);
       if (response.statusCode != 200) break;
 
@@ -311,6 +335,9 @@ class PlexMediaService {
       final page = metadata
           .map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>))
           .toList();
+      for (final it in page) {
+        if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+      }
       rawItems.addAll(page);
 
       final deduped = deduplicateShows(rawItems);
@@ -342,7 +369,7 @@ class PlexMediaService {
     if (isTvLibrary) {
       try {
         final allUrl = Uri.parse(
-            '$baseUrl/library/sections/$sectionKey/all?type=2&sort=addedAt:desc&X-Plex-Container-Start=0&X-Plex-Container-Size=$limit');
+            '$baseUrl/library/sections/$sectionKey/all?type=2&sort=addedAt:desc&X-Plex-Container-Start=0&X-Plex-Container-Size=$limit&includeStreams=1&includeGuids=1');
         final allResponse = await http.get(allUrl, headers: _headers);
         if (allResponse.statusCode == 200) {
           final allData = jsonDecode(allResponse.body) as Map<String, dynamic>;
@@ -352,12 +379,16 @@ class PlexMediaService {
           final existingKeys = merged.map((e) => e.ratingKey).toSet();
           for (final raw in allMetadata) {
             final show = PlexMediaItem.fromJson(raw as Map<String, dynamic>);
+            if (show.ratingKey.isNotEmpty) _metadataCache[show.ratingKey] = show;
             if (existingKeys.add(show.ratingKey)) {
               merged.add(show.copyWith(
+                title: show.title,
+                grandparentTitle: show.title,
                 targetType: 'show',
                 targetRatingKey: show.ratingKey,
                 targetSeasonKey: null,
                 addedSubtitle: '',
+                clearDuration: true,
               ));
             }
             if (merged.length >= limit) break;
@@ -398,6 +429,43 @@ class PlexMediaService {
     return item.title;
   }
 
+  static String _formatSeasonNumbers(List<int> numbers) {
+    if (numbers.isEmpty) return '';
+    final sorted = numbers.toSet().toList()..sort();
+    if (sorted.length == 1) {
+      return 'Season ${sorted.first}';
+    }
+    final List<String> parts = [];
+    int rangeStart = sorted.first;
+    int prev = sorted.first;
+
+    for (int i = 1; i < sorted.length; i++) {
+      final cur = sorted[i];
+      if (cur == prev + 1) {
+        prev = cur;
+      } else {
+        if (rangeStart == prev) {
+          parts.add('$rangeStart');
+        } else if (prev == rangeStart + 1) {
+          parts.add('$rangeStart, $prev');
+        } else {
+          parts.add('$rangeStart-$prev');
+        }
+        rangeStart = cur;
+        prev = cur;
+      }
+    }
+    if (rangeStart == prev) {
+      parts.add('$rangeStart');
+    } else if (prev == rangeStart + 1) {
+      parts.add('$rangeStart, $prev');
+    } else {
+      parts.add('$rangeStart-$prev');
+    }
+
+    return 'Seasons ${parts.join(', ')}';
+  }
+
   List<PlexMediaItem> deduplicateShows(List<PlexMediaItem> items) {
     final List<PlexMediaItem> result = [];
     final Set<String> seenShowKeys = {};
@@ -421,13 +489,50 @@ class PlexMediaService {
           String? targetSeasonKey;
           String addedSubtitle = '';
 
+          final showTitle = _showTitleFor(item);
+          final showPoster = item.grandparentThumb ?? item.parentThumb ?? item.thumb;
+
           if (addedItems.length == 1 && addedItems.first.isEpisode) {
             // Exactly 1 episode was recently added -> go directly to that episode
+            final ep = addedItems.first;
             targetType = 'episode';
-            targetRatingKey = addedItems.first.ratingKey;
-            addedSubtitle = addedItems.first.title.isNotEmpty
-                ? addedItems.first.title
-                : 'Episode ${addedItems.first.index ?? 1}';
+            targetRatingKey = ep.ratingKey;
+            addedSubtitle = ep.title.isNotEmpty
+                ? ep.title
+                : 'Episode ${ep.index ?? 1}';
+
+            final showItem = ep.copyWith(
+              title: showTitle,
+              grandparentTitle: showTitle,
+              ratingKey: showKey,
+              type: 'show',
+              thumb: showPoster,
+              grandparentThumb: showPoster,
+              targetType: targetType,
+              targetRatingKey: targetRatingKey,
+              targetSeasonKey: targetSeasonKey,
+              addedSubtitle: addedSubtitle,
+              parentIndex: ep.parentIndex,
+              index: ep.index,
+              summary: ep.summary.isNotEmpty ? ep.summary : item.summary,
+              duration: ep.duration,
+              colorTrc: ep.colorTrc,
+              colorPrimaries: ep.colorPrimaries,
+              videoProfile: ep.videoProfile,
+              doviProfile: ep.doviProfile,
+              doviTitle: ep.doviTitle,
+              hdrType: ep.hdrType,
+              hasDynamicMetadata: ep.hasDynamicMetadata,
+              videoResolution: ep.videoResolution,
+              contentRating: ep.contentRating ?? item.contentRating,
+              year: ep.year ?? item.year,
+              aspectRatio: ep.aspectRatio,
+              videoWidth: ep.videoWidth,
+              videoHeight: ep.videoHeight,
+            );
+            if (ep.ratingKey.isNotEmpty) _metadataCache[ep.ratingKey] = ep;
+            result.add(showItem);
+            continue;
           } else {
             // Check distinct seasons
             final seasonSet = <String>{};
@@ -443,16 +548,14 @@ class PlexMediaService {
               }
             }
 
-            if (seasonSet.length == 1 || seasonNumbers.length == 1) {
+            if (seasonNumbers.length == 1) {
               // Exactly one season added -> go to start of that season
               targetType = 'season';
               targetSeasonKey = seasonSet.isNotEmpty ? seasonSet.first : null;
               targetRatingKey = targetSeasonKey;
-              final sNum = seasonNumbers.isNotEmpty
-                  ? seasonNumbers.first
-                  : (addedItems.first.parentIndex ?? addedItems.first.index ?? 1);
+              final sNum = seasonNumbers.first;
               addedSubtitle = 'Season $sNum';
-            } else if (seasonSet.length > 1 || seasonNumbers.length > 1) {
+            } else if (seasonNumbers.length > 1) {
               // More than one season added -> find earliest season
               int minSeason = 9999;
               String? earliestSeasonKey;
@@ -467,7 +570,7 @@ class PlexMediaService {
               targetType = 'season';
               targetSeasonKey = earliestSeasonKey;
               targetRatingKey = earliestSeasonKey;
-              addedSubtitle = '';
+              addedSubtitle = _formatSeasonNumbers(seasonNumbers.toList());
             } else {
               if (addedItems.length == 1) {
                 addedSubtitle = addedItems.first.title;
@@ -477,13 +580,10 @@ class PlexMediaService {
             }
           }
 
-          final showTitle = _showTitleFor(item);
-
-          final showPoster = item.grandparentThumb ?? item.parentThumb ?? item.thumb;
-
           final showItem = item.copyWith(
             title: showTitle,
-            ratingKey: _showKeyFor(item),
+            grandparentTitle: showTitle,
+            ratingKey: showKey,
             type: 'show',
             thumb: showPoster,
             grandparentThumb: showPoster,
@@ -491,6 +591,7 @@ class PlexMediaService {
             targetRatingKey: targetRatingKey,
             targetSeasonKey: targetSeasonKey,
             addedSubtitle: addedSubtitle,
+            clearDuration: true,
           );
           result.add(showItem);
         }
@@ -600,10 +701,16 @@ class PlexMediaService {
     if (server.isJellyfin) {
       return _jfService.getItemMetadata(ratingKey);
     }
+    final detailed = _detailedMetadataCache[ratingKey];
+    if (detailed != null) {
+      return detailed;
+    }
     final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeStreams=1&includeMarkers=1');
     final response = await http.get(url, headers: _headers);
 
     if (response.statusCode != 200) {
+      final fallback = _metadataCache[ratingKey];
+      if (fallback != null) return fallback;
       throw Exception('Failed to load item metadata: ${response.statusCode}');
     }
 
@@ -613,10 +720,15 @@ class PlexMediaService {
         (container['Directory'] as List<dynamic>?) ??
         [];
     if (metadata.isEmpty) {
+      final fallback = _metadataCache[ratingKey];
+      if (fallback != null) return fallback;
       throw Exception('Metadata not found for $ratingKey');
     }
 
-    return PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
+    final parsed = PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
+    _metadataCache[ratingKey] = parsed;
+    _detailedMetadataCache[ratingKey] = parsed;
+    return parsed;
   }
 
   Future<List<PlexMediaItem>> getItemsMetadata(List<String> ratingKeys) async {
@@ -1002,7 +1114,7 @@ class PlexMediaService {
     try {
       final encoded = Uri.encodeComponent(q);
       // 1. Query /hubs/search
-      final uri = Uri.parse('$baseUrl/hubs/search?query=$encoded&limit=50');
+      final uri = Uri.parse('$baseUrl/hubs/search?query=$encoded&limit=50&includeStreams=1');
       final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -1030,7 +1142,7 @@ class PlexMediaService {
 
       // 2. Fallback to /library/search if empty
       if (rawItems.isEmpty) {
-        final libUri = Uri.parse('$baseUrl/library/search?query=$encoded&limit=50');
+        final libUri = Uri.parse('$baseUrl/library/search?query=$encoded&limit=50&includeStreams=1');
         final libRes = await http.get(libUri, headers: _headers);
         if (libRes.statusCode == 200) {
           final data = json.decode(libRes.body) as Map<String, dynamic>;
