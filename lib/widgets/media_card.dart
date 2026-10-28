@@ -188,14 +188,16 @@ class _MediaCardState extends State<MediaCard> {
                     color: PlixTheme.card,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isHighlighted ? PlixTheme.plexGold : Colors.transparent,
+                      color: isHighlighted
+                          ? PlixTheme.plexGold
+                          : (PlixTheme.isGlass ? Colors.white.withOpacity(0.12) : Colors.transparent),
                       width: 3.0,
                     ),
                     boxShadow: isHighlighted
                         ? [
                             BoxShadow(
-                              color: PlixTheme.plexGold.withOpacity(0.5),
-                              blurRadius: 14,
+                              color: PlixTheme.plexGold.withOpacity(0.55),
+                              blurRadius: 18,
                               spreadRadius: 2,
                             )
                           ]

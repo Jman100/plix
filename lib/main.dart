@@ -32,17 +32,17 @@ void main() async {
     }
   }
 
+  await PlixTheme.loadSavedTheme();
+
   // Set system UI overlay style for immersive dark experience
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
+    SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: PlixTheme.background,
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-
-  await PlixTheme.loadSavedTheme();
 
   final authService = PlexAuthService();
   final serverService = PlexServerService(authService: authService);
@@ -65,8 +65,8 @@ class PlixApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeColorOption>(
-      valueListenable: PlixTheme.currentThemeOption,
+    return ValueListenableBuilder<int>(
+      valueListenable: PlixTheme.themeRevision,
       builder: (context, _, __) {
         return MaterialApp(
           title: 'Plix',

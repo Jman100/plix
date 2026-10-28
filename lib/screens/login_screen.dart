@@ -355,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            const Divider(color: PlixTheme.cardBorder),
+                            Divider(color: PlixTheme.cardBorder),
                             const SizedBox(height: 16),
                             Container(
                               padding: const EdgeInsets.all(8),

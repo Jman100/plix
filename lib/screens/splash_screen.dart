@@ -1,3 +1,4 @@
+import '../widgets/brand_logo.dart';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plex_server.dart';
@@ -162,28 +163,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: PlixTheme.plexGold,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: PlixTheme.plexGold.withOpacity(0.35),
-                        blurRadius: 30,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.black,
-                      size: 64,
-                    ),
-                  ),
+                const PlixAppLogo(
+                  size: 104,
+                  showWordmark: true,
+                  borderRadius: 26,
+                  glow: true,
                 ),
+                const SizedBox(height: 20),
                 RichText(
                   text: TextSpan(
                     children: [
@@ -191,32 +177,31 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         text: 'pli',
                         style: TextStyle(
                           color: PlixTheme.textPrimary,
-                          fontSize: 42,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Trebuchet MS',
-                          letterSpacing: 2,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
                         ),
                       ),
                       TextSpan(
                         text: 'x',
                         style: TextStyle(
                           color: PlixTheme.plexGold,
-                          fontSize: 42,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Trebuchet MS',
-                          letterSpacing: 2,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Text(
                   'Universal Media Client',
                   style: TextStyle(
                     color: PlixTheme.textSecondary,
-                    fontSize: 14,
-                    letterSpacing: 1.5,
+                    fontSize: 13,
+                    letterSpacing: 2.0,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 48),

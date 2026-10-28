@@ -1589,7 +1589,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   // TV Show Seasons & Episodes Section
                   if (_item.isShow) ...[
                     const SizedBox(height: 36),
-                    const Divider(color: PlixTheme.cardBorder),
+                    Divider(color: PlixTheme.cardBorder),
                     const SizedBox(height: 16),
 
                     // Season Chips

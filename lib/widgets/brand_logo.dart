@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import '../app_theme.dart';
 import 'package:flutter/material.dart';
 
 class PlexLogo extends StatelessWidget {
@@ -120,4 +122,169 @@ class _JellyfinLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _JellyfinLogoPainter oldDelegate) => oldDelegate.color != color;
+}
+
+
+/// Branded Plix App Logo matching the official app icon styling.
+/// Displays a rich deep-violet rounded squircle with stylized 'pli' in white and 'x' in accent color.
+class PlixAppLogo extends StatelessWidget {
+  final double size;
+  final bool showWordmark; // true = "plix", false = "px"
+  final double? borderRadius;
+  final bool glow;
+  final Color? accentColor;
+  final Gradient? customGradient;
+
+  const PlixAppLogo({
+    super.key,
+    this.size = 38.0,
+    this.showWordmark = false,
+    this.borderRadius,
+    this.glow = false,
+    this.accentColor,
+    this.customGradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAccent = accentColor ?? PlixTheme.plexGold;
+    final radius = borderRadius ?? (size * 0.24);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: customGradient ??
+            const RadialGradient(
+              center: Alignment(-0.25, -0.35),
+              radius: 1.15,
+              colors: [
+                Color(0xFF3B156E), // Vibrant royal purple top-left highlight
+                Color(0xFF260A4B), // Deep purple core
+                Color(0xFF130326), // Midnight base
+              ],
+              stops: [0.0, 0.55, 1.0],
+            ),
+        boxShadow: [
+          if (glow)
+            BoxShadow(
+              color: effectiveAccent.withOpacity(0.35),
+              blurRadius: size * 0.35,
+              spreadRadius: 2,
+            ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.55),
+            blurRadius: size * 0.2,
+            offset: Offset(0, size * 0.08),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withOpacity(0.14),
+          width: math.max(1.0, size * 0.02),
+        ),
+      ),
+      child: Center(
+        child: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: showWordmark ? 'pli' : 'p',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: showWordmark ? (size * 0.34) : (size * 0.44),
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Roboto',
+                  letterSpacing: showWordmark ? -0.5 : -0.2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.65),
+                      offset: Offset(0, size * 0.03),
+                      blurRadius: size * 0.06,
+                    ),
+                  ],
+                ),
+              ),
+              TextSpan(
+                text: 'x',
+                style: TextStyle(
+                  color: effectiveAccent,
+                  fontSize: showWordmark ? (size * 0.34) : (size * 0.44),
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Roboto',
+                  letterSpacing: showWordmark ? -0.5 : -0.2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.65),
+                      offset: Offset(0, size * 0.03),
+                      blurRadius: size * 0.06,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Standalone styled 'plix' wordmark
+class PlixWordmark extends StatelessWidget {
+  final double fontSize;
+  final double letterSpacing;
+  final Color? accentColor;
+  final bool hasShadow;
+
+  const PlixWordmark({
+    super.key,
+    this.fontSize = 22.0,
+    this.letterSpacing = 0.5,
+    this.accentColor,
+    this.hasShadow = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAccent = accentColor ?? PlixTheme.plexGold;
+    final shadowList = hasShadow
+        ? [
+            Shadow(
+              color: Colors.black.withOpacity(0.5),
+              offset: const Offset(0, 1.5),
+              blurRadius: 4.0,
+            ),
+          ]
+        : null;
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: 'pli',
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Roboto',
+              letterSpacing: letterSpacing,
+              shadows: shadowList,
+            ),
+          ),
+          TextSpan(
+            text: 'x',
+            style: TextStyle(
+              color: effectiveAccent,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Roboto',
+              letterSpacing: letterSpacing,
+              shadows: shadowList,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

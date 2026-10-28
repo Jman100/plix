@@ -137,7 +137,7 @@ class PlixBottomNav extends StatelessWidget {
     final hasActiveSelection = currentIndex >= 0 && currentIndex <= 4;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: PlixTheme.surface,
         border: Border(
           top: BorderSide(color: PlixTheme.cardBorder, width: 1.0),
@@ -332,7 +332,7 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ),
-            const Divider(color: PlixTheme.cardBorder, height: 1),
+            Divider(color: PlixTheme.cardBorder, height: 1),
             if (_isLoading)
               Padding(
                 padding: const EdgeInsets.all(40),

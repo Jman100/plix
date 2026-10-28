@@ -1,3 +1,4 @@
+import 'brand_logo.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -195,7 +196,12 @@ class _SidebarNavState extends State<SidebarNav> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         width: width,
-        color: PlixTheme.surface,
+        decoration: BoxDecoration(
+          color: PlixTheme.isGlass ? PlixTheme.surface.withOpacity(0.88) : PlixTheme.surface,
+          border: PlixTheme.isGlass
+              ? Border(right: BorderSide(color: Colors.white.withOpacity(0.12), width: 1.0))
+              : (PlixTheme.isOLED ? Border(right: BorderSide(color: PlixTheme.cardBorder, width: 1.0)) : null),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -207,42 +213,20 @@ class _SidebarNavState extends State<SidebarNav> {
               child: Row(
                 children: [
                   if (!effectiveExpanded)
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: PlixTheme.card,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: PlixTheme.plexGold.withOpacity(0.4)),
-                      ),
-                      child: Center(
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              const TextSpan(
-                                text: 'p',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Trebuchet MS',
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'x',
-                                style: TextStyle(
-                                  color: PlixTheme.plexGold,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Trebuchet MS',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    const PlixAppLogo(
+                      size: 38,
+                      showWordmark: false,
+                      borderRadius: 10,
+                      glow: false,
                     ),
                   if (effectiveExpanded) ...[
+                    const PlixAppLogo(
+                      size: 32,
+                      showWordmark: false,
+                      borderRadius: 8,
+                      glow: false,
+                    ),
+                    const SizedBox(width: 10),
                     RichText(
                       text: TextSpan(
                         children: [
@@ -251,8 +235,8 @@ class _SidebarNavState extends State<SidebarNav> {
                             style: TextStyle(
                               color: PlixTheme.textPrimary,
                               fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Trebuchet MS',
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'Roboto',
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -261,8 +245,8 @@ class _SidebarNavState extends State<SidebarNav> {
                             style: TextStyle(
                               color: PlixTheme.plexGold,
                               fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Trebuchet MS',
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'Roboto',
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -308,7 +292,7 @@ class _SidebarNavState extends State<SidebarNav> {
               ),
             ),
 
-            const Divider(color: PlixTheme.cardBorder, height: 1),
+            Divider(color: PlixTheme.cardBorder, height: 1),
 
             // Navigation Items (Home, Search, Watchlist, Libraries, Settings, Switch Server, Sign Out)
             Expanded(
@@ -385,7 +369,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                const Expanded(
+                                Expanded(
                                   child: Divider(
                                     color: PlixTheme.cardBorder,
                                     height: 1,
@@ -410,7 +394,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                 ),
                               ],
                             )
-                          : const Divider(
+                          : Divider(
                               color: PlixTheme.cardBorder,
                               height: 1,
                               thickness: 1,
@@ -539,7 +523,7 @@ class _SidebarNavState extends State<SidebarNav> {
                             ],
                           ),
 
-                  const Divider(color: PlixTheme.cardBorder, height: 20),
+                  Divider(color: PlixTheme.cardBorder, height: 20),
 
                   _NavItem(
                     focusNode: _settingsFocusNode,
