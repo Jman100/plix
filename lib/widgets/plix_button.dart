@@ -110,7 +110,11 @@ class _PlixButtonState extends State<PlixButton> {
         ? (isHighlighted ? effectiveHighlightColor : widget.backgroundColor!)
         : (widget.isPrimary
             ? (isHighlighted ? PlixTheme.plexGoldLight : PlixTheme.plexGold)
-            : (isHighlighted ? PlixTheme.cardFocused : PlixTheme.surface));
+            : (isHighlighted
+                ? PlixTheme.cardFocused
+                : (PlixTheme.isOLED
+                    ? const Color(0xFF000000)
+                    : (PlixTheme.isGlass ? const Color(0x30FFFFFF) : PlixTheme.surface))));
 
     final fgColor = widget.textColor != null
         ? widget.textColor!
@@ -120,7 +124,11 @@ class _PlixButtonState extends State<PlixButton> {
 
     final borderColor = isHighlighted
         ? (widget.borderColor ?? PlixTheme.plexGold)
-        : Colors.transparent;
+        : (widget.isPrimary
+            ? Colors.transparent
+            : (PlixTheme.isOLED
+                ? PlixTheme.cardBorder
+                : (PlixTheme.isGlass ? const Color(0x45FFFFFF) : Colors.transparent)));
 
     final glowColor = widget.borderColor ??
         widget.highlightColor ??
@@ -173,6 +181,7 @@ class _PlixButtonState extends State<PlixButton> {
               key == LogicalKeyboardKey.enter ||
               key == LogicalKeyboardKey.space ||
               key == LogicalKeyboardKey.gameButtonA ||
+              key == LogicalKeyboardKey.gameButtonSelect ||
               key == LogicalKeyboardKey.numpadEnter)) {
             widget.onPressed();
             return KeyEventResult.handled;
@@ -184,6 +193,7 @@ class _PlixButtonState extends State<PlixButton> {
         scale: isHighlighted ? 1.05 : 1.0,
         duration: const Duration(milliseconds: 150),
         child: InkWell(
+          canRequestFocus: false,
           onTap: widget.onPressed,
           onHover: (hovered) {
             if (Platform.isWindows && mounted) {
@@ -196,48 +206,62 @@ class _PlixButtonState extends State<PlixButton> {
             width: widget.width,
             alignment: Alignment.center,
             padding: widget.padding,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: borderColor,
-                width: 2.0,
-              ),
-              boxShadow: isHighlighted
-                  ? [
-                      BoxShadow(
-                        color: glowColor.withOpacity(0.4),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      )
-                    ]
-                  : [],
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: widget.width != null ? MainAxisSize.max : MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (widget.icon != null) ...[
-                    IconTheme(
-                      data: IconThemeData(color: fgColor, size: 20),
-                      child: widget.icon!,
+            decoration: (PlixTheme.isGlass && widget.backgroundColor == null)
+                ? PlixTheme.glassBoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    isHighlighted: isHighlighted,
+                    accent: glowColor,
+                    borderWidth: 1.5,
+                  )
+                : BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: borderColor,
+                      width: 2.0,
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    widget.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: fgColor,
-                      fontSize: widget.fontSize ?? 15,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
-                    ),
+                    boxShadow: isHighlighted
+                        ? [
+                            BoxShadow(
+                              color: glowColor.withOpacity(0.4),
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            )
+                          ]
+                        : [],
                   ),
-                ],
-              ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (PlixTheme.isGlass && widget.backgroundColor == null)
+                  PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(8)),
+                Center(
+                  child: Row(
+                    mainAxisSize: widget.width != null ? MainAxisSize.max : MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (widget.icon != null) ...[
+                        IconTheme(
+                          data: IconThemeData(color: fgColor, size: 20),
+                          child: widget.icon!,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: fgColor,
+                          fontSize: widget.fontSize ?? 15,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

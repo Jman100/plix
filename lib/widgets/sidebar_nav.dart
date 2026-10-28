@@ -197,10 +197,38 @@ class _SidebarNavState extends State<SidebarNav> {
         curve: Curves.easeOutCubic,
         width: width,
         decoration: BoxDecoration(
-          color: PlixTheme.isGlass ? PlixTheme.surface.withOpacity(0.88) : PlixTheme.surface,
+          color: PlixTheme.isOLED
+              ? const Color(0xFF000000)
+              : (PlixTheme.isGlass
+                  ? null
+                  : PlixTheme.surface),
+          gradient: PlixTheme.isGlass
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0x4D1A2942),
+                    Color(0x2E101B2E),
+                    Color(0x1F0A121F),
+                  ],
+                )
+              : null,
           border: PlixTheme.isGlass
-              ? Border(right: BorderSide(color: Colors.white.withOpacity(0.12), width: 1.0))
-              : (PlixTheme.isOLED ? Border(right: BorderSide(color: PlixTheme.cardBorder, width: 1.0)) : null),
+              ? const Border(right: BorderSide(color: Color(0x66FFFFFF), width: 1.5))
+              : (PlixTheme.isOLED
+                  ? Border(right: BorderSide(color: PlixTheme.cardBorder, width: 1.0))
+                  : (PlixTheme.isCyberpunk
+                      ? const Border(right: BorderSide(color: Color(0x66FF007F), width: 1.2))
+                      : null)),
+          boxShadow: PlixTheme.isGlass
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.55),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,11 +293,9 @@ class _SidebarNavState extends State<SidebarNav> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              widget.currentServer!.isJellyfin ? Icons.hub_rounded : Icons.dns,
-                              size: 13,
-                              color: widget.currentServer!.isJellyfin ? const Color(0xFF00A4DC) : PlixTheme.plexGold,
-                            ),
+                            widget.currentServer!.isJellyfin
+                                ? const JellyfinLogo(size: 14, color: Color(0xFF00A4DC))
+                                : const PlexLogo(size: 14, color: Color(0xFFE5A00D)),
                             const SizedBox(width: 5),
                             Expanded(
                               child: Text(

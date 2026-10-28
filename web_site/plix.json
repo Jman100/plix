@@ -1,10 +1,10 @@
 {
-  "version": "1.4.1",
-  "versionCode": 34,
+  "version": "1.5.0",
+  "versionCode": 35,
   "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
   "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-  "releaseNotes": "- Episode Details Header: Formatted show title line with season and episode numbers (e.g. The Grand Tour (2016) - S1:E2)\n- 4:3 Aspect Ratio Support: Added automatic detection and layout handling for 4:3 classic TV episode thumbnails\n- Sticky Hero Spacing: Refined breathing room above the separator line between hero and rows\n- Search Results Polish: Streamlined poster presentation with clean text-level resolution badges\n- Hero View More Stability: Locked hero height when focusing View More cards to eliminate row layout shifts\n- HDR10+ Detection: Enhanced metadata parsing and prioritization for HDR10+ dynamic range\n- Version Bump: v1.4.1 (versionCode 34)",
-  "releaseDate": "2026-10-27"
+  "releaseNotes": "- Complete Visual Redesign: Liquid glass overhaul across Home, Details, Player, and Settings\n- Dedicated Appearance & Themes screen with real-time Live Preview bar\n- 8 Curated Atmosphere Presets (Liquid Glass, Plix Modern, OLED Midnight, Cyberpunk Neon, Emerald Matrix, Nordic Frost, Cinema Velvet, Sunset Vaporwave)\n- 16 Curated Accent Colors plus custom HEX/RGB Color Picker modal with palette swatches\n- Custom Theme builder with interactive saturation, blur, glow, opacity, and darkness tuning\n- TV Remote D-Pad Navigation Polish: Smooth auto-scrolling on Settings and centered vertical alignments across all theme tiles\n- Version Bump: v1.5.0 (versionCode 35)",
+  "releaseDate": "2026-10-28"
 }

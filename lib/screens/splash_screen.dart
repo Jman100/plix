@@ -164,37 +164,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const PlixAppLogo(
-                  size: 104,
+                  size: 110,
                   showWordmark: true,
-                  borderRadius: 26,
+                  borderRadius: 28,
                   glow: true,
                 ),
-                const SizedBox(height: 20),
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      const TextSpan(
-                        text: 'pli',
-                        style: TextStyle(
-                          color: PlixTheme.textPrimary,
-                          fontSize: 40,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'x',
-                        style: TextStyle(
-                          color: PlixTheme.plexGold,
-                          fontSize: 40,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 18),
                 const Text(
                   'Universal Media Client',
                   style: TextStyle(

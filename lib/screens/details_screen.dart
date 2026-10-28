@@ -2016,6 +2016,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         scale: isHighlighted ? 1.02 : 1.0,
         duration: const Duration(milliseconds: 150),
         child: InkWell(
+          canRequestFocus: false,
           onTap: widget.onSelect,
           onHover: (hovered) {
             if (Platform.isWindows && mounted) {
@@ -2027,10 +2028,16 @@ class _EpisodeTileState extends State<_EpisodeTile> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isHighlighted ? PlixTheme.cardFocused : PlixTheme.surface,
+              color: isHighlighted
+                  ? PlixTheme.cardFocused
+                  : (PlixTheme.isOLED
+                      ? const Color(0xFF000000)
+                      : (PlixTheme.isGlass ? const Color(0x331C283E) : PlixTheme.surface)),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isHighlighted ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                color: isHighlighted
+                    ? PlixTheme.plexGold
+                    : (PlixTheme.isGlass ? const Color(0x40FFFFFF) : PlixTheme.cardBorder),
                 width: isHighlighted ? 2.0 : 1.0,
               ),
               boxShadow: isHighlighted

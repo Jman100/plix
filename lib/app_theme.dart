@@ -26,8 +26,11 @@ class ThemePresetOption {
   final Color card;
   final Color cardBorder;
   final Color cardFocused;
+  final String defaultAccentId;
   final bool isGlass;
   final bool isOLED;
+  final bool isCyberpunk;
+  final bool isMatrix;
   final List<Color> previewGradient;
 
   const ThemePresetOption({
@@ -41,8 +44,11 @@ class ThemePresetOption {
     required this.card,
     required this.cardBorder,
     required this.cardFocused,
+    required this.defaultAccentId,
     this.isGlass = false,
     this.isOLED = false,
+    this.isCyberpunk = false,
+    this.isMatrix = false,
     required this.previewGradient,
   });
 }
@@ -55,80 +61,130 @@ class PlixTheme {
       name: 'Plix Modern',
       description: 'Deep obsidian with slate cards and balanced dark contrast',
       icon: Icons.dark_mode_rounded,
-      background: Color(0xFF141518),
-      surface: Color(0xFF1F2326),
-      surfaceLight: Color(0xFF2B3035),
-      card: Color(0xFF282A2D),
-      cardBorder: Color(0xFF383C40),
-      cardFocused: Color(0xFF3A3D42),
-      previewGradient: [Color(0xFF141518), Color(0xFF282A2D)],
+      background: Color(0xFF121316),
+      surface: Color(0xFF1B1D22),
+      surfaceLight: Color(0xFF262930),
+      card: Color(0xFF22252C),
+      cardBorder: Color(0xFF333742),
+      cardFocused: Color(0xFF2F3440),
+      defaultAccentId: 'gold',
+      previewGradient: [Color(0xFF121316), Color(0xFF22252C)],
     ),
     ThemePresetOption(
       id: 'glass',
-      name: 'Aero Glass',
-      description: 'Translucent frosted glass surfaces with luminous bright edges',
+      name: 'Liquid Glass',
+      description: 'Apple-inspired frosted glass with translucent blur and specular luminous edges',
       icon: Icons.blur_on_rounded,
-      background: Color(0xFF0D1117),
-      surface: Color(0xE6161B26),
-      surfaceLight: Color(0xCC212838),
-      card: Color(0xDD1B2232),
-      cardBorder: Color(0x4DFFFFFF),
-      cardFocused: Color(0xF228334C),
+      background: Color(0xFF080D18),
+      surface: Color(0x3818243A),
+      surfaceLight: Color(0x4D22324E),
+      card: Color(0x331C283E),
+      cardBorder: Color(0x52FFFFFF),
+      cardFocused: Color(0x66293C5E),
+      defaultAccentId: 'frost',
       isGlass: true,
-      previewGradient: [Color(0xFF0D1117), Color(0xFF20293D), Color(0x66FFFFFF)],
+      previewGradient: [Color(0xFF0A1224), Color(0x442C4472), Color(0x66FFFFFF)],
     ),
     ThemePresetOption(
       id: 'oled',
       name: 'OLED Midnight',
-      description: 'Pure #000000 true black optimized for OLED displays & contrast',
+      description: 'True #000000 pure black on all surfaces, sidebar, buttons, and cards',
       icon: Icons.nightlight_round,
       background: Color(0xFF000000),
-      surface: Color(0xFF0C0C0D),
-      surfaceLight: Color(0xFF161618),
-      card: Color(0xFF121214),
-      cardBorder: Color(0xFF26262A),
-      cardFocused: Color(0xFF202024),
+      surface: Color(0xFF000000),
+      surfaceLight: Color(0xFF080808),
+      card: Color(0xFF000000),
+      cardBorder: Color(0xFF242428),
+      cardFocused: Color(0xFF141418),
+      defaultAccentId: 'gold',
       isOLED: true,
-      previewGradient: [Color(0xFF000000), Color(0xFF151518)],
+      previewGradient: [Color(0xFF000000), Color(0xFF101014)],
     ),
     ThemePresetOption(
       id: 'cyberpunk',
       name: 'Cyberpunk Neon',
-      description: 'High-tech midnight navy with futuristic electric atmosphere',
+      description: 'Electric synthwave void with vivid neon magenta and cyan atmosphere',
       icon: Icons.bolt_rounded,
-      background: Color(0xFF070A12),
-      surface: Color(0xFF0E1322),
-      surfaceLight: Color(0xFF161E34),
-      card: Color(0xFF12182B),
-      cardBorder: Color(0xFF243356),
-      cardFocused: Color(0xFF1D2847),
-      previewGradient: [Color(0xFF070A12), Color(0xFF18223D)],
+      background: Color(0xFF070312),
+      surface: Color(0xFF0F0624),
+      surfaceLight: Color(0xFF180A38),
+      card: Color(0xFF160830),
+      cardBorder: Color(0x80FF007F),
+      cardFocused: Color(0xFF240E4A),
+      defaultAccentId: 'cyan',
+      isCyberpunk: true,
+      previewGradient: [Color(0xFF070312), Color(0xFF28084A), Color(0xFFFF007F)],
+    ),
+    ThemePresetOption(
+      id: 'matrix',
+      name: 'Emerald Matrix',
+      description: 'Deep cyber terminal with vibrant phosphor matrix emerald accents',
+      icon: Icons.terminal_rounded,
+      background: Color(0xFF020B05),
+      surface: Color(0xFF05170B),
+      surfaceLight: Color(0xFF0A2613),
+      card: Color(0xFF081E0F),
+      cardBorder: Color(0x6600FF66),
+      cardFocused: Color(0xFF0E3018),
+      defaultAccentId: 'mint',
+      isMatrix: true,
+      previewGradient: [Color(0xFF020B05), Color(0xFF082E14), Color(0xFF00FF66)],
     ),
     ThemePresetOption(
       id: 'nord',
       name: 'Nordic Frost',
-      description: 'Calming arctic slate inspired by minimalist Scandinavian design',
+      description: 'Arctic fjord slate with cool ice blue tones and Scandinavian minimalism',
       icon: Icons.ac_unit_rounded,
-      background: Color(0xFF181B20),
-      surface: Color(0xFF21252C),
-      surfaceLight: Color(0xFF2B313A),
-      card: Color(0xFF252B34),
-      cardBorder: Color(0xFF38414E),
-      cardFocused: Color(0xFF323A46),
-      previewGradient: [Color(0xFF181B20), Color(0xFF282F3B)],
+      background: Color(0xFF0D1219),
+      surface: Color(0xFF151D28),
+      surfaceLight: Color(0xFF1D2838),
+      card: Color(0xFF192330),
+      cardBorder: Color(0xFF2E3E54),
+      cardFocused: Color(0xFF223044),
+      defaultAccentId: 'frost',
+      previewGradient: [Color(0xFF0D1219), Color(0xFF1E2E44)],
     ),
     ThemePresetOption(
       id: 'cinema',
       name: 'Cinema Velvet',
-      description: 'Luxurious deep warm wine and velvet undertones of a premier theater',
+      description: 'Luxurious royal cabernet theater with deep warm wine undertones',
       icon: Icons.movie_filter_rounded,
-      background: Color(0xFF120B10),
-      surface: Color(0xFF1B1118),
-      surfaceLight: Color(0xFF281924),
-      card: Color(0xFF22151F),
-      cardBorder: Color(0xFF3B2536),
-      cardFocused: Color(0xFF321F2D),
-      previewGradient: [Color(0xFF120B10), Color(0xFF291825)],
+      background: Color(0xFF100308),
+      surface: Color(0xFF1A060E),
+      surfaceLight: Color(0xFF270A16),
+      card: Color(0xFF220813),
+      cardBorder: Color(0xFF421226),
+      cardFocused: Color(0xFF2E0C1B),
+      defaultAccentId: 'crimson',
+      previewGradient: [Color(0xFF100308), Color(0xFF2D0A1B)],
+    ),
+    ThemePresetOption(
+      id: 'vaporwave',
+      name: 'Sunset Vaporwave',
+      description: '80s dusk twilight with warm sunset ember and retro synth aesthetics',
+      icon: Icons.wb_twilight_rounded,
+      background: Color(0xFF12061C),
+      surface: Color(0xFF1D0B2E),
+      surfaceLight: Color(0xFF2A1142),
+      card: Color(0xFF250E3A),
+      cardBorder: Color(0xFF4C1D74),
+      cardFocused: Color(0xFF331450),
+      defaultAccentId: 'sunset',
+      previewGradient: [Color(0xFF12061C), Color(0xFF33104E), Color(0xFFFF5722)],
+    ),
+    ThemePresetOption(
+      id: 'custom',
+      name: 'Custom Theme',
+      description: 'Fully personalized colors: customize background, sidebar, cards, and border',
+      icon: Icons.tune_rounded,
+      background: Color(0xFF121316),
+      surface: Color(0xFF1B1D22),
+      surfaceLight: Color(0xFF262930),
+      card: Color(0xFF22252C),
+      cardBorder: Color(0xFF333742),
+      cardFocused: Color(0xFF2F3440),
+      defaultAccentId: 'gold',
+      previewGradient: [Color(0xFF1B1D22), Color(0xFF333742), Color(0xFFE5A00D)],
     ),
   ];
 
@@ -236,19 +292,50 @@ class PlixTheme {
       ValueNotifier<ThemePresetOption>(presetOptions[0]);
 
   static final ValueNotifier<ThemeColorOption> currentThemeOption =
-      ValueNotifier<ThemeColorOption>(colorOptions[0]);
+      ValueNotifier<ThemeColorOption>(colorOptions[1]); // Classic Gold
 
   static final ValueNotifier<int> themeRevision = ValueNotifier<int>(0);
 
+  // Custom theme user-configured colors
+  static Color _customBackground = const Color(0xFF121316);
+  static Color _customSurface = const Color(0xFF1B1D22);
+  static Color _customCard = const Color(0xFF22252C);
+  static Color _customBorder = const Color(0xFF333742);
+
+  static Color get customBackground => _customBackground;
+  static Color get customSurface => _customSurface;
+  static Color get customCard => _customCard;
+  static Color get customBorder => _customBorder;
+
   // Dynamic Theme Colors
-  static Color get background => currentPreset.value.background;
-  static Color get surface => currentPreset.value.surface;
-  static Color get surfaceLight => currentPreset.value.surfaceLight;
-  static Color get card => currentPreset.value.card;
-  static Color get cardBorder => currentPreset.value.cardBorder;
-  static Color get cardFocused => currentPreset.value.cardFocused;
+  static Color get background => currentPreset.value.id == 'custom'
+      ? _customBackground
+      : currentPreset.value.background;
+
+  static Color get surface => currentPreset.value.id == 'custom'
+      ? _customSurface
+      : currentPreset.value.surface;
+
+  static Color get surfaceLight => currentPreset.value.id == 'custom'
+      ? Color.lerp(_customSurface, Colors.white, 0.1) ?? _customSurface
+      : currentPreset.value.surfaceLight;
+
+  static Color get card => currentPreset.value.id == 'custom'
+      ? _customCard
+      : currentPreset.value.card;
+
+  static Color get cardBorder => currentPreset.value.id == 'custom'
+      ? _customBorder
+      : currentPreset.value.cardBorder;
+
+  static Color get cardFocused => currentPreset.value.id == 'custom'
+      ? Color.lerp(_customCard, Colors.white, 0.15) ?? _customCard
+      : currentPreset.value.cardFocused;
+
   static bool get isGlass => currentPreset.value.isGlass;
   static bool get isOLED => currentPreset.value.isOLED;
+  static bool get isCyberpunk => currentPreset.value.isCyberpunk;
+  static bool get isMatrix => currentPreset.value.isMatrix;
 
   static Color get plexGold => currentThemeOption.value.primary;
   static Color get plexGoldLight => currentThemeOption.value.light;
@@ -258,10 +345,95 @@ class PlixTheme {
   static const Color textSecondary = Color(0xFF9EA2A8);
   static const Color textMuted = Color(0xFF6B7280);
 
+  /// Generates Apple Liquid Glass decoration with specular highlights and reflections
+  static BoxDecoration glassBoxDecoration({
+    BorderRadius? borderRadius,
+    bool isHighlighted = false,
+    Color? accent,
+    double borderWidth = 1.4,
+  }) {
+    final effectiveAccent = accent ?? plexGold;
+    return BoxDecoration(
+      borderRadius: borderRadius ?? BorderRadius.circular(10),
+      gradient: LinearGradient(
+        begin: const Alignment(-0.8, -1.0),
+        end: const Alignment(0.8, 1.0),
+        stops: const [0.0, 0.45, 1.0],
+        colors: isHighlighted
+            ? [
+                Colors.white.withOpacity(0.28),
+                effectiveAccent.withOpacity(0.22),
+                const Color(0x66101E32),
+              ]
+            : [
+                Colors.white.withOpacity(0.12),
+                const Color(0x3819283F),
+                const Color(0x240F1826),
+              ],
+      ),
+      border: Border.all(
+        color: isHighlighted
+            ? Colors.white.withOpacity(0.92)
+            : Colors.white.withOpacity(0.38),
+        width: isHighlighted ? borderWidth + 0.6 : borderWidth,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isHighlighted
+              ? effectiveAccent.withOpacity(0.50)
+              : Colors.black.withOpacity(0.35),
+          blurRadius: isHighlighted ? 18 : 8,
+          spreadRadius: isHighlighted ? 1.5 : 0,
+          offset: isHighlighted ? Offset.zero : const Offset(0, 3),
+        ),
+        if (isHighlighted)
+          BoxShadow(
+            color: Colors.white.withOpacity(0.30),
+            blurRadius: 8,
+            spreadRadius: -1,
+          ),
+      ],
+    );
+  }
+
+  /// Apple-style specular gloss reflection sweep layer
+  static Widget buildGlassReflectionLayer({BorderRadius? borderRadius}) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: borderRadius ?? BorderRadius.circular(8),
+            gradient: LinearGradient(
+              begin: const Alignment(-0.85, -1.0),
+              end: const Alignment(0.85, 1.0),
+              stops: const [0.0, 0.32, 0.33, 1.0],
+              colors: [
+                Colors.white.withOpacity(0.20),
+                Colors.white.withOpacity(0.04),
+                Colors.transparent,
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   static Future<void> loadSavedTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
+      // Load Custom Theme Colors
+      final customBgVal = prefs.getInt('app_theme_custom_bg');
+      if (customBgVal != null) _customBackground = Color(customBgVal);
+      final customSurfVal = prefs.getInt('app_theme_custom_surf');
+      if (customSurfVal != null) _customSurface = Color(customSurfVal);
+      final customCardVal = prefs.getInt('app_theme_custom_card');
+      if (customCardVal != null) _customCard = Color(customCardVal);
+      final customBorderVal = prefs.getInt('app_theme_custom_border');
+      if (customBorderVal != null) _customBorder = Color(customBorderVal);
+
       // Load Base Preset
       final savedPresetId = prefs.getString('app_theme_preset_id');
       if (savedPresetId != null) {
@@ -289,7 +461,7 @@ class PlixTheme {
         } else {
           final match = colorOptions.firstWhere(
             (opt) => opt.id == savedColorId,
-            orElse: () => colorOptions[0],
+            orElse: () => colorOptions[1], // Classic Gold default
           );
           currentThemeOption.value = match;
         }
@@ -298,13 +470,55 @@ class PlixTheme {
     } catch (_) {}
   }
 
-  static Future<void> setPreset(ThemePresetOption preset) async {
+  static Future<void> setPreset(ThemePresetOption preset, {bool updateDefaultAccent = true}) async {
     currentPreset.value = preset;
+    
+    // Automatically default to an appropriate accent highlight color for that theme
+    if (updateDefaultAccent) {
+      final defaultAccent = colorOptions.firstWhere(
+        (c) => c.id == preset.defaultAccentId,
+        orElse: () => colorOptions[1],
+      );
+      currentThemeOption.value = defaultAccent;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('app_theme_color_id', defaultAccent.id);
+      } catch (_) {}
+    }
+
     themeRevision.value++;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('app_theme_preset_id', preset.id);
     } catch (_) {}
+  }
+
+  static Future<void> updateCustomTheme({
+    Color? background,
+    Color? surface,
+    Color? card,
+    Color? border,
+  }) async {
+    if (background != null) _customBackground = background;
+    if (surface != null) _customSurface = surface;
+    if (card != null) _customCard = card;
+    if (border != null) _customBorder = border;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (background != null) await prefs.setInt('app_theme_custom_bg', background.value);
+      if (surface != null) await prefs.setInt('app_theme_custom_surf', surface.value);
+      if (card != null) await prefs.setInt('app_theme_custom_card', card.value);
+      if (border != null) await prefs.setInt('app_theme_custom_border', border.value);
+    } catch (_) {}
+
+    // Ensure Custom Preset is active
+    final customPreset = presetOptions.firstWhere((p) => p.id == 'custom');
+    if (currentPreset.value.id != 'custom') {
+      await setPreset(customPreset, updateDefaultAccent: false);
+    } else {
+      themeRevision.value++;
+    }
   }
 
   static Future<void> setTheme(ThemeColorOption option) async {

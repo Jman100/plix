@@ -148,6 +148,7 @@ class _MediaCardState extends State<MediaCard> {
               key == LogicalKeyboardKey.enter ||
               key == LogicalKeyboardKey.space ||
               key == LogicalKeyboardKey.gameButtonA ||
+              key == LogicalKeyboardKey.gameButtonSelect ||
               key == LogicalKeyboardKey.numpadEnter)) {
             widget.onTap();
             return KeyEventResult.handled;
@@ -185,13 +186,19 @@ class _MediaCardState extends State<MediaCard> {
                   height: height,
                   width: widget.width,
                   decoration: BoxDecoration(
-                    color: PlixTheme.card,
+                    color: PlixTheme.isOLED
+                        ? const Color(0xFF000000)
+                        : (PlixTheme.isGlass ? const Color(0x331C283E) : PlixTheme.card),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isHighlighted
                           ? PlixTheme.plexGold
-                          : (PlixTheme.isGlass ? Colors.white.withOpacity(0.12) : Colors.transparent),
-                      width: 3.0,
+                          : (PlixTheme.isGlass
+                              ? const Color(0x55FFFFFF)
+                              : (PlixTheme.isCyberpunk
+                                  ? const Color(0x44FF007F)
+                                  : (PlixTheme.isOLED ? const Color(0xFF222226) : Colors.transparent))),
+                      width: isHighlighted ? 3.0 : (PlixTheme.isGlass || PlixTheme.isOLED || PlixTheme.isCyberpunk ? 1.5 : 3.0),
                     ),
                     boxShadow: isHighlighted
                         ? [
@@ -199,12 +206,18 @@ class _MediaCardState extends State<MediaCard> {
                               color: PlixTheme.plexGold.withOpacity(0.55),
                               blurRadius: 18,
                               spreadRadius: 2,
-                            )
+                            ),
+                            if (PlixTheme.isCyberpunk)
+                              BoxShadow(
+                                color: const Color(0xFFFF007F).withOpacity(0.4),
+                                blurRadius: 24,
+                                spreadRadius: 3,
+                              ),
                           ]
                         : [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 6,
+                              color: Colors.black.withOpacity(PlixTheme.isGlass ? 0.5 : 0.4),
+                              blurRadius: PlixTheme.isGlass ? 12 : 6,
                               offset: const Offset(0, 3),
                             )
                           ],

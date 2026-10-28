@@ -1905,7 +1905,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
               ),
             ),
             SizedBox(
-              height: isCompact ? 245 : 218,
+              height: isCompact ? 245 : 230,
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
