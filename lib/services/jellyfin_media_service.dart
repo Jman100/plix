@@ -30,7 +30,7 @@ class JellyfinMediaService {
   };
 
   static const String _itemFields =
-      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People';
+      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path';
 
   PlexLibrary _parseLibrary(Map<String, dynamic> json) {
     final id = json['Id']?.toString() ?? '';
@@ -74,11 +74,24 @@ class JellyfinMediaService {
 
     // Subtitle & Audio streams
     List<dynamic> rawStreams = json['MediaStreams'] as List<dynamic>? ?? [];
-    if (rawStreams.isEmpty && json['MediaSources'] is List) {
-      for (final ms in json['MediaSources'] as List) {
-        if (ms is Map && ms['MediaStreams'] is List && (ms['MediaStreams'] as List).isNotEmpty) {
-          rawStreams = ms['MediaStreams'] as List;
-          break;
+    String? filePath = json['Path']?.toString();
+    int? fileSize = (json['Size'] as num?)?.toInt();
+    String? container = json['Container']?.toString();
+    int? totalBitrate = (json['Bitrate'] as num?)?.toInt();
+    if (json['MediaSources'] is List && (json['MediaSources'] as List).isNotEmpty) {
+      final firstMs = (json['MediaSources'] as List).first;
+      if (firstMs is Map<String, dynamic>) {
+        filePath ??= firstMs['Path']?.toString();
+        fileSize ??= (firstMs['Size'] as num?)?.toInt();
+        container ??= firstMs['Container']?.toString();
+        totalBitrate ??= (firstMs['Bitrate'] as num?)?.toInt();
+      }
+      if (rawStreams.isEmpty) {
+        for (final ms in json['MediaSources'] as List) {
+          if (ms is Map && ms['MediaStreams'] is List && (ms['MediaStreams'] as List).isNotEmpty) {
+            rawStreams = ms['MediaStreams'] as List;
+            break;
+          }
         }
       }
     }
@@ -88,6 +101,7 @@ class JellyfinMediaService {
     String? videoCodec;
     String? audioCodec;
     String? resolutionStr;
+    String? videoFrameRate;
     int? audioChannels;
     String? audioTitle;
     String? hdrType;
@@ -142,21 +156,25 @@ class JellyfinMediaService {
         audioTitle ??= title;
       } else if (sType == 'video') {
         videoCodec ??= codec;
-        final h = streamMap['Height'] as num?;
-        if (h != null) {
-          if (h >= 2160) {
+        final w = (streamMap['Width'] as num?)?.toInt();
+        final h = (streamMap['Height'] as num?)?.toInt();
+        if (w != null || h != null) {
+          final width = w ?? 0;
+          final height = h ?? 0;
+          if (width >= 3000 || height >= 1600) {
             resolutionStr = '4K';
-          } else if (h >= 1080) {
+          } else if (width >= 1800 || height >= 800) {
             resolutionStr = '1080p';
-          } else if (h >= 720) {
+          } else if (width >= 1200 || height >= 540) {
             resolutionStr = '720p';
-          } else if (h >= 480) {
+          } else if (width >= 640 || height >= 400) {
             resolutionStr = '480p';
-          } else {
-            resolutionStr = '${h.toInt()}p';
+          } else if (height > 0) {
+            resolutionStr = '${height}p';
           }
         }
         final vProfile = streamMap['Profile']?.toString();
+        videoFrameRate ??= streamMap['RealFrameRate']?.toString() ?? streamMap['AverageFrameRate']?.toString();
         final vRange = streamMap['VideoRange']?.toString() ?? '';
         final vRangeType = streamMap['VideoRangeType']?.toString() ?? '';
         final vDoVi = streamMap['VideoDoViTitle']?.toString() ?? '';
@@ -259,6 +277,11 @@ class JellyfinMediaService {
       hasDynamicMetadata: hdrType == "HDR10+" || hdrType == "DOVI",
       hdrType: hdrType,
       people: people,
+      container: container,
+      bitrate: totalBitrate != null && totalBitrate > 0 ? totalBitrate ~/ 1000 : null,
+      videoFrameRate: videoFrameRate,
+      filePath: filePath,
+      fileSize: fileSize,
     );
   }
 
@@ -270,6 +293,32 @@ class JellyfinMediaService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final items = data['Items'] as List<dynamic>? ?? [];
     return items.map((m) => _parseLibrary(m as Map<String, dynamic>)).toList();
+  }
+
+  Future<PlexMediaItem?> getNextUpForShow(String showRatingKey) async {
+    try {
+      final cw = await getContinueWatching();
+      for (final item in cw) {
+        if (item.grandparentRatingKey == showRatingKey) {
+          return item;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final url = Uri.parse(
+        '$baseUrl/Shows/NextUp?UserId=$userId&SeriesId=$showRatingKey&Fields=$_itemFields',
+      );
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final items = data['Items'] as List<dynamic>? ?? [];
+        if (items.isNotEmpty) {
+          return _parseItem(items.first as Map<String, dynamic>);
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<List<PlexMediaItem>> getContinueWatching({int limit = 30}) async {

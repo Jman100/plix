@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.4.1"
-$versionCode = 34
+$version = "1.5.1"
+$versionCode = 36
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,13 +45,17 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Episode Details Header: Formatted show title line with season and episode numbers (e.g. The Grand Tour (2016) - S1:E2)
-- 4:3 Aspect Ratio Support: Added automatic detection and layout handling for 4:3 classic TV episode thumbnails
-- Sticky Hero Spacing: Refined breathing room above the separator line between hero and rows
-- Search Results Polish: Streamlined poster presentation with clean text-level resolution badges
-- Hero View More Stability: Locked hero height when focusing View More cards to eliminate row layout shifts
-- HDR10+ Detection: Enhanced metadata parsing and prioritization for HDR10+ dynamic range
-- Version Bump: v1.4.1 (versionCode 34)
+- TV Details & Media Info: Added comprehensive file & stream metadata modal ("Get Info") on owned servers; removed redundant file name and improved vertical layout on TV
+- TV Show Hero Queueing: Automatically identifies and queues the next unplayed episode directly on the TV show hero ("Resume S{s}:E{e}" / "Play S{s}:E{e}")
+- Navigation & Player Exit: Returning from player refreshes watched progress and advances queued episodes seamlessly without restarting theme music
+- Android Mobile Polish: Removed visual top-left back/home buttons across screens for a clean interface using native system navigation gestures
+- Settings & Server Switching: Added interactive "Switch Server" button to the Connected Server tile in Settings for direct access on portrait mobile and TV
+- Jellyfin Polish: Added official Jellyfin brand logo and vibrant purple palette on connect screen; eliminated delay when opening watchlist items with instant loading feedback
+- Plex Authentication: Added official Plex logo to the device link and authentication screen
+- Appearance Screen: Streamlined Live Preview bar and added 3 new creative atmosphere themes (Cosmic Nebula, Solar Flare, Tokyo Midnight)
+- Picture-in-Picture: Fixed aspect-ratio zoom/scaling distortion on Android; paused background playback automatically when closing or dismissing the floating PiP window
+- Discord Changelog: Updated webhook avatar with the official Plix icon
+- Version Bump: v1.5.1 (versionCode 36)
 "@
 
     $manifest = [ordered]@{

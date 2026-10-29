@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plex_library.dart';
@@ -324,27 +325,29 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                 ),
                 child: Row(
                   children: [
-                    PlixBackButton(
-                      focusNode: _backFocusNode,
-                      autofocus: false,
-                      onRight: () => _homeFocusNode.requestFocus(),
-                      onDown: () {
-                        if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
-                          _focusNodes[0]?.requestFocus();
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    PlixHomeButton(
-                      focusNode: _homeFocusNode,
-                      onLeft: () => _backFocusNode.requestFocus(),
-                      onDown: () {
-                        if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
-                          _focusNodes[0]?.requestFocus();
-                        }
-                      },
-                    ),
-                    SizedBox(width: isCompact ? 10 : 20),
+                    if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                      PlixBackButton(
+                        focusNode: _backFocusNode,
+                        autofocus: false,
+                        onRight: () => _homeFocusNode.requestFocus(),
+                        onDown: () {
+                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                            _focusNodes[0]?.requestFocus();
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      PlixHomeButton(
+                        focusNode: _homeFocusNode,
+                        onLeft: () => _backFocusNode.requestFocus(),
+                        onDown: () {
+                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                            _focusNodes[0]?.requestFocus();
+                          }
+                        },
+                      ),
+                      SizedBox(width: isCompact ? 10 : 20),
+                    ],
                     Icon(
                       widget.library.isMovie ? Icons.movie_outlined : Icons.tv_outlined,
                       color: PlixTheme.plexGold,

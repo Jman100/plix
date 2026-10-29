@@ -8,9 +8,13 @@ import '../services/update_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
 import '../widgets/plix_bottom_nav.dart';
+import '../widgets/plix_button.dart';
 import '../services/plix_device_helper.dart';
 import '../services/native_player_service.dart';
+import '../services/plex_auth_service.dart';
+import '../services/plex_server_service.dart';
 import 'appearance_screen.dart';
+import 'server_select_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final PlexServer? server;
@@ -100,6 +104,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _playTvThemes = newVal);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('play_tv_show_themes', newVal);
+  }
+
+  void _switchServer() async {
+    final authService = PlexAuthService();
+    final serverService = PlexServerService(authService: authService);
+    final token = await authService.getSavedToken() ?? '';
+    final servers = await serverService.fetchServers(token);
+    if (!mounted) return;
+    NativePlayerService().stop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ServerSelectScreen(
+          servers: servers,
+          authService: authService,
+          serverService: serverService,
+          currentServer: widget.server,
+        ),
+      ),
+    );
   }
 
   Future<void> _openWebsite(String url) async {
@@ -254,19 +277,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: isCompact ? 10 : 16),
               child: Row(
                 children: [
-                  PlixBackButton(
-                    focusNode: _backButtonFocusNode,
-                    autofocus: false,
-                    onRight: () => _homeButtonFocusNode.requestFocus(),
-                    onDown: () => _appearanceTileFocusNode.requestFocus(),
-                  ),
-                  const SizedBox(width: 10),
-                  PlixHomeButton(
-                    focusNode: _homeButtonFocusNode,
-                    onLeft: () => _backButtonFocusNode.requestFocus(),
-                    onDown: () => _appearanceTileFocusNode.requestFocus(),
-                  ),
-                  const SizedBox(width: 16),
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                    PlixBackButton(
+                      focusNode: _backButtonFocusNode,
+                      autofocus: false,
+                      onRight: () => _homeButtonFocusNode.requestFocus(),
+                      onDown: () => _appearanceTileFocusNode.requestFocus(),
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeButtonFocusNode,
+                      onLeft: () => _backButtonFocusNode.requestFocus(),
+                      onDown: () => _appearanceTileFocusNode.requestFocus(),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   Icon(
                     Icons.settings_rounded,
                     color: PlixTheme.plexGold,
@@ -487,6 +512,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           (widget.server!.connections.isNotEmpty
                               ? widget.server!.connections.first.address
                               : 'Connected'),
+                      trailingWidget: PlixButton(
+                        isPrimary: false,
+                        fontSize: 11.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                        label: 'Switch Server',
+                        onPressed: _switchServer,
+                      ),
+                      isInteractive: true,
+                      onTap: _switchServer,
                       trailingBelow: isCompact,
                     ),
                     const SizedBox(height: 10),
@@ -656,115 +691,232 @@ class _AppearanceHeroTileState extends State<_AppearanceHeroTile> {
           child: Stack(
             children: [
               if (isGlass) PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(14)),
-              Row(
-                children: [
-                  // Atmosphere Theme icon badge
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: preset.previewGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white24, width: 1),
-                    ),
-                    child: Icon(preset.icon, size: 24, color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-                  // Title and Subtitle
-                  Expanded(
-                    child: Column(
+              Builder(
+                builder: (context) {
+                  final isCompact = PlixDeviceHelper.isCompact(context);
+                  if (isCompact) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Text(
-                              preset.name,
-                              style: TextStyle(
-                                color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            // Current Accent Chip
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              width: 46,
+                              height: 46,
                               decoration: BoxDecoration(
-                                color: accent.withOpacity(0.18),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: accent.withOpacity(0.6), width: 1),
+                                gradient: LinearGradient(
+                                  colors: preset.previewGradient,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white24, width: 1),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Icon(preset.icon, size: 24, color: Colors.white),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                                  ),
-                                  const SizedBox(width: 6),
                                   Text(
-                                    PlixTheme.currentThemeOption.value.name,
+                                    preset.name,
                                     style: TextStyle(
-                                      color: accent,
-                                      fontSize: 11,
+                                      color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: accent.withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: accent.withOpacity(0.6), width: 1),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          PlixTheme.currentThemeOption.value.name,
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            Icon(Icons.chevron_right_rounded, color: isHighlighted ? accent : Colors.white38, size: 22),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 10),
                         Text(
                           preset.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                           style: TextStyle(
-                            color: isHighlighted ? Colors.white : PlixTheme.textSecondary,
+                            color: isHighlighted ? Colors.white70 : PlixTheme.textSecondary,
                             fontSize: 12.5,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          decoration: BoxDecoration(
+                            color: isHighlighted ? accent : PlixTheme.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isHighlighted ? accent : PlixTheme.cardBorder,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.tune_rounded,
+                                size: 15,
+                                color: isHighlighted ? Colors.black : Colors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Edit Appearance & Themes',
+                                style: TextStyle(
+                                  color: isHighlighted ? Colors.black : Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Edit Appearance & Themes Action Button
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isHighlighted ? accent : PlixTheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isHighlighted ? accent : PlixTheme.cardBorder,
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      // Atmosphere Theme icon badge
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: preset.previewGradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white24, width: 1),
+                        ),
+                        child: Icon(preset.icon, size: 24, color: Colors.white),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.tune_rounded,
-                          size: 16,
-                          color: isHighlighted ? Colors.black : Colors.white,
+                      const SizedBox(width: 16),
+                      // Title and Subtitle
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  preset.name,
+                                  style: TextStyle(
+                                    color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Current Accent Chip
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: accent.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: accent.withOpacity(0.6), width: 1),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        PlixTheme.currentThemeOption.value.name,
+                                        style: TextStyle(
+                                          color: accent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              preset.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isHighlighted ? Colors.white : PlixTheme.textSecondary,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit Appearance & Themes',
-                          style: TextStyle(
-                            color: isHighlighted ? Colors.black : Colors.white,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      const SizedBox(width: 16),
+                      // Edit Appearance & Themes Action Button
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isHighlighted ? accent : PlixTheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isHighlighted ? accent : PlixTheme.cardBorder,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.tune_rounded,
+                              size: 16,
+                              color: isHighlighted ? Colors.black : Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Edit Appearance & Themes',
+                              style: TextStyle(
+                                color: isHighlighted ? Colors.black : Colors.white,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -778,6 +930,7 @@ class _SettingsActionTile extends StatefulWidget {
   final String title;
   final String subtitle;
   final String? trailing;
+  final Widget? trailingWidget;
   final FocusNode? focusNode;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
@@ -790,6 +943,7 @@ class _SettingsActionTile extends StatefulWidget {
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.trailingWidget,
     this.focusNode,
     this.onUp,
     this.onDown,
@@ -912,21 +1066,37 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.title,
-                          style: TextStyle(
-                            color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.subtitle,
-                          style: const TextStyle(
-                            color: PlixTheme.textSecondary,
-                            fontSize: 12.5,
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.title,
+                                    style: TextStyle(
+                                      color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.subtitle,
+                                    style: const TextStyle(
+                                      color: PlixTheme.textSecondary,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (widget.trailingWidget != null) ...[
+                              const SizedBox(width: 10),
+                              widget.trailingWidget!,
+                            ],
+                          ],
                         ),
                         if (widget.trailing != null) ...[
                           const SizedBox(height: 8),
@@ -966,7 +1136,10 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                             ],
                           ),
                         ),
-                        if (widget.isLoading) ...[
+                        if (widget.trailingWidget != null) ...[
+                          const SizedBox(width: 14),
+                          widget.trailingWidget!,
+                        ] else if (widget.isLoading) ...[
                           const SizedBox(width: 14),
                           SizedBox(
                             width: 16,

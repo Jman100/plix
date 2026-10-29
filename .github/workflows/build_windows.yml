@@ -191,7 +191,7 @@ jobs:
           }
           Write-Host "Using ISCC compiler at: $iscc"
 
-          $appVer = "1.5.0"
+          $appVer = "1.5.1"
           if ($env:GITHUB_REF_NAME -match '^v?([0-9]+\.[0-9]+\.[0-9]+)') {
             $appVer = $Matches[1]
           }

@@ -8,8 +8,7 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
 import '../services/update_service.dart';
-import '../widgets/plix_back_button.dart';
-import '../widgets/plix_home_button.dart';
+import '../widgets/brand_logo.dart';
 import 'home_screen.dart';
 
 class JellyfinConnectScreen extends StatefulWidget {
@@ -232,37 +231,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned(
-              top: 16,
-              left: 20,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PlixBackButton(
-                    focusNode: _backBtnFocusNode,
-                    onRight: () => _homeBtnFocusNode.requestFocus(),
-                    onPressed: () {
-                      if (_isStep2QuickConnect) {
-                        _cancelQuickConnect();
-                      } else {
-                        Navigator.of(context).maybePop();
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  PlixHomeButton(
-                    focusNode: _homeBtnFocusNode,
-                    onLeft: () => _backBtnFocusNode.requestFocus(),
-                    onPressed: () {
-                      if (_isStep2QuickConnect) {
-                        _cancelQuickConnect();
-                      }
-                      Navigator.of(context).popUntil((route) => route.isFirst);
-                    },
-                  ),
-                ],
-              ),
-            ),
+
             Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -290,11 +259,13 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xFF00A4DC).withOpacity(0.15),
+            color: const Color(0xFF8E51DC).withOpacity(0.15),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF00A4DC), width: 1.5),
+            border: Border.all(color: const Color(0xFF8E51DC), width: 1.5),
           ),
-          child: const Icon(Icons.hub_rounded, color: Color(0xFF00A4DC), size: 30),
+          child: const Center(
+            child: JellyfinLogo(color: Color(0xFF8E51DC), size: 32),
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -350,13 +321,13 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                 color: PlixTheme.surface,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isFocused ? const Color(0xFF00A4DC) : PlixTheme.cardBorder,
+                  color: isFocused ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
                   width: isFocused ? 2.5 : 1.0,
                 ),
                 boxShadow: isFocused
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF00A4DC).withOpacity(0.35),
+                          color: const Color(0xFF8E51DC).withOpacity(0.35),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -372,7 +343,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                   hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: InputBorder.none,
-                  prefixIcon: Icon(Icons.dns_rounded, color: Color(0xFF00A4DC)),
+                  prefixIcon: Icon(Icons.dns_rounded, color: Color(0xFF8E51DC)),
                 ),
                 onSubmitted: (val) => _onConnectServer(val),
               ),
@@ -408,7 +379,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                   boxShadow: isFocused
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF00A4DC).withOpacity(0.55),
+                            color: const Color(0xFF8E51DC).withOpacity(0.55),
                             blurRadius: 12,
                             spreadRadius: 2,
                           ),
@@ -418,8 +389,8 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : () => _onConnectServer(_urlController.text),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isFocused ? const Color(0xFF38BDF8) : const Color(0xFF00A4DC),
-                    foregroundColor: Colors.black,
+                    backgroundColor: isFocused ? const Color(0xFFA855F7) : const Color(0xFF8E51DC),
+                    foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     elevation: isFocused ? 6 : 2,
@@ -497,11 +468,13 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xFF00A4DC).withOpacity(0.15),
+            color: const Color(0xFF8E51DC).withOpacity(0.15),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF00A4DC), width: 1.5),
+            border: Border.all(color: const Color(0xFF8E51DC), width: 1.5),
           ),
-          child: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF00A4DC), size: 30),
+          child: const Center(
+            child: JellyfinLogo(color: Color(0xFF8E51DC), size: 32),
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -516,7 +489,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         Text(
           _targetServerUrl,
           style: const TextStyle(
-            color: Color(0xFF00A4DC),
+            color: Color(0xFF8E51DC),
             fontSize: 13,
           ),
         ),
@@ -534,10 +507,10 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
               decoration: BoxDecoration(
                 color: PlixTheme.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF00A4DC).withOpacity(0.6), width: 2.0),
+                border: Border.all(color: const Color(0xFF8E51DC).withOpacity(0.6), width: 2.0),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00A4DC).withOpacity(0.25),
+                    color: const Color(0xFF8E51DC).withOpacity(0.25),
                     blurRadius: 20,
                     spreadRadius: 2,
                   ),
@@ -610,7 +583,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFF00A4DC),
+                color: Color(0xFF8E51DC),
               ),
             ),
             SizedBox(width: 12),
@@ -742,13 +715,13 @@ class _DiscoveredServerTileState extends State<_DiscoveredServerTile> {
             color: isHighlighted ? PlixTheme.cardFocused : PlixTheme.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isHighlighted ? const Color(0xFF00A4DC) : PlixTheme.cardBorder,
+              color: isHighlighted ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
               width: isHighlighted ? 2.5 : 1.0,
             ),
             boxShadow: isHighlighted
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF00A4DC).withOpacity(0.4),
+                      color: const Color(0xFF8E51DC).withOpacity(0.4),
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),
@@ -760,10 +733,10 @@ class _DiscoveredServerTileState extends State<_DiscoveredServerTile> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00A4DC).withOpacity(0.15),
+                  color: const Color(0xFF8E51DC).withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.wifi_tethering, color: Color(0xFF00A4DC), size: 20),
+                child: const Icon(Icons.wifi_tethering, color: Color(0xFF8E51DC), size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -791,7 +764,7 @@ class _DiscoveredServerTileState extends State<_DiscoveredServerTile> {
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: isHighlighted ? const Color(0xFF00A4DC) : Colors.white38,
+                color: isHighlighted ? const Color(0xFF8E51DC) : Colors.white38,
                 size: 14,
               ),
             ],

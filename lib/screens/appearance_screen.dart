@@ -123,36 +123,40 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
             )
           : null,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isCompact ? 16 : 36,
-            vertical: isCompact ? 10 : 16,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: SingleChildScrollView(
+          physics: isCompact ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics(),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 16 : 36,
+              vertical: isCompact ? 10 : 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Top Bar
               Row(
                 children: [
-                  PlixBackButton(
-                    focusNode: _backButtonFocusNode,
-                    autofocus: false,
-                    onRight: () => _homeButtonFocusNode.requestFocus(),
-                    onDown: () {
-                      final activeId = PlixTheme.currentPreset.value.id;
-                      _presetFocusNodes[activeId]?.requestFocus();
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  PlixHomeButton(
-                    focusNode: _homeButtonFocusNode,
-                    onLeft: () => _backButtonFocusNode.requestFocus(),
-                    onDown: () {
-                      final activeId = PlixTheme.currentPreset.value.id;
-                      _presetFocusNodes[activeId]?.requestFocus();
-                    },
-                  ),
-                  const SizedBox(width: 16),
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                    PlixBackButton(
+                      focusNode: _backButtonFocusNode,
+                      autofocus: false,
+                      onRight: () => _homeButtonFocusNode.requestFocus(),
+                      onDown: () {
+                        final activeId = PlixTheme.currentPreset.value.id;
+                        _presetFocusNodes[activeId]?.requestFocus();
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeButtonFocusNode,
+                      onLeft: () => _backButtonFocusNode.requestFocus(),
+                      onDown: () {
+                        final activeId = PlixTheme.currentPreset.value.id;
+                        _presetFocusNodes[activeId]?.requestFocus();
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   Icon(
                     Icons.palette_rounded,
                     color: PlixTheme.plexGold,
@@ -220,7 +224,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
               ValueListenableBuilder<ThemePresetOption>(
                 valueListenable: PlixTheme.currentPreset,
                 builder: (context, activePreset, _) {
-                  final cols = isCompact ? 2 : 3;
+                  final cols = isCompact ? 2 : 4;
                   final totalPresets = PlixTheme.presetOptions.length;
                   final rows = (totalPresets / cols).ceil();
 
@@ -261,7 +265,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                                           : () => _presetFocusNodes[PlixTheme.presetOptions[index - cols].id]?.requestFocus(),
                                       onDown: row == rows - 1
                                           ? () {
-                                              final colorCols = isCompact ? 3 : 6;
+                                              final colorCols = isCompact ? 2 : 6;
                                               final targetColorCol = (col * (colorCols / cols)).floor();
                                               if (targetColorCol < PlixTheme.colorOptions.length) {
                                                 _colorFocusNodes[PlixTheme.colorOptions[targetColorCol].id]?.requestFocus();
@@ -306,7 +310,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
               ValueListenableBuilder<ThemeColorOption>(
                 valueListenable: PlixTheme.currentThemeOption,
                 builder: (context, currentOption, _) {
-                  final cols = isCompact ? 3 : 6;
+                  final cols = isCompact ? 2 : 6;
                   final totalItems = PlixTheme.colorOptions.length + 1; // +1 for Custom Color
                   final rows = (totalItems / cols).ceil();
                   final isCustomActive = currentOption.id.startsWith('custom_');
@@ -334,7 +338,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                                     final onRight = col < cols - 1 && index < totalItems - 1 ? () => nodeFor(index + 1).requestFocus() : null;
                                     final onUp = row == 0
                                         ? () {
-                                            final presetCols = isCompact ? 2 : 3;
+                                            final presetCols = isCompact ? 2 : 4;
                                             final presetRows = (PlixTheme.presetOptions.length / presetCols).ceil();
                                             final targetPresetCol = (col / cols * presetCols).floor().clamp(0, presetCols - 1);
                                             final targetIndex = (presetRows - 1) * presetCols + targetPresetCol;
@@ -386,6 +390,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -450,13 +455,20 @@ class _LiveThemePreviewBar extends StatelessWidget {
                   color: accent,
                   borderRadius: BorderRadius.circular(5),
                 ),
-                child: const Text(
-                  '▶ Watch',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow_rounded, size: 13, color: Colors.black),
+                    SizedBox(width: 3),
+                    Text(
+                      'Watch',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -480,34 +492,6 @@ class _LiveThemePreviewBar extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: accent.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: accent.withOpacity(0.6), width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${preset.name} • ${PlixTheme.currentThemeOption.value.name}',
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -700,6 +684,24 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                         decoration: BoxDecoration(color: const Color(0xFF00FF66).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
                         child: const Text('MATRIX', style: TextStyle(color: Color(0xFF00FF66), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'nebula')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFF9C27B0).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('COSMIC', style: TextStyle(color: Color(0xFFCE93D8), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'solar')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFFFF9800).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('SOLAR', style: TextStyle(color: Color(0xFFFFB74D), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'tokyo')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFFE91E63).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('TOKYO', style: TextStyle(color: Color(0xFFF48FB1), fontSize: 8, fontWeight: FontWeight.bold)),
                       )
                     else if (widget.preset.id == 'custom')
                       Container(

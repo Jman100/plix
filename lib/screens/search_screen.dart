@@ -291,18 +291,20 @@ class _SearchScreenState extends State<SearchScreen> {
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 12),
       child: Row(
         children: [
-          PlixBackButton(
-            focusNode: _backButtonFocus,
-            onRight: () => _homeButtonFocus.requestFocus(),
-            onDown: () => _keyFocusNodes['1']?.requestFocus(),
-          ),
-          const SizedBox(width: 10),
-          PlixHomeButton(
-            focusNode: _homeButtonFocus,
-            onLeft: () => _backButtonFocus.requestFocus(),
-            onDown: () => _keyFocusNodes['1']?.requestFocus(),
-          ),
-          SizedBox(width: isCompact ? 12 : 20),
+          if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+            PlixBackButton(
+              focusNode: _backButtonFocus,
+              onRight: () => _homeButtonFocus.requestFocus(),
+              onDown: () => _keyFocusNodes['1']?.requestFocus(),
+            ),
+            const SizedBox(width: 10),
+            PlixHomeButton(
+              focusNode: _homeButtonFocus,
+              onLeft: () => _backButtonFocus.requestFocus(),
+              onDown: () => _keyFocusNodes['1']?.requestFocus(),
+            ),
+            SizedBox(width: isCompact ? 12 : 20),
+          ],
 
           // Search Bar display
           Expanded(

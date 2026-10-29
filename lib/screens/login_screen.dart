@@ -5,9 +5,8 @@ import '../app_theme.dart';
 import '../models/plex_pin.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
-import '../widgets/plix_back_button.dart';
-import '../widgets/plix_home_button.dart';
 import '../widgets/plix_button.dart';
+import '../widgets/brand_logo.dart';
 import 'home_screen.dart';
 import 'server_select_screen.dart';
 import '../services/plix_device_helper.dart';
@@ -140,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canPop = Navigator.of(context).canPop();
     final isCompact = PlixDeviceHelper.isCompact(context);
 
     return Scaffold(
@@ -148,29 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            if (canPop)
-              Positioned(
-                top: 16,
-                left: 20,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PlixBackButton(
-                      focusNode: _backFocusNode,
-                      onRight: () => _homeFocusNode.requestFocus(),
-                      onDown: () => _getNewCodeFocusNode.requestFocus(),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 10),
-                    PlixHomeButton(
-                      focusNode: _homeFocusNode,
-                      onLeft: () => _backFocusNode.requestFocus(),
-                      onDown: () => _getNewCodeFocusNode.requestFocus(),
-                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                    ),
-                  ],
-                ),
-              ),
+
             Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -179,35 +155,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
               // Logo
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: PlixTheme.plexGold,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.black,
-                        size: 30,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Text(
-                    'PLIX',
-                    style: TextStyle(
-                      color: PlixTheme.textPrimary,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 4,
-                    ),
-                  ),
-                ],
+              Center(
+                child: PlexLogo(
+                  size: 52,
+                  color: PlixTheme.plexGold,
+                ),
               ),
 
               const SizedBox(height: 12),
@@ -279,21 +231,46 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(color: PlixTheme.textSecondary, fontSize: 14),
                             ),
                             const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: PlixTheme.card,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'plex.tv/link',
-                                style: TextStyle(
-                                  color: PlixTheme.plexGold,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1,
+                            InkWell(
+                              onTap: () {
+                                final pinCode = _currentPin?.code.trim().toUpperCase() ?? '';
+                                final url = pinCode.isNotEmpty
+                                    ? 'https://plex.tv/link?pin=$pinCode'
+                                    : 'https://plex.tv/link';
+                                PlixDeviceHelper.openUrl(url);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: PlixTheme.card,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.open_in_browser_rounded, size: 18, color: PlixTheme.plexGold),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'plex.tv/link',
+                                      style: TextStyle(
+                                        color: PlixTheme.plexGold,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: PlixTheme.plexGold.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Tap above to link on this device',
+                              style: TextStyle(color: PlixTheme.textMuted, fontSize: 11),
                             ),
                             const SizedBox(height: 20),
                             const Text(
@@ -430,21 +407,41 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: PlixTheme.card,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'plex.tv/link',
-                                        style: TextStyle(
-                                          color: PlixTheme.plexGold,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                    InkWell(
+                                      onTap: () {
+                                        final pinCode = _currentPin?.code.trim().toUpperCase() ?? '';
+                                        final url = pinCode.isNotEmpty
+                                            ? 'https://plex.tv/link?pin=$pinCode'
+                                            : 'https://plex.tv/link';
+                                        PlixDeviceHelper.openUrl(url);
+                                      },
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: PlixTheme.card,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: PlixTheme.plexGold.withOpacity(0.4)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.open_in_browser_rounded, size: 16, color: PlixTheme.plexGold),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'plex.tv/link',
+                                              style: TextStyle(
+                                                color: PlixTheme.plexGold,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                decoration: TextDecoration.underline,
+                                                decorationColor: PlixTheme.plexGold.withOpacity(0.5),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),

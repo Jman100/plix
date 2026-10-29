@@ -239,6 +239,8 @@ class PlexMediaItem {
   final String? extraType;
   final String? addedSubtitle;
   final List<MediaPerson> people;
+  final String? filePath;
+  final int? fileSize;
 
   const PlexMediaItem({
     required this.ratingKey,
@@ -302,6 +304,8 @@ class PlexMediaItem {
     this.extraType,
     this.addedSubtitle,
     this.people = const [],
+    this.filePath,
+    this.fileSize,
   });
 
   bool get isMovie => type == 'movie';
@@ -603,6 +607,25 @@ class PlexMediaItem {
     return '${minutes}m';
   }
 
+  String get fileName {
+    if (filePath == null || filePath!.isEmpty) return '';
+    final normalized = filePath!.replaceAll('\\', '/');
+    return normalized.split('/').last;
+  }
+
+  String get formattedFileSize {
+    if (fileSize == null || fileSize! <= 0) return '';
+    final bytes = fileSize!;
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    } else if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    }
+    return '$bytes B';
+  }
+
   String get formattedResumeTime {
     if (viewOffset == null || viewOffset! <= 0) return '';
     final d = Duration(milliseconds: viewOffset!);
@@ -671,6 +694,8 @@ class PlexMediaItem {
     String? cont;
     String? pKey;
     String? pId;
+    String? fPath;
+    int? fSize;
     int? bRate;
     String? vProf;
     String? colTrc;
@@ -810,6 +835,8 @@ class PlexMediaItem {
             if (p is! Map<String, dynamic>) continue;
             pKey ??= p['key'] as String?;
             pId ??= p['id']?.toString();
+            fPath ??= p['file'] as String?;
+            fSize ??= (p['size'] as num?)?.toInt();
             final fStr = (p['file'] ?? '').toString().toLowerCase();
             if (checkIsHdr10Plus(fStr)) hasDynamic = true;
             if (checkIsDovi(fStr)) dovProf ??= 0;
@@ -1018,6 +1045,8 @@ class PlexMediaItem {
               ? (json['viewedAt'] as num).toInt()
               : int.tryParse(json['lastViewedAt']?.toString() ?? json['viewedAt']?.toString() ?? ''),
       people: people,
+      filePath: fPath,
+      fileSize: fSize,
     );
   }
 
@@ -1082,6 +1111,8 @@ class PlexMediaItem {
     String? extraType,
     String? addedSubtitle,
     List<MediaPerson>? people,
+    String? filePath,
+    int? fileSize,
   }) {
     return PlexMediaItem(
       ratingKey: ratingKey ?? this.ratingKey,
@@ -1145,6 +1176,8 @@ class PlexMediaItem {
       extraType: extraType ?? this.extraType,
       addedSubtitle: addedSubtitle ?? this.addedSubtitle,
       people: people ?? this.people,
+      filePath: filePath ?? this.filePath,
+      fileSize: fileSize ?? this.fileSize,
     );
   }
 }

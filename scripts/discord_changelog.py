@@ -115,7 +115,7 @@ def build_embed(manifest_data):
         ],
         "footer": {
             "text": "Plix Media Center • Updates",
-            "icon_url": "https://raw.githubusercontent.com/Jman100/plix/main/web_site/assets/logo.png"
+            "icon_url": "https://raw.githubusercontent.com/Jman100/plix/main/web_site/app_icon.png"
         },
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
@@ -147,7 +147,7 @@ def post_changelog(webhook_url=None, manifest_path=None):
     embed = build_embed(manifest_data)
     payload = {
         "username": "Plix Updates",
-        "avatar_url": "https://raw.githubusercontent.com/Jman100/plix/main/web_site/assets/logo.png",
+        "avatar_url": "https://raw.githubusercontent.com/Jman100/plix/main/web_site/app_icon.png",
         "embeds": [embed]
     }
 

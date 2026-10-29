@@ -770,27 +770,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       color: PlixTheme.background,
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: PlixTheme.plexGold,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Icon(Icons.play_arrow_rounded, color: Colors.black, size: 22),
-            ),
-          ),
+          const PlixAppLogo(size: 32, glow: true),
           const SizedBox(width: 8),
-          const Text(
-            'PLIX',
-            style: TextStyle(
-              color: PlixTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
+          const PlixWordmark(fontSize: 20),
           const Spacer(),
           // Server switcher pill
           InkWell(

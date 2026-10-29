@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
+import '../services/plix_device_helper.dart';
 
 class PlixBackButton extends StatefulWidget {
   final VoidCallback? onPressed;
@@ -11,6 +12,7 @@ class PlixBackButton extends StatefulWidget {
   final VoidCallback? onUp;
   final VoidCallback? onLeft;
   final VoidCallback? onRight;
+  final bool forceShow;
 
   const PlixBackButton({
     super.key,
@@ -21,6 +23,7 @@ class PlixBackButton extends StatefulWidget {
     this.onUp,
     this.onLeft,
     this.onRight,
+    this.forceShow = false,
   });
 
   @override
@@ -67,6 +70,9 @@ class _PlixBackButtonState extends State<PlixBackButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.forceShow && Platform.isAndroid && !PlixDeviceHelper.isTelevision) {
+      return const SizedBox.shrink();
+    }
     final isHighlighted = _isFocused || _isHovered;
 
     return Focus(

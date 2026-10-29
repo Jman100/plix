@@ -93,4 +93,27 @@ class PlixDeviceHelper {
     if (Platform.isIOS) return 'iPad';
     return _isTelevision ? 'Android TV' : 'Android Phone';
   }
+
+  static Future<void> openUrl(String url) async {
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('com.plix.plix/native_player');
+        await channel.invokeMethod('openUrl', {'url': url});
+        return;
+      } catch (_) {}
+    }
+    if (Platform.isWindows) {
+      try {
+        await Process.run('cmd', ['/c', 'start', '', url]);
+      } catch (_) {}
+    } else if (Platform.isMacOS) {
+      try {
+        await Process.run('open', [url]);
+      } catch (_) {}
+    } else if (Platform.isLinux) {
+      try {
+        await Process.run('xdg-open', [url]);
+      } catch (_) {}
+    }
+  }
 }

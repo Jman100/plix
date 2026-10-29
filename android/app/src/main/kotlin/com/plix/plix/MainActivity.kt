@@ -130,6 +130,11 @@ class MainActivity: FlutterActivity() {
     private var selectedAudioLanguage: String? = null
     private var selectedAudioLabel: String? = null
     private var selectedAudioIndex: Int? = null
+    private var wasPlayingInPip: Boolean = false
+    private var isExpandingFromPip: Boolean = false
+    private var isActivityResumed: Boolean = false
+    private var lastKnownVideoWidth: Int = 1920
+    private var lastKnownVideoHeight: Int = 1080
     private val SPEECH_REQUEST_CODE = 9912
     private var speechResultCallback: io.flutter.plugin.common.MethodChannel.Result? = null
 
@@ -397,6 +402,10 @@ class MainActivity: FlutterActivity() {
                     result.success(true)
                 }
                 "setVideoBounds" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+                        result.success(true)
+                        return@setMethodCallHandler
+                    }
                     val x = (call.argument<Number>("x"))?.toInt() ?: 0
                     val y = (call.argument<Number>("y"))?.toInt() ?: 0
                     val width = (call.argument<Number>("width"))?.toInt() ?: ViewGroup.LayoutParams.MATCH_PARENT
@@ -419,6 +428,22 @@ class MainActivity: FlutterActivity() {
                         mainHandler.post(updateRunnable)
                     }
                     result.success(true)
+                }
+                "openUrl" -> {
+                    val url = call.argument<String>("url")
+                    if (!url.isNullOrEmpty()) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_URL", "URL is empty", null)
+                    }
                 }
                 "enterPipMode" -> {
                     val entered = enterPictureInPictureIfSupported()
@@ -738,6 +763,8 @@ class MainActivity: FlutterActivity() {
             addListener(object : Player.Listener {
                 override fun onVideoSizeChanged(videoSize: VideoSize) {
                     if (videoSize.width > 0 && videoSize.height > 0) {
+                        lastKnownVideoWidth = videoSize.width
+                        lastKnownVideoHeight = videoSize.height
                         val ratio = (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
                         lastKnownVideoRatio = ratio
                         mainHandler.post {
@@ -908,12 +935,49 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun calculateExactVideoRect(): Rect? {
+        val targetView = aspectRatioFrameLayout ?: videoSurfaceView ?: return null
+        if (targetView.visibility != View.VISIBLE) return null
+        val viewRect = Rect()
+        if (!targetView.getGlobalVisibleRect(viewRect) || viewRect.width() <= 0 || viewRect.height() <= 0) return null
+
+        val ratio = lastKnownVideoRatio
+        if (ratio <= 0f || ratio.isNaN()) return viewRect
+
+        val viewWidth = viewRect.width().toFloat()
+        val viewHeight = viewRect.height().toFloat()
+        val viewRatio = viewWidth / viewHeight
+
+        // If the view already closely matches the video ratio (within 1.5%), use its bounds directly
+        if (Math.abs(viewRatio - ratio) / ratio < 0.015f) {
+            return viewRect
+        }
+
+        return if (ratio > viewRatio) {
+            // Video is wider than view: letterbox top/bottom
+            val actualVideoHeight = (viewWidth / ratio).toInt()
+            val verticalOffset = (viewRect.height() - actualVideoHeight) / 2
+            Rect(viewRect.left, viewRect.top + verticalOffset, viewRect.right, viewRect.top + verticalOffset + actualVideoHeight)
+        } else {
+            // Video is taller than view: pillarbox left/right
+            val actualVideoWidth = (viewHeight * ratio).toInt()
+            val horizontalOffset = (viewRect.width() - actualVideoWidth) / 2
+            Rect(viewRect.left + horizontalOffset, viewRect.top, viewRect.left + horizontalOffset + actualVideoWidth, viewRect.bottom)
+        }
+    }
+
     private fun calculatePipRational(): Rational {
         var ratio = lastKnownVideoRatio
+        if (lastKnownVideoWidth > 0 && lastKnownVideoHeight > 0) {
+            val calcRatio = (lastKnownVideoWidth.toFloat() / lastKnownVideoHeight.toFloat()).coerceIn(0.42f, 2.38f)
+            val num = (calcRatio * 10000).toInt()
+            val den = 10000
+            return Rational(num, den)
+        }
         if (ratio <= 0f || ratio.isNaN()) ratio = 16f / 9f
         val clampedRatio = ratio.coerceIn(0.42f, 2.38f)
-        val num = (clampedRatio * 1000).toInt()
-        val den = 1000
+        val num = (clampedRatio * 10000).toInt()
+        val den = 10000
         return Rational(num, den)
     }
 
@@ -976,10 +1040,10 @@ class MainActivity: FlutterActivity() {
                     builder.setAutoEnterEnabled(isPlaying)
                 }
 
-                val rect = Rect()
-                val targetView = aspectRatioFrameLayout ?: videoSurfaceView
-                if (targetView != null && targetView.visibility == View.VISIBLE && targetView.getGlobalVisibleRect(rect)) {
-                    if (rect.width() > 0 && rect.height() > 0) {
+                val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+                if (!inPip) {
+                    val rect = calculateExactVideoRect()
+                    if (rect != null) {
                         builder.setSourceRectHint(rect)
                     }
                 }
@@ -1022,12 +1086,9 @@ class MainActivity: FlutterActivity() {
                     builder.setAutoEnterEnabled(isPlaying)
                 }
 
-                val rect = Rect()
-                val targetView = aspectRatioFrameLayout ?: videoSurfaceView
-                if (targetView != null && targetView.visibility == View.VISIBLE && targetView.getGlobalVisibleRect(rect)) {
-                    if (rect.width() > 0 && rect.height() > 0) {
-                        builder.setSourceRectHint(rect)
-                    }
+                val rect = calculateExactVideoRect()
+                if (rect != null) {
+                    builder.setSourceRectHint(rect)
                 }
 
                 return enterPictureInPictureMode(builder.build())
@@ -1051,6 +1112,8 @@ class MainActivity: FlutterActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
+            wasPlayingInPip = exoPlayer?.isPlaying == true
+            isExpandingFromPip = false
             aspectRatioFrameLayout?.let { layout ->
                 val lp = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1060,6 +1123,9 @@ class MainActivity: FlutterActivity() {
                 lp.topMargin = 0
                 lp.leftMargin = 0
                 layout.layoutParams = lp
+                if (lastKnownVideoRatio > 0f) {
+                    layout.setAspectRatio(lastKnownVideoRatio)
+                }
                 layout.requestLayout()
             }
             subtitleView?.setFractionalTextSize(0.035f)
@@ -1067,9 +1133,23 @@ class MainActivity: FlutterActivity() {
             subtitleView?.setUserDefaultTextSize()
             // When user taps 'X' (close) on the floating PiP window, activity is dismissed or not resumed
             if (isFinishing) {
+                wasPlayingInPip = false
+                isExpandingFromPip = false
                 exoPlayer?.pause()
                 stopPlayback()
                 nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+            } else {
+                isExpandingFromPip = true
+                wasPlayingInPip = wasPlayingInPip || (exoPlayer?.isPlaying == true)
+                mainHandler.postDelayed({
+                    if (isExpandingFromPip && !isActivityResumed) {
+                        isExpandingFromPip = false
+                        wasPlayingInPip = false
+                        exoPlayer?.pause()
+                        nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+                    }
+                    isExpandingFromPip = false
+                }, 400)
             }
         }
         mainHandler.post {
@@ -1079,21 +1159,41 @@ class MainActivity: FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        isActivityResumed = true
         isScreenOff = false
+        if (isExpandingFromPip || wasPlayingInPip) {
+            isExpandingFromPip = false
+            if (isPlayerActive && exoPlayer?.isPlaying == false) {
+                exoPlayer?.play()
+                nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to true))
+            }
+            wasPlayingInPip = false
+        }
     }
 
     override fun onPause() {
         super.onPause()
+        isActivityResumed = false
+        if (isExpandingFromPip) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
             // Keep playback active while floating in PiP
             return
         }
-        // In Android 12+ (API 31+), auto-enter PiP may briefly transition through onPause while playing
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
-            return
-        }
         if (!isTv && isScreenOffPlaybackAllowed() && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
             // Keep playing audio in the background on mobile when screen is turned off
+            return
+        }
+        // In Android 12+ (API 31+), auto-enter PiP may briefly transition through onPause while playing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
+            mainHandler.postDelayed({
+                val nowInPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+                if (!nowInPip && !isExpandingFromPip && !isActivityResumed && isPlayerActive) {
+                    exoPlayer?.pause()
+                    nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+                }
+            }, 350)
             return
         }
         exoPlayer?.pause()
@@ -1102,13 +1202,9 @@ class MainActivity: FlutterActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (isFinishing) {
-            exoPlayer?.pause()
-            stopPlayback()
-            nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+        isActivityResumed = false
+        val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+        if (inPip) {
             return
         }
         if (!isTv && isScreenOffPlaybackAllowed() && isPlayerActive && exoPlayer?.isPlaying == true && isScreenReallyOff) {
@@ -1116,7 +1212,12 @@ class MainActivity: FlutterActivity() {
             return
         }
         exoPlayer?.pause()
+        wasPlayingInPip = false
+        isExpandingFromPip = false
         nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
+        if (isFinishing) {
+            stopPlayback()
+        }
     }
 
     private fun setupMediaSession() {

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,8 @@ import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
+import '../widgets/plix_bottom_nav.dart';
+import '../services/plix_device_helper.dart';
 
 class PersonScreen extends StatefulWidget {
   final MediaPerson person;
@@ -138,11 +141,18 @@ class _PersonScreenState extends State<PersonScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isCompact = size.width < 720;
+    final isCompact = PlixDeviceHelper.isCompact(context);
+    final isTv = PlixDeviceHelper.isTelevision;
 
     return Scaffold(
       backgroundColor: PlixTheme.background,
+      bottomNavigationBar: (isCompact && !isTv)
+          ? PlixBottomNav(
+              currentIndex: -1,
+              server: widget.server,
+              clientId: widget.clientId,
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [
@@ -150,19 +160,21 @@ class _PersonScreenState extends State<PersonScreen> {
               padding: EdgeInsets.fromLTRB(isCompact ? 14 : 28, 16, 20, 8),
               child: Row(
                 children: [
-                  PlixBackButton(
-                    focusNode: _backFocusNode,
-                    autofocus: true,
-                    onRight: () => _homeFocusNode.requestFocus(),
-                    onDown: _focusFirstMedia,
-                  ),
-                  const SizedBox(width: 10),
-                  PlixHomeButton(
-                    focusNode: _homeFocusNode,
-                    onLeft: () => _backFocusNode.requestFocus(),
-                    onDown: _focusFirstMedia,
-                  ),
-                  const SizedBox(width: 16),
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                    PlixBackButton(
+                      focusNode: _backFocusNode,
+                      autofocus: true,
+                      onRight: () => _homeFocusNode.requestFocus(),
+                      onDown: _focusFirstMedia,
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeFocusNode,
+                      onLeft: () => _backFocusNode.requestFocus(),
+                      onDown: _focusFirstMedia,
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   const Expanded(
                     child: Text(
                       'Cast & Crew',

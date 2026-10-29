@@ -67,6 +67,9 @@ class _PlixHomeButtonState extends State<PlixHomeButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.of(context).orientation == Orientation.portrait) {
+      return const SizedBox.shrink();
+    }
     final isHighlighted = _isFocused || _isHovered;
 
     return Focus(

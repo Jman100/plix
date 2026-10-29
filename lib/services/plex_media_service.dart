@@ -253,6 +253,51 @@ class PlexMediaService {
     }
   }
 
+  void invalidateCache([String? ratingKey]) {
+    if (ratingKey != null) {
+      _metadataCache.remove(ratingKey);
+      _detailedMetadataCache.remove(ratingKey);
+    } else {
+      _metadataCache.clear();
+      _detailedMetadataCache.clear();
+    }
+  }
+
+  Future<PlexMediaItem?> getNextUpForShow(String showRatingKey) async {
+    if (server.isJellyfin) {
+      return _jfService.getNextUpForShow(showRatingKey);
+    }
+
+    try {
+      final cw = await getContinueWatching();
+      for (final item in cw) {
+        if (item.grandparentRatingKey == showRatingKey) {
+          return item;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1');
+      final response = await http.get(url, headers: _headers);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+        final metadata = (container['Metadata'] as List<dynamic>?) ?? [];
+        final episodes = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
+        if (episodes.isNotEmpty) {
+          for (final ep in episodes) {
+            if (ep.isInProgress || !ep.isWatched) {
+              return ep;
+            }
+          }
+          return episodes.first;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<List<PlexMediaItem>> getContinueWatching() async {
     if (server.isJellyfin) {
       return _jfService.getContinueWatching();
@@ -697,13 +742,18 @@ class PlexMediaService {
         .toList();
   }
 
-  Future<PlexMediaItem> getItemMetadata(String ratingKey) async {
+  Future<PlexMediaItem> getItemMetadata(String ratingKey, {bool refresh = false}) async {
     if (server.isJellyfin) {
       return _jfService.getItemMetadata(ratingKey);
     }
-    final detailed = _detailedMetadataCache[ratingKey];
-    if (detailed != null) {
-      return detailed;
+    if (refresh) {
+      _metadataCache.remove(ratingKey);
+      _detailedMetadataCache.remove(ratingKey);
+    } else {
+      final detailed = _detailedMetadataCache[ratingKey];
+      if (detailed != null) {
+        return detailed;
+      }
     }
     final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeStreams=1&includeMarkers=1');
     final response = await http.get(url, headers: _headers);

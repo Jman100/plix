@@ -1,10 +1,10 @@
 {
-  "version": "1.5.0",
-  "versionCode": 35,
+  "version": "1.5.1",
+  "versionCode": 36,
   "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
   "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-  "releaseNotes": "- Complete Visual Redesign: Liquid glass overhaul across Home, Details, Player, and Settings\n- Dedicated Appearance & Themes screen with real-time Live Preview bar\n- 8 Curated Atmosphere Presets (Liquid Glass, Plix Modern, OLED Midnight, Cyberpunk Neon, Emerald Matrix, Nordic Frost, Cinema Velvet, Sunset Vaporwave)\n- 16 Curated Accent Colors plus custom HEX/RGB Color Picker modal with palette swatches\n- Custom Theme builder with interactive saturation, blur, glow, opacity, and darkness tuning\n- TV Remote D-Pad Navigation Polish: Smooth auto-scrolling on Settings and centered vertical alignments across all theme tiles\n- Version Bump: v1.5.0 (versionCode 35)",
-  "releaseDate": "2026-10-28"
+  "releaseNotes": "- TV Details & Media Info: Added comprehensive file & stream metadata modal (\"Get Info\") on owned servers; removed redundant file name and improved vertical layout on TV\n- TV Show Hero Queueing: Automatically identifies and queues the next unplayed episode directly on the TV show hero (\"Resume S{s}:E{e}\" / \"Play S{s}:E{e}\")\n- Navigation & Player Exit: Returning from player refreshes watched progress and advances queued episodes seamlessly without restarting theme music\n- Android Mobile Polish: Removed visual top-left back/home buttons across screens for a clean interface using native system navigation gestures\n- Settings & Server Switching: Added interactive \"Switch Server\" button to the Connected Server tile in Settings for direct access on portrait mobile and TV\n- Jellyfin Polish: Added official Jellyfin brand logo and vibrant purple palette on connect screen; eliminated delay when opening watchlist items with instant loading feedback\n- Plex Authentication: Added official Plex logo to the device link and authentication screen\n- Appearance Screen: Streamlined Live Preview bar and added 3 new creative atmosphere themes (Cosmic Nebula, Solar Flare, Tokyo Midnight)\n- Picture-in-Picture: Fixed aspect-ratio zoom/scaling distortion on Android; paused background playback automatically when closing or dismissing the floating PiP window\n- Discord Changelog: Updated webhook avatar with the official Plix icon\n- Version Bump: v1.5.1 (versionCode 36)",
+  "releaseDate": "2026-10-29"
 }

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
@@ -37,6 +38,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   int? _lastSelectedIndex;
+  int? _openingIndex;
   final Map<int, FocusNode> _focusNodes = {};
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _homeButtonFocusNode = FocusNode();
@@ -212,23 +214,33 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   void _openDetails(PlexMediaItem item, int index) async {
     _lastSelectedIndex = index;
-    final resolvedItem = await _resolveServerItem(item);
+    setState(() => _openingIndex = index);
+    try {
+      final PlexMediaItem resolvedItem;
+      if (widget.server.isJellyfin) {
+        // Jellyfin watchlist items are already server items from the library
+        resolvedItem = item;
+      } else {
+        resolvedItem = await _resolveServerItem(item);
+      }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DetailsScreen(
-          initialItem: resolvedItem,
-          server: widget.server,
-          clientId: widget.clientId,
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DetailsScreen(
+            initialItem: resolvedItem,
+            server: widget.server,
+            clientId: widget.clientId,
+          ),
         ),
-      ),
-    ).then((_) {
+      );
+    } finally {
       if (mounted) {
+        setState(() => _openingIndex = null);
         _loadWatchlist();
       }
-    });
+    }
   }
 
   @override
@@ -350,18 +362,42 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   final item = _items[index];
                                   return LayoutBuilder(
                                     builder: (context, constraints) {
-                                      return MediaCard(
-                                        item: item,
-                                        mediaService: _mediaService,
-                                        focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                                        autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
-                                        enableHighlight: !isCompact,
-                                        width: constraints.maxWidth,
-                                        margin: EdgeInsets.zero,
-                                        onFocusChange: (focused) {
-                                          if (focused) _handleItemFocus(index, isCompact);
-                                        },
-                                        onTap: () => _openDetails(item, index),
+                                      final isOpening = _openingIndex == index;
+                                      return Stack(
+                                        children: [
+                                          MediaCard(
+                                            item: item,
+                                            mediaService: _mediaService,
+                                            focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
+                                            autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
+                                            enableHighlight: !isCompact,
+                                            width: constraints.maxWidth,
+                                            margin: EdgeInsets.zero,
+                                            onFocusChange: (focused) {
+                                              if (focused) _handleItemFocus(index, isCompact);
+                                            },
+                                            onTap: () => _openDetails(item, index),
+                                          ),
+                                          if (isOpening)
+                                            Positioned.fill(
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.55),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Center(
+                                                  child: SizedBox(
+                                                    width: 30,
+                                                    height: 30,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2.8,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       );
                                     },
                                   );
@@ -383,26 +419,28 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                   ),
                   child: Row(
                     children: [
-                      PlixBackButton(
-                        focusNode: _backButtonFocusNode,
-                        onRight: () => _homeButtonFocusNode.requestFocus(),
-                        onDown: () {
-                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
-                            _focusNodes[0]?.requestFocus();
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      PlixHomeButton(
-                        focusNode: _homeButtonFocusNode,
-                        onLeft: () => _backButtonFocusNode.requestFocus(),
-                        onDown: () {
-                          if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
-                            _focusNodes[0]?.requestFocus();
-                          }
-                        },
-                      ),
-                      SizedBox(width: isCompact ? 12 : 16),
+                      if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                        PlixBackButton(
+                          focusNode: _backButtonFocusNode,
+                          onRight: () => _homeButtonFocusNode.requestFocus(),
+                          onDown: () {
+                            if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                              _focusNodes[0]?.requestFocus();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        PlixHomeButton(
+                          focusNode: _homeButtonFocusNode,
+                          onLeft: () => _backButtonFocusNode.requestFocus(),
+                          onDown: () {
+                            if (_items.isNotEmpty && _focusNodes.containsKey(0)) {
+                              _focusNodes[0]?.requestFocus();
+                            }
+                          },
+                        ),
+                        SizedBox(width: isCompact ? 12 : 16),
+                      ],
                       Icon(Icons.bookmark_rounded, color: PlixTheme.plexGold, size: isCompact ? 22 : 24),
                       const SizedBox(width: 10),
                       Text(
