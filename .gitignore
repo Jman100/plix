@@ -10,6 +10,14 @@
 .svn/
 migrate_working_dir/
 
+# Local Secrets and Configs
+.env
+*.env
+.secrets/
+.discord_webhook*
+.discord_last_message_id
+discord_config.json
+
 # IntelliJ related
 *.iml
 *.ipr

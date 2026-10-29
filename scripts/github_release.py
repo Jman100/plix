@@ -156,5 +156,14 @@ def main():
 
     print("\nAll assets processed successfully for release", tag)
 
+    # Automatically notify Discord if webhook is configured
+    try:
+        import discord_changelog
+        if discord_changelog.get_webhook_url():
+            print("\nUpdating Discord changelog...")
+            discord_changelog.post_changelog()
+    except Exception as e:
+        print(f"Notice: Could not post changelog to Discord: {e}", file=sys.stderr)
+
 if __name__ == "__main__":
     main()
