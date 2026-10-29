@@ -165,7 +165,7 @@ class ThemeMusicService with WidgetsBindingObserver {
     }
 
     try {
-      if (Platform.isWindows) {
+      if (Platform.isWindows || Platform.isLinux) {
         _windowsPlayer ??= Player();
         final p = _windowsPlayer!;
 
@@ -303,7 +303,7 @@ class ThemeMusicService with WidgetsBindingObserver {
     const totalSteps = 10;
     final stepDuration = Duration(milliseconds: duration.inMilliseconds ~/ totalSteps);
 
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux) {
       final p = _windowsPlayer;
       if (p == null) {
         _isPlaying = false;
@@ -367,7 +367,7 @@ class ThemeMusicService with WidgetsBindingObserver {
     _winCompletedSub?.cancel();
 
     try {
-      if (Platform.isWindows) {
+      if (Platform.isWindows || Platform.isLinux) {
         await _windowsPlayer?.stop();
       } else {
         await _androidController?.pause();

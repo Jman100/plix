@@ -1,0 +1,17 @@
+# Maintainer: Plix Team <support@plix.tv>
+pkgname=plix-bin
+pkgver=1.5.1
+pkgrel=1
+pkgdesc="Modern Streaming Client for Plex & Jellyfin"
+arch=('x86_64')
+url="https://plix.jman100.com"
+license=('MIT')
+depends=('gtk3' 'mpv' 'libepoxy' 'hicolor-icon-theme')
+provides=('plix')
+conflicts=('plix')
+source=("https://github.com/Jman100/plix/releases/download/v${pkgver}/plix-${pkgver}-1-x86_64.pkg.tar.zst")
+sha256sums=('SKIP')
+
+package() {
+  cp -dr --no-preserve=ownership "${srcdir}/usr" "${pkgdir}/"
+}

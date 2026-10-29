@@ -196,7 +196,7 @@ class _PlixButtonState extends State<PlixButton> {
           canRequestFocus: false,
           onTap: widget.onPressed,
           onHover: (hovered) {
-            if (Platform.isWindows && mounted) {
+            if ((Platform.isWindows || Platform.isLinux) && mounted) {
               setState(() => _isHovered = hovered);
             }
           },

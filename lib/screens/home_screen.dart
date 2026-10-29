@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _onMediaTileHover(PlexMediaItem item, bool isHovered) {
-    if (!Platform.isWindows) return;
+    if (!(Platform.isWindows || Platform.isLinux)) return;
     _heroHoverTimer?.cancel();
     _mobileHeroTimer?.cancel();
     if (isHovered) {
@@ -2067,7 +2067,7 @@ class _ViewMoreCardState extends State<_ViewMoreCard> {
         child: InkWell(
           onTap: widget.onTap,
           onHover: (hovered) {
-            if (Platform.isWindows && mounted) {
+            if ((Platform.isWindows || Platform.isLinux) && mounted) {
               setState(() => _isHovered = hovered);
             }
           },

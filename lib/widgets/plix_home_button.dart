@@ -111,7 +111,7 @@ class _PlixHomeButtonState extends State<PlixHomeButton> {
         child: InkWell(
           onTap: _handlePress,
           onHover: (hovered) {
-            if (Platform.isWindows && mounted) {
+            if ((Platform.isWindows || Platform.isLinux) && mounted) {
               setState(() => _isHovered = hovered);
             }
           },

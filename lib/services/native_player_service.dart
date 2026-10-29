@@ -34,7 +34,8 @@ class NativePlayerService {
   Stream<String> get onDevicePhysicalOrientationChanged => _physicalOrientationController.stream;
   Stream<bool> get onBufferingChanged => _bufferingController.stream;
 
-  static bool get useMediaKit => Platform.isWindows || Platform.isIOS;
+  static bool get useMediaKit =>
+      Platform.isWindows || Platform.isIOS || Platform.isLinux || Platform.isMacOS;
 
   Player? _mediaKitPlayer;
   VideoController? _mediaKitVideoController;
@@ -59,6 +60,8 @@ class NativePlayerService {
       try {
         (p.platform as dynamic).setProperty('rebase-start-time', 'yes');
         (p.platform as dynamic).setProperty('hr-seek', 'yes');
+        (p.platform as dynamic).setProperty('hwdec', 'auto-safe');
+        (p.platform as dynamic).setProperty('vo', 'gpu');
       } catch (_) {}
 
       _mediaKitSubscriptions.add(p.stream.position.listen((pos) {

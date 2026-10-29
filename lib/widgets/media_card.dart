@@ -163,7 +163,7 @@ class _MediaCardState extends State<MediaCard> {
         child: InkWell(
           onTap: widget.onTap,
           onHover: (hovered) {
-            if (Platform.isWindows && mounted) {
+            if ((Platform.isWindows || Platform.isLinux) && mounted) {
               setState(() => _isHovered = hovered);
             }
             widget.onHover?.call(hovered);

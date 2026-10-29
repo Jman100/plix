@@ -95,7 +95,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         node.requestFocus();
       }
     }
-    if (_scrollController.hasClients && !Platform.isWindows) {
+    if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
       _scrollController.animateTo(
         260.0,
         duration: const Duration(milliseconds: 250),
@@ -405,13 +405,13 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
           if (_selectedSeason != null) {
             final targetEpToFocus =
-                widget.initialEpisodeKey ?? ((!Platform.isWindows && restoreFocus) ? _lastPlayedEpisodeKey : null);
+                widget.initialEpisodeKey ?? ((!(Platform.isWindows || Platform.isLinux) && restoreFocus) ? _lastPlayedEpisodeKey : null);
             _loadEpisodesForSeason(
               _selectedSeason!,
               focusEpisodeKey: targetEpToFocus,
               focusFirstEpisode: widget.initialEpisodeKey != null,
             );
-            if (targetEpToFocus == null && (Platform.isWindows || (!restoreFocus && _lastPlayedEpisodeKey == null))) {
+            if (targetEpToFocus == null && ((Platform.isWindows || Platform.isLinux) || (!restoreFocus && _lastPlayedEpisodeKey == null))) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _showPlayFocusNode.canRequestFocus) {
                   _showPlayFocusNode.requestFocus();
@@ -1591,7 +1591,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                                   onLeft: () {},
                                                   onUp: () {
                                                     _backButtonFocusNode.requestFocus();
-                                                    if (_scrollController.hasClients && !Platform.isWindows) {
+                                                    if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
                                                       _scrollController.animateTo(0.0,
                                                           duration: const Duration(milliseconds: 250),
                                                           curve: Curves.easeOutCubic);
@@ -1905,7 +1905,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                 focusNode: _seasonFocusNodes[season.ratingKey],
                                 onUp: () {
                                   _showPlayFocusNode.requestFocus();
-                                  if (_scrollController.hasClients && !Platform.isWindows) {
+                                  if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
                                     _scrollController.animateTo(
                                       0.0,
                                       duration: const Duration(milliseconds: 250),
@@ -2178,7 +2178,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       });
       widget.onFocusChanged?.call(_focusNode.hasFocus);
       if (_focusNode.hasFocus) {
-        if (!Platform.isWindows || HardwareKeyboard.instance.logicalKeysPressed.isNotEmpty) {
+        if (!(Platform.isWindows || Platform.isLinux) || HardwareKeyboard.instance.logicalKeysPressed.isNotEmpty) {
           Scrollable.ensureVisible(
             context,
             alignment: 0.3,
@@ -2251,7 +2251,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
           canRequestFocus: false,
           onTap: widget.onSelect,
           onHover: (hovered) {
-            if (Platform.isWindows && mounted) {
+            if ((Platform.isWindows || Platform.isLinux) && mounted) {
               setState(() => _isHovered = hovered);
             }
           },

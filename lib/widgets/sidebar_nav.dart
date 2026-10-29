@@ -152,17 +152,17 @@ class _SidebarNavState extends State<SidebarNav> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobileLandscape = !Platform.isWindows &&
+    final isMobileLandscape = !(Platform.isWindows || Platform.isLinux) &&
         !PlixDeviceHelper.isTelevision &&
         MediaQuery.of(context).orientation == Orientation.landscape;
     final isReorderGripEnabled = !PlixDeviceHelper.isTelevision &&
-        (Platform.isWindows || MediaQuery.of(context).orientation == Orientation.landscape);
+        ((Platform.isWindows || Platform.isLinux) || MediaQuery.of(context).orientation == Orientation.landscape);
     final effectiveExpanded = isMobileLandscape || _isExpanded;
     final width = effectiveExpanded ? 245.0 : 72.0;
 
     return MouseRegion(
       onEnter: (_) {
-        if (Platform.isWindows) {
+        if (Platform.isWindows || Platform.isLinux) {
           setState(() {
             _isExpanded = true;
           });
@@ -171,7 +171,7 @@ class _SidebarNavState extends State<SidebarNav> {
         }
       },
       onExit: (_) {
-        if (Platform.isWindows) {
+        if (Platform.isWindows || Platform.isLinux) {
           setState(() {
             _isExpanded = false;
           });
@@ -182,7 +182,7 @@ class _SidebarNavState extends State<SidebarNav> {
         canRequestFocus: false,
         skipTraversal: true,
         onFocusChange: (hasNavFocus) {
-          if (!Platform.isWindows) {
+          if (!(Platform.isWindows || Platform.isLinux)) {
             setState(() {
               _isExpanded = hasNavFocus;
             });
@@ -818,7 +818,7 @@ class _NavItemState extends State<_NavItem> {
           child: InkWell(
             onTap: widget.onTap,
             onHover: (hovered) {
-              if (Platform.isWindows && mounted) {
+              if ((Platform.isWindows || Platform.isLinux) && mounted) {
                 setState(() => _isHovered = hovered);
               }
             },
@@ -1017,12 +1017,12 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
       },
       child: MouseRegion(
         onEnter: (_) {
-          if (Platform.isWindows && mounted) {
+          if ((Platform.isWindows || Platform.isLinux) && mounted) {
             setState(() => _isHovered = true);
           }
         },
         onExit: (_) {
-          if (Platform.isWindows && mounted) {
+          if ((Platform.isWindows || Platform.isLinux) && mounted) {
             setState(() => _isHovered = false);
           }
         },

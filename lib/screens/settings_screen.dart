@@ -543,9 +543,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: 'App Version',
                     subtitle: Platform.isWindows
                         ? 'Plix for Windows (MediaKit mpv)'
-                        : (PlixDeviceHelper.isTelevision
-                            ? 'Plix for Android TV (Media3 ExoPlayer)'
-                            : 'Plix for Android (Media3 ExoPlayer)'),
+                        : (Platform.isLinux
+                            ? 'Plix for Linux (MediaKit mpv)'
+                            : (PlixDeviceHelper.isTelevision
+                                ? 'Plix for Android TV (Media3 ExoPlayer)'
+                                : 'Plix for Android (Media3 ExoPlayer)')),
                     trailing: 'v${UpdateService.currentVersion}',
                   ),
                   const SizedBox(height: 10),

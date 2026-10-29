@@ -906,7 +906,7 @@ class _ServerCardState extends State<_ServerCard> {
                   ),
                 ),
                 // On Windows or Phone: keep pin button in top right corner
-                if (Platform.isWindows || widget.isPhone) ...[
+                if ((Platform.isWindows || Platform.isLinux) || widget.isPhone) ...[
                   const SizedBox(width: 8),
                   InkWell(
                     canRequestFocus: false,

@@ -24,9 +24,9 @@ void main() async {
   }
   TvSoundService.instance.init();
 
-  if (Platform.isWindows || Platform.isIOS) {
+  if (Platform.isWindows || Platform.isIOS || Platform.isLinux || Platform.isMacOS) {
     MediaKit.ensureInitialized();
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       await windowManager.ensureInitialized();
       windowManager.setTitle('Plix');
     }

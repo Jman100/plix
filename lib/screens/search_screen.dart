@@ -167,7 +167,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _results = [];
       _isSearching = false;
     });
-    if (Platform.isWindows && mounted) {
+    if ((Platform.isWindows || Platform.isLinux) && mounted) {
       _textFieldFocusNode.requestFocus();
     }
   }
@@ -227,7 +227,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isTv = PlixDeviceHelper.isTelevision && !Platform.isWindows;
+    final isTv = PlixDeviceHelper.isTelevision && !(Platform.isWindows || Platform.isLinux);
     final isCompact = PlixDeviceHelper.isCompact(context);
 
     return Scaffold(
@@ -376,7 +376,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
 
-          if (!Platform.isWindows) ...[
+          if (!(Platform.isWindows || Platform.isLinux)) ...[
             SizedBox(width: isCompact ? 8 : 14),
 
             // Voice Search Mic Button

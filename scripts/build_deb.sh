@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="${1:-1.4.0}"
+VERSION="${1:-1.5.1}"
 ARCH="amd64"
 DIST_DIR="dist/plix_${VERSION}_${ARCH}"
 

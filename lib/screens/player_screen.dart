@@ -456,7 +456,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux) {
 
       windowManager.isFullScreen().then((val) {
 
@@ -754,7 +754,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+    if (!PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision) {
 
       SystemChrome.setPreferredOrientations([
 
@@ -1126,7 +1126,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+    if (!PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision) {
 
       SystemChrome.setPreferredOrientations([
 
@@ -1250,7 +1250,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     // On Windows, MPV renders subtitles natively on the video surface.
 
-    if (!Platform.isWindows && _subtitleCues.isNotEmpty) {
+    if (!NativePlayerService.useMediaKit && _subtitleCues.isNotEmpty) {
 
       final cue = SubtitleParser.findActiveCue(_subtitleCues, Duration(milliseconds: clampedPos));
 
@@ -1580,7 +1580,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     // when the user resets to 1x.
 
-    if (!Platform.isWindows) {
+    if (!NativePlayerService.useMediaKit) {
 
       final needsTranscode = (s - 1.0).abs() > 0.01;
 
@@ -2016,11 +2016,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
       await _nativePlayer.setSubtitleTrack(enabled: false);
 
-    } else if (!isBitmap || Platform.isWindows) {
+    } else if (!isBitmap || NativePlayerService.useMediaKit) {
 
       String? subUrl;
 
-      if (Platform.isWindows && stream.key.isNotEmpty && !widget.server.isJellyfin) {
+      if (NativePlayerService.useMediaKit && stream.key.isNotEmpty && !widget.server.isJellyfin) {
 
         subUrl = '${_mediaService.baseUrl}${stream.key}?X-Plex-Token=${widget.server.accessToken}';
 
@@ -2070,7 +2070,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     // If we are currently Direct Playing and a bitmap subtitle is selected, automatically switch to Direct Stream.
 
-    if (!Platform.isWindows && isBitmap && _selectedQuality.isDirectPlay) {
+    if (!NativePlayerService.useMediaKit && isBitmap && _selectedQuality.isDirectPlay) {
 
       await _changeQuality(VideoQualityOption.directStream, force: true);
 
@@ -2086,7 +2086,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     // Never attempt to fetch text cues for VOBSUB or PGS bitmap subtitles (which causes Plex endpoint to hang/fail).
 
-    if (!Platform.isWindows && stream != null && !isBitmap) {
+    if (!NativePlayerService.useMediaKit && stream != null && !isBitmap) {
 
       final content = await _mediaService.fetchSubtitleContent(
 
@@ -2570,7 +2570,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   Future<void> _toggleFullScreen() async {
 
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isLinux) {
 
       final isFull = await windowManager.isFullScreen();
 
@@ -2842,7 +2842,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         // Toggle fullscreen with 'F' key on desktop
 
-        if (Platform.isWindows && key == LogicalKeyboardKey.keyF) {
+        if ((Platform.isWindows || Platform.isLinux) && key == LogicalKeyboardKey.keyF) {
 
           _toggleFullScreen();
 
@@ -2872,7 +2872,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
 
-          if (Platform.isWindows && _isFullScreen) {
+          if ((Platform.isWindows || Platform.isLinux) && _isFullScreen) {
 
             _toggleFullScreen();
 
@@ -3746,13 +3746,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     _fullscreenBtnFocusNode.dispose();
 
-    if (Platform.isWindows && _isFullScreen) {
+    if ((Platform.isWindows || Platform.isLinux) && _isFullScreen) {
 
       windowManager.setFullScreen(false);
 
     }
 
-    if (!Platform.isWindows && !PlixDeviceHelper.isTelevision) {
+    if (!PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision) {
 
       SystemChrome.setPreferredOrientations([
 
@@ -3960,7 +3960,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                 // Subtitle overlays
 
-                if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
+                if (!NativePlayerService.useMediaKit && _subtitleBitmapBytes != null && _selectedSubtitle != null)
 
                   Positioned(
 
@@ -3978,7 +3978,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                   )
 
-                else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
+                else if (!NativePlayerService.useMediaKit && _currentSubtitleText.isNotEmpty)
 
                   Positioned(
 
@@ -4574,7 +4574,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                   // Subtitles overlay on video
 
-                  if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
+                  if (!NativePlayerService.useMediaKit && _subtitleBitmapBytes != null && _selectedSubtitle != null)
 
                     Positioned(
 
@@ -4612,7 +4612,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                     )
 
-                  else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
+                  else if (!NativePlayerService.useMediaKit && _currentSubtitleText.isNotEmpty)
 
                     Positioned(
 
@@ -5776,7 +5776,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    final isMobile = !Platform.isWindows && !PlixDeviceHelper.isTelevision;
+    final isMobile = !PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision;
 
     final isPortrait = isMobile && MediaQuery.of(context).orientation == Orientation.portrait;
 
@@ -5848,7 +5848,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         body: MouseRegion(
 
-          cursor: (Platform.isWindows && !_showControls)
+          cursor: ((Platform.isWindows || Platform.isLinux) && !_showControls)
 
               ? SystemMouseCursors.none
 
@@ -5856,7 +5856,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
           onHover: (_) {
 
-            if (Platform.isWindows) {
+            if (Platform.isWindows || Platform.isLinux) {
 
               _showControlsTemporarily();
 
@@ -5878,7 +5878,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
               onDoubleTapDown: isMobile ? _handleDoubleTapSeek : null,
 
-              onDoubleTap: Platform.isWindows ? _toggleFullScreen : null,
+              onDoubleTap: (Platform.isWindows || Platform.isLinux) ? _toggleFullScreen : null,
 
               onTap: () {
 
@@ -6016,7 +6016,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
               // Subtitles overlay on video (Bitmap & Text) - Android TV & Mobile
 
-              if (!Platform.isWindows && _subtitleBitmapBytes != null && _selectedSubtitle != null)
+              if (!NativePlayerService.useMediaKit && _subtitleBitmapBytes != null && _selectedSubtitle != null)
 
                 Positioned(
 
@@ -6054,7 +6054,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                 )
 
-              else if (!Platform.isWindows && _currentSubtitleText.isNotEmpty)
+              else if (!NativePlayerService.useMediaKit && _currentSubtitleText.isNotEmpty)
 
                 Positioned(
 
@@ -7424,7 +7424,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                 onLeft: () => _subtitleBtnFocusNode.requestFocus(),
 
-                                                onRight: () => Platform.isWindows
+                                                onRight: () => (Platform.isWindows || Platform.isLinux)
 
                                                     ? _fullscreenBtnFocusNode.requestFocus()
 
@@ -7446,7 +7446,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                               // Fullscreen button (Windows)
 
-                                              if (Platform.isWindows) ...[
+                                              if (Platform.isWindows || Platform.isLinux) ...[
 
                                                 const SizedBox(width: 24),
 
@@ -7512,7 +7512,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                               onLeft: () {
 
-                                                if (Platform.isWindows) {
+                                                if (Platform.isWindows || Platform.isLinux) {
 
                                                   _fullscreenBtnFocusNode.requestFocus();
 
@@ -8228,7 +8228,7 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
 
           onHover: (hovered) {
 
-            if (Platform.isWindows) {
+            if (Platform.isWindows || Platform.isLinux) {
 
               setState(() {
 
@@ -8606,7 +8606,7 @@ class _GoToSeriesButtonState extends State<_GoToSeriesButton> {
 
           onHover: (hovered) {
 
-            if (Platform.isWindows) {
+            if (Platform.isWindows || Platform.isLinux) {
 
               setState(() {
 
@@ -9114,7 +9114,7 @@ class _SubtitleDialogOptionState extends State<_SubtitleDialogOption> {
 
       });
 
-      if (!Platform.isWindows && _focusNode.hasFocus) {
+      if (!PlixDeviceHelper.isDesktop && _focusNode.hasFocus) {
 
         Scrollable.ensureVisible(
 
@@ -9198,7 +9198,7 @@ class _SubtitleDialogOptionState extends State<_SubtitleDialogOption> {
 
         onHover: (hovered) {
 
-          if (Platform.isWindows) {
+          if (Platform.isWindows || Platform.isLinux) {
 
             setState(() {
 
@@ -9622,7 +9622,7 @@ class _PlayerDialogButtonState extends State<_PlayerDialogButton> {
 
         onHover: (hovered) {
 
-          if (Platform.isWindows && hovered) {
+          if ((Platform.isWindows || Platform.isLinux) && hovered) {
 
             widget.focusNode.requestFocus();
 

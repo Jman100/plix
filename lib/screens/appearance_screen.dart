@@ -591,7 +591,7 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
         canRequestFocus: false,
         onTap: widget.onSelect,
         onHover: (hovered) {
-          if (Platform.isWindows) setState(() => _isHovered = hovered);
+          if (Platform.isWindows || Platform.isLinux) setState(() => _isHovered = hovered);
         },
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
@@ -818,7 +818,7 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
         canRequestFocus: false,
         onTap: widget.onSelect,
         onHover: (hovered) {
-          if (Platform.isWindows) setState(() => _isHovered = hovered);
+          if (Platform.isWindows || Platform.isLinux) setState(() => _isHovered = hovered);
         },
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
@@ -980,7 +980,7 @@ class _CustomColorTileState extends State<_CustomColorTile> {
         canRequestFocus: false,
         onTap: widget.onSelect,
         onHover: (hovered) {
-          if (Platform.isWindows) setState(() => _isHovered = hovered);
+          if (Platform.isWindows || Platform.isLinux) setState(() => _isHovered = hovered);
         },
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(

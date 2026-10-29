@@ -20,29 +20,45 @@ class PlixDeviceHelper {
     return isPortrait(context) || MediaQuery.of(context).size.width < 720;
   }
 
+  static bool get isDesktop =>
+      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
   static bool isPhone(BuildContext context) {
-    if (Platform.isWindows) return false;
+    if (isDesktop) return false;
     if (_isTelevision) return false;
     return !isTablet(context);
   }
 
   static String get clientName {
     if (Platform.isWindows) return 'Plix for Windows';
+    if (Platform.isLinux) return 'Plix for Linux';
+    if (Platform.isMacOS) return 'Plix for macOS';
     if (Platform.isIOS) return 'Plix for iOS';
     return _isTelevision ? 'Plix for Android TV' : 'Plix for Android';
   }
 
-  static String get clientPlatform =>
-      Platform.isWindows ? 'Windows' : (Platform.isIOS ? 'iOS' : 'Android');
+  static String get clientPlatform {
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isIOS) return 'iOS';
+    return 'Android';
+  }
 
   static String get clientDevice {
     if (Platform.isWindows) return 'PC';
+    if (Platform.isLinux) return _cachedDeviceName ?? 'Linux PC';
+    if (Platform.isMacOS) return 'Mac';
     if (Platform.isIOS) return _cachedDeviceName ?? 'iPad';
     return _isTelevision ? 'Android TV' : 'Android Phone';
   }
 
-  static String get clientPlatformVersion =>
-      Platform.isWindows ? Platform.operatingSystemVersion : (Platform.isIOS ? '16.7' : '14');
+  static String get clientPlatformVersion {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return Platform.operatingSystemVersion;
+    }
+    return Platform.isIOS ? '16.7' : '14';
+  }
 
   static Future<String> initDeviceName() async {
     if (_cachedDeviceName != null && _cachedDeviceName!.isNotEmpty) {
@@ -56,6 +72,17 @@ class PlixDeviceHelper {
       } catch (_) {
         _cachedDeviceName = 'Windows PC';
       }
+    } else if (Platform.isLinux) {
+      _isTelevision = false;
+      try {
+        final host = Platform.localHostname;
+        _cachedDeviceName = host.isNotEmpty ? host : 'Linux PC';
+      } catch (_) {
+        _cachedDeviceName = 'Linux PC';
+      }
+    } else if (Platform.isMacOS) {
+      _isTelevision = false;
+      _cachedDeviceName = 'Mac';
     } else if (Platform.isIOS) {
       _isTelevision = false;
       _cachedDeviceName = 'iPad';
@@ -90,6 +117,14 @@ class PlixDeviceHelper {
       } catch (_) {}
       return 'Windows PC';
     }
+    if (Platform.isLinux) {
+      try {
+        final host = Platform.localHostname;
+        if (host.isNotEmpty) return host;
+      } catch (_) {}
+      return 'Linux PC';
+    }
+    if (Platform.isMacOS) return 'Mac';
     if (Platform.isIOS) return 'iPad';
     return _isTelevision ? 'Android TV' : 'Android Phone';
   }

@@ -540,7 +540,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           return KeyEventResult.ignored;
         },
         child: Container(
-          width: Platform.isWindows ? 640 : 520,
+          width: (Platform.isWindows || Platform.isLinux) ? 640 : 520,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -620,7 +620,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                     Row(
                       children: [
                         Text(
-                          Platform.isWindows ? 'Scroll for more' : 'Press \u2191 to scroll notes',
+                          (Platform.isWindows || Platform.isLinux) ? 'Scroll for more' : 'Press \u2191 to scroll notes',
                           style: TextStyle(
                             color: PlixTheme.plexGold,
                             fontSize: 12,
@@ -687,7 +687,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                 },
                 child: Container(
                   width: double.infinity,
-                  constraints: BoxConstraints(maxHeight: Platform.isWindows ? 220 : 130),
+                  constraints: BoxConstraints(maxHeight: (Platform.isWindows || Platform.isLinux) ? 220 : 130),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: PlixTheme.card,
