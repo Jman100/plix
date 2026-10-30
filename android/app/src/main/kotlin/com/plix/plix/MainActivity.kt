@@ -3,6 +3,9 @@ package com.plix.plix
 import android.os.PowerManager
 import android.view.SoundEffectConstants
 import androidx.media3.common.AudioAttributes
+import android.media.AudioManager
+import android.provider.Settings
+import kotlin.math.roundToInt
 
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -494,6 +497,69 @@ class MainActivity: FlutterActivity() {
                     } catch (e: Exception) {
                         speechResultCallback?.success("")
                         speechResultCallback = null
+                    }
+                }
+                "getVolume" -> {
+                    try {
+                        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        val percent = if (max > 0) current.toFloat() / max.toFloat() else 0f
+                        result.success(percent.toDouble())
+                    } catch (e: Exception) {
+                        result.success(0.5)
+                    }
+                }
+                "setVolume" -> {
+                    try {
+                        val percent = (call.argument<Number>("percent"))?.toFloat() ?: 0.5f
+                        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        val target = (percent.coerceIn(0f, 1f) * max).roundToInt()
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                        val newPercent = if (max > 0) target.toFloat() / max.toFloat() else 0f
+                        result.success(newPercent.toDouble())
+                    } catch (e: Exception) {
+                        result.success(0.5)
+                    }
+                }
+                "getBrightness" -> {
+                    try {
+                        val lp = window.attributes
+                        var brightness = lp.screenBrightness
+                        if (brightness < 0f) {
+                            val sysBrightness = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+                            brightness = sysBrightness / 255f
+                        }
+                        result.success(brightness.coerceIn(0.01f, 1f).toDouble())
+                    } catch (e: Exception) {
+                        result.success(0.5)
+                    }
+                }
+                "setBrightness" -> {
+                    try {
+                        val percent = (call.argument<Number>("percent"))?.toFloat() ?: 0.5f
+                        val clamped = percent.coerceIn(0.01f, 1f)
+                        mainHandler.post {
+                            val lp = window.attributes
+                            lp.screenBrightness = clamped
+                            window.attributes = lp
+                        }
+                        result.success(clamped.toDouble())
+                    } catch (e: Exception) {
+                        result.success(0.5)
+                    }
+                }
+                "resetBrightness" -> {
+                    try {
+                        mainHandler.post {
+                            val lp = window.attributes
+                            lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                            window.attributes = lp
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
                     }
                 }
                 else -> result.notImplemented()

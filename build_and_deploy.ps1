@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.5.1"
-$versionCode = 36
+$version = "1.5.2"
+$versionCode = 37
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,17 +45,13 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- TV Details & Media Info: Added comprehensive file & stream metadata modal ("Get Info") on owned servers; removed redundant file name and improved vertical layout on TV
-- TV Show Hero Queueing: Automatically identifies and queues the next unplayed episode directly on the TV show hero ("Resume S{s}:E{e}" / "Play S{s}:E{e}")
-- Navigation & Player Exit: Returning from player refreshes watched progress and advances queued episodes seamlessly without restarting theme music
-- Android Mobile Polish: Removed visual top-left back/home buttons across screens for a clean interface using native system navigation gestures
-- Settings & Server Switching: Added interactive "Switch Server" button to the Connected Server tile in Settings for direct access on portrait mobile and TV
-- Jellyfin Polish: Added official Jellyfin brand logo and vibrant purple palette on connect screen; eliminated delay when opening watchlist items with instant loading feedback
-- Plex Authentication: Added official Plex logo to the device link and authentication screen
-- Appearance Screen: Streamlined Live Preview bar and added 3 new creative atmosphere themes (Cosmic Nebula, Solar Flare, Tokyo Midnight)
-- Picture-in-Picture: Fixed aspect-ratio zoom/scaling distortion on Android; paused background playback automatically when closing or dismissing the floating PiP window
-- Discord Changelog: Updated webhook avatar with the official Plix icon
-- Version Bump: v1.5.1 (versionCode 36)
+- Player Swipe Gestures: Swipe vertically on the right side of the screen to adjust media volume, and on the left side to adjust screen brightness (mobile & tablet)
+- Gesture On-Screen HUD: Sleek frosted glass capsule with vertical progress bar and dynamic percentage indicator; smoothly fades out after interaction
+- System Brightness Management: Automatically restores system display brightness upon exiting the player
+- Linux Multi-Distribution Support: Added official Arch Linux package (.pkg.tar.zst) and Portable standalone Linux tarball (.tar.gz) alongside Debian/Ubuntu (.deb)
+- Linux Playback Stabilization: Integrated embedded mpv rendering and software decoding fallback to prevent grey macroblock corruption and HDR peak computation glitches
+- Website Redesign: Consolidated Linux distributions into a unified download tile with one-click access to DEB, Arch, and Portable packages; added source code repository link
+- Version Bump: v1.5.2 (versionCode 37)
 "@
 
     $manifest = [ordered]@{
@@ -65,6 +61,8 @@ if (Test-Path $innoCompiler) {
         windowsUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         windowsArm64Url = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         linuxUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb"
+        linuxArchUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst"
+        linuxTarballUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz"
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4

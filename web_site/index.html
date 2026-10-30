@@ -267,7 +267,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.4.1</span>
+            <span id="winVersionLabel">Version 1.5.2</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -304,7 +304,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.4.1</span>
+            <span id="androidVersionLabel">Version 1.5.2</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -320,27 +320,51 @@
               </svg>
             </div>
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
-              Debian / Ubuntu
+              Debian • Arch • Portable
             </span>
           </div>
 
           <h3 class="text-xl font-bold text-white mb-1">Plix for Linux</h3>
           <p class="text-xs text-neutral-400 mb-6">
-            Engineered for Ubuntu, Debian, Linux Mint, and derivatives (.deb package). Full hardware-accelerated mpv video playback and desktop integration.
+            Engineered for Ubuntu, Debian, Arch Linux, and generic x86_64 distributions. Direct hardware-accelerated mpv playback and desktop integration.
           </p>
 
-          <a id="btnDownloadLinux" 
-             href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" 
-             class="glow-cyan w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold text-sm sm:text-base text-neutral-950 bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-500 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-cyan-200/50">
-            <svg class="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
-              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-            </svg>
-            <span class="truncate">Download for Linux (.deb)</span>
-          </a>
+          <div class="space-y-2 mb-1">
+            <a id="btnDownloadLinux" 
+               href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" 
+               class="glow-cyan w-full flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-xl font-bold text-sm text-neutral-950 bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-500 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer border border-cyan-200/50">
+              <svg class="w-4 h-4 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+              </svg>
+              <span class="truncate">Debian / Ubuntu (.deb)</span>
+            </a>
 
-          <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="linuxVersionLabel">Version 1.4.1</span>
-            <span>Debian Package • ~26 MB</span>
+            <div class="grid grid-cols-2 gap-2">
+              <a id="btnDownloadLinuxArch" 
+                 href="https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst" 
+                 class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold text-xs text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 active:scale-[0.98] transition-all truncate"
+                 title="Download Arch Linux package (.pkg.tar.zst)">
+                <svg class="w-3.5 h-3.5 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                  <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                <span class="truncate">Arch Linux</span>
+              </a>
+
+              <a id="btnDownloadLinuxTar" 
+                 href="https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz" 
+                 class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-semibold text-xs text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 active:scale-[0.98] transition-all truncate"
+                 title="Download Portable Linux tarball (.tar.gz)">
+                <svg class="w-3.5 h-3.5 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                  <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                <span class="truncate">Portable (.tar.gz)</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
+            <span id="linuxVersionLabel">Version 1.5.2</span>
+            <span>DEB • Arch • Portable</span>
           </div>
         </div>
 
@@ -519,22 +543,26 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.4.1</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.5.2</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
-              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">October 27, 2026</span></p>
+              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">October 30, 2026</span></p>
             </div>
           </div>
 
           <!-- Quick Download Pills -->
-          <div class="flex items-center gap-2.5">
+          <div class="flex flex-wrap items-center gap-2.5">
             <a href="https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition-colors">
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
               <span>Windows</span>
             </a>
             <a href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 transition-colors">
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-              <span>Android (APK)</span>
+              <span>Android</span>
+            </a>
+            <a href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 transition-colors">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Linux</span>
             </a>
           </div>
         </div>
@@ -545,31 +573,31 @@
           <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Episode Details Header:</strong> Formatted show title line to display season and episode numbers (e.g. The Grand Tour (2016) - S1:E2).</div>
+              <div><strong class="text-white">Player Swipe Gestures:</strong> Swipe vertically on the right side of the screen to adjust media volume, and on the left side to adjust screen brightness on mobile devices and tablets.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">4:3 Aspect Ratio:</strong> Added automatic detection and responsive layout handling for 4:3 classic TV episode thumbnails.</div>
+              <div><strong class="text-white">Gesture On-Screen HUD:</strong> Responsive frosted glass capsule with vertical progress bar and real-time percentage label; auto-fades smoothly after interaction.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Hero Layout Polish:</strong> Refined breathing room above the subtle separator line between the hero section and scrollable rows.</div>
+              <div><strong class="text-white">System Brightness Management:</strong> Automatically restores system auto/manual display brightness when leaving the player.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Search Results Badges:</strong> Streamlined search poster presentation with crisp text-level resolution badges.</div>
+              <div><strong class="text-white">Linux Multi-Distribution Support:</strong> Added official Arch Linux package (.pkg.tar.zst) and Portable standalone Linux tarball (.tar.gz) alongside Debian/Ubuntu (.deb).</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">View More Stability:</strong> Fixed hero height when focusing View More cards to eliminate row layout shifts.</div>
+              <div><strong class="text-white">Linux Playback Stabilization:</strong> Integrated embedded mpv rendering and software decoding fallback to prevent grey macroblock corruption and HDR peak computation glitches.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">HDR10+ Detection:</strong> Enhanced metadata parsing and prioritization for HDR10+ dynamic range.</div>
+              <div><strong class="text-white">Website Redesign:</strong> Consolidated Linux distributions into a unified download tile with one-click access to DEB, Arch, and Portable packages; added source code repository link.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.4.1 (versionCode 34).</div>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.5.2 (versionCode 37).</div>
             </li>
           </ul>
         </div>
@@ -650,22 +678,22 @@
             </div>
             <div>
               <h3 class="text-lg font-bold text-white">Installing on Linux</h3>
-              <p class="text-xs text-neutral-400">Ubuntu • Debian • Linux Mint</p>
+              <p class="text-xs text-neutral-400">Ubuntu • Debian • Arch • Portable</p>
             </div>
           </div>
 
           <ol class="space-y-4 text-sm text-neutral-300">
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-              <div>Download the Debian package <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">plix_linux.deb</code>.</div>
+              <div><strong>Ubuntu/Debian:</strong> Download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">plix_linux.deb</code> and run <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">sudo apt install ./plix_linux.deb</code>.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-              <div>Double-click to install via Software Center, or run <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">sudo apt install ./plix_linux.deb</code>.</div>
+              <div><strong>Arch Linux:</strong> Download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">plix_linux_arch.pkg.tar.zst</code> and install with <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">sudo pacman -U ./plix_linux_arch.pkg.tar.zst</code>.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-              <div>Launch Plix from your app drawer with native hardware accelerated playback.</div>
+              <div><strong>Generic / Portable:</strong> Extract <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">plix_linux_portable.tar.gz</code> and launch with <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">./run.sh</code>.</div>
             </li>
           </ol>
         </div>
@@ -749,6 +777,10 @@
         <a href="#features" class="hover:text-white transition-colors">Features</a>
         <a href="#changelog" class="hover:text-white transition-colors">Changelog</a>
         <a href="#install" class="hover:text-white transition-colors">Install Guide</a>
+        <a href="https://github.com/Jman100/plix" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors flex items-center gap-1.5 text-neutral-300">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Source Code</span>
+        </a>
       </div>
 
       <!-- Direct Binaries -->
@@ -758,6 +790,8 @@
         <a href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" class="hover:text-purple-400 transition-colors">Android (.apk)</a>
         <span>•</span>
         <a href="https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb" class="hover:text-cyan-400 transition-colors">Linux (.deb)</a>
+        <span>•</span>
+        <a href="https://github.com/Jman100/plix" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors text-neutral-400 font-medium">GitHub Repository</a>
       </div>
 
     </div>
@@ -823,6 +857,16 @@
         const btnDownloadLinux = document.getElementById('btnDownloadLinux');
         if (btnDownloadLinux && data.linuxUrl) {
           btnDownloadLinux.href = data.linuxUrl;
+        }
+
+        const btnDownloadLinuxArch = document.getElementById('btnDownloadLinuxArch');
+        if (btnDownloadLinuxArch && (data.linuxArchUrl || data.linuxUrl)) {
+          btnDownloadLinuxArch.href = data.linuxArchUrl || 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst';
+        }
+
+        const btnDownloadLinuxTar = document.getElementById('btnDownloadLinuxTar');
+        if (btnDownloadLinuxTar && (data.linuxTarballUrl || data.linuxUrl)) {
+          btnDownloadLinuxTar.href = data.linuxTarballUrl || 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz';
         }
 
         // 3. Release Date

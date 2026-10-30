@@ -99,7 +99,8 @@ EOF
 PKG_FILE="${STAGE_DIR}/plix-${VERSION}-1-x86_64.pkg.tar.zst"
 echo "Creating Arch Linux package: ${PKG_FILE}"
 (cd "${DIST_DIR}" && tar -cf - .PKGINFO .BUILDINFO usr | zstd -c -T0 -19 > "../../${PKG_FILE}")
-echo "Successfully created ${PKG_FILE}"
+cp "${PKG_FILE}" "${STAGE_DIR}/plix_linux_arch.pkg.tar.zst"
+echo "Successfully created ${PKG_FILE} and plix_linux_arch.pkg.tar.zst"
 
 # Also create portable standalone tar.gz bundle
 TARBALL_DIR="dist/plix-${VERSION}-linux-x86_64"
@@ -122,6 +123,7 @@ chmod +x "${TARBALL_DIR}/plix"
 TAR_FILE="${STAGE_DIR}/plix-${VERSION}-linux-x86_64.tar.gz"
 echo "Creating portable tarball: ${TAR_FILE}"
 tar -czf "${TAR_FILE}" -C "dist" "plix-${VERSION}-linux-x86_64"
-echo "Successfully created ${TAR_FILE}"
+cp "${TAR_FILE}" "${STAGE_DIR}/plix_linux_portable.tar.gz"
+echo "Successfully created ${TAR_FILE} and plix_linux_portable.tar.gz"
 
 ls -lh "${STAGE_DIR}"

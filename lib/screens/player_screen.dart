@@ -324,6 +324,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   Timer? _quickSeekHideTimer;
 
+  // Mobile swipe gestures (Volume right / Brightness left)
+  bool _isAdjustingVolume = false;
+  bool _isAdjustingBrightness = false;
+  bool _showGestureHud = false;
+  double _currentGestureLevel = 0.5;
+  Timer? _gestureHudTimer;
+
+  bool get _isMobile => !PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision;
+
 
 
   // Skip Intro state
@@ -2256,6 +2265,204 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   }
 
+  void _handleVerticalDragStart(DragStartDetails details) async {
+    if (!_isMobile) return;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    if (screenWidth <= 0) return;
+
+    _gestureHudTimer?.cancel();
+
+    // Right side of screen = Volume, Left side of screen = Brightness
+    final isRightSide = details.globalPosition.dx >= (screenWidth / 2);
+    _isAdjustingVolume = isRightSide;
+    _isAdjustingBrightness = !isRightSide;
+
+    double initialLevel;
+    if (_isAdjustingVolume) {
+      initialLevel = await _nativePlayer.getVolume();
+    } else {
+      initialLevel = await _nativePlayer.getBrightness();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _currentGestureLevel = initialLevel.clamp(0.0, 1.0);
+      _showGestureHud = true;
+    });
+
+    if (_showControls) {
+      _scheduleHideControls();
+    }
+  }
+
+  void _handleVerticalDragUpdate(DragUpdateDetails details) {
+    if (!_isMobile) return;
+    if (!_isAdjustingVolume && !_isAdjustingBrightness) return;
+
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    if (screenHeight <= 0) return;
+
+    final dy = details.primaryDelta ?? details.delta.dy;
+    // Moving up decreases Y, which means increasing volume/brightness
+    final delta = -dy / (screenHeight * 0.60);
+
+    final newLevel = (_currentGestureLevel + delta).clamp(0.0, 1.0);
+    _currentGestureLevel = newLevel;
+
+    if (_isAdjustingVolume) {
+      _nativePlayer.setVolume(newLevel);
+    } else if (_isAdjustingBrightness) {
+      _nativePlayer.setBrightness(newLevel);
+    }
+
+    setState(() {
+      _showGestureHud = true;
+    });
+
+    if (_showControls) {
+      _scheduleHideControls();
+    }
+  }
+
+  void _handleVerticalDragEnd(DragEndDetails details) {
+    if (!_isMobile) return;
+    _finishGesture();
+  }
+
+  void _handleVerticalDragCancel() {
+    if (!_isMobile) return;
+    _finishGesture();
+  }
+
+  void _finishGesture() {
+    _gestureHudTimer?.cancel();
+    _gestureHudTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        setState(() {
+          _showGestureHud = false;
+          _isAdjustingVolume = false;
+          _isAdjustingBrightness = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildGestureHud({bool isCompact = false}) {
+    if (!_showGestureHud && !_isAdjustingVolume && !_isAdjustingBrightness) {
+      return const SizedBox.shrink();
+    }
+
+    final isVol = _isAdjustingVolume;
+    final isBri = _isAdjustingBrightness;
+    if (!isVol && !isBri) return const SizedBox.shrink();
+
+    final percent = (_currentGestureLevel * 100).round();
+    final IconData icon;
+    if (isVol) {
+      if (_currentGestureLevel <= 0.001) {
+        icon = Icons.volume_off_rounded;
+      } else if (_currentGestureLevel > 0.5) {
+        icon = Icons.volume_up_rounded;
+      } else {
+        icon = Icons.volume_down_rounded;
+      }
+    } else {
+      if (_currentGestureLevel > 0.66) {
+        icon = Icons.brightness_7_rounded;
+      } else if (_currentGestureLevel > 0.33) {
+        icon = Icons.brightness_medium_rounded;
+      } else {
+        icon = Icons.brightness_low_rounded;
+      }
+    }
+
+    final barHeight = isCompact ? 60.0 : 100.0;
+    final edgePadding = isCompact ? 16.0 : 40.0;
+
+    return Positioned(
+      top: 0,
+      bottom: 0,
+      left: isBri ? edgePadding : null,
+      right: isVol ? edgePadding : null,
+      child: Center(
+        child: IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _showGestureHud ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 150),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 10 : 14,
+                vertical: isCompact ? 12 : 16,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.75),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: PlixTheme.plexGold,
+                    size: isCompact ? 22 : 28,
+                    shadows: [
+                      Shadow(
+                        color: PlixTheme.plexGold.withOpacity(0.5),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: isCompact ? 8 : 12),
+                  Container(
+                    width: 5,
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      width: 5,
+                      height: barHeight * _currentGestureLevel.clamp(0.0, 1.0),
+                      decoration: BoxDecoration(
+                        color: PlixTheme.plexGold,
+                        borderRadius: BorderRadius.circular(2.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: PlixTheme.plexGold.withOpacity(0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isCompact ? 8 : 12),
+                  Text(
+                    '$percent%',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 11 : 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 
 
   void _accumulateSeek(int seconds) {
@@ -3694,6 +3901,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     _autoplayTimer?.cancel();
 
+    _gestureHudTimer?.cancel();
+    _nativePlayer.resetBrightness();
+
 
 
     _pipSub?.cancel();
@@ -3936,6 +4146,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                   onDoubleTapDown: _handleDoubleTapSeek,
 
+                  onVerticalDragStart: _handleVerticalDragStart,
+
+                  onVerticalDragUpdate: _handleVerticalDragUpdate,
+
+                  onVerticalDragEnd: _handleVerticalDragEnd,
+
+                  onVerticalDragCancel: _handleVerticalDragCancel,
+
                   onTap: () {
 
                     setState(() {
@@ -4123,6 +4341,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                     ),
 
                   ),
+
+                _buildGestureHud(isCompact: true),
 
               ],
 
@@ -4490,6 +4710,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                     onDoubleTapDown: _handleDoubleTapSeek,
 
+                    onVerticalDragStart: _handleVerticalDragStart,
+
+                    onVerticalDragUpdate: _handleVerticalDragUpdate,
+
+                    onVerticalDragEnd: _handleVerticalDragEnd,
+
+                    onVerticalDragCancel: _handleVerticalDragCancel,
+
                     onTap: () {
 
                       setState(() {
@@ -4856,6 +5084,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                         onDoubleTapDown: _handleDoubleTapSeek,
 
+                        onVerticalDragStart: _handleVerticalDragStart,
+
+                        onVerticalDragUpdate: _handleVerticalDragUpdate,
+
+                        onVerticalDragEnd: _handleVerticalDragEnd,
+
+                        onVerticalDragCancel: _handleVerticalDragCancel,
+
                         onTap: () {
 
                           setState(() {
@@ -5131,6 +5367,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                     ),
 
                   ),
+
+                  _buildGestureHud(isCompact: true),
 
                 ],
 
@@ -5879,6 +6117,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               onDoubleTapDown: isMobile ? _handleDoubleTapSeek : null,
 
               onDoubleTap: (Platform.isWindows || Platform.isLinux) ? _toggleFullScreen : null,
+
+              onVerticalDragStart: isMobile ? _handleVerticalDragStart : null,
+
+              onVerticalDragUpdate: isMobile ? _handleVerticalDragUpdate : null,
+
+              onVerticalDragEnd: isMobile ? _handleVerticalDragEnd : null,
+
+              onVerticalDragCancel: isMobile ? _handleVerticalDragCancel : null,
 
               onTap: () {
 
@@ -6898,7 +7144,23 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                               ),
 
-
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  onTap: () {
+                                    setState(() {
+                                      _showControls = false;
+                                    });
+                                    _playerFocusNode.requestFocus();
+                                  },
+                                  onDoubleTapDown: isMobile ? _handleDoubleTapSeek : null,
+                                  onVerticalDragStart: isMobile ? _handleVerticalDragStart : null,
+                                  onVerticalDragUpdate: isMobile ? _handleVerticalDragUpdate : null,
+                                  onVerticalDragEnd: isMobile ? _handleVerticalDragEnd : null,
+                                  onVerticalDragCancel: isMobile ? _handleVerticalDragCancel : null,
+                                  child: const SizedBox.expand(),
+                                ),
+                              ),
 
                               // Bottom controls (Scrubber + Playback buttons)
 
@@ -7813,6 +8075,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                   ),
 
                 ),
+
+              _buildGestureHud(isCompact: false),
 
             ],
 

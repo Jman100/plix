@@ -50,17 +50,24 @@ jobs:
       - name: Build Linux Bundle (Release)
         run: flutter build linux --release
 
+      - name: Determine Version
+        id: get_version
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //; s/+.*//')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Building packages for Plix v${VERSION}"
+
       - name: Package DEB Installer
-        run: bash scripts/build_deb.sh 1.5.1
+        run: bash scripts/build_deb.sh ${{ env.VERSION }}
 
       - name: Package Arch Linux & Portable Tarball
-        run: bash scripts/build_arch.sh 1.5.1
+        run: bash scripts/build_arch.sh ${{ env.VERSION }}
 
       - name: Upload Arch Linux Package Artifact
         uses: actions/upload-artifact@v4
         with:
           name: plix_linux_arch
-          path: build/staged_linux/plix-1.5.1-1-x86_64.pkg.tar.zst
+          path: build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
           if-no-files-found: error
           retention-days: 14
 
@@ -68,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plix_linux_tarball
-          path: build/staged_linux/plix-1.5.1-linux-x86_64.tar.gz
+          path: build/staged_linux/plix-*-linux-x86_64.tar.gz
           if-no-files-found: error
           retention-days: 14
 
@@ -80,15 +87,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Publishing disabled for test build per user instructions: "don't publish yet"
-      - name: Upload to GitHub Release (Disabled for test build)
-        if: false
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
+        continue-on-error: true
         with:
           files: |
-            build/staged_linux/plix-1.5.1-1-x86_64.pkg.tar.zst
-            build/staged_linux/plix-1.5.1-linux-x86_64.tar.gz
+            build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
+            build/staged_linux/plix-*-linux-x86_64.tar.gz
             build/staged_linux/plix_linux.deb
+            build/staged_linux/plix_linux_arch.pkg.tar.zst
+            build/staged_linux/plix_linux_portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -114,7 +123,7 @@ jobs:
       - name: Install Plix Arch Package via pacman
         run: |
           echo "=== Testing pacman -U installation of Plix ==="
-          pacman -U --noconfirm ./arch_pkg/plix-1.5.1-1-x86_64.pkg.tar.zst
+          pacman -U --noconfirm ./arch_pkg/plix-*-1-x86_64.pkg.tar.zst
 
       - name: Verify Binary and Shared Library Resolution (ldd)
         run: |

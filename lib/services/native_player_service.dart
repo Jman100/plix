@@ -258,6 +258,65 @@ class NativePlayerService {
     }
   }
 
+  Future<double> getVolume() async {
+    if (useMediaKit && _mediaKitPlayer != null) {
+      try {
+        return (_mediaKitPlayer!.state.volume / 100.0).clamp(0.0, 1.0);
+      } catch (_) {
+        return 0.5;
+      }
+    }
+    try {
+      final res = await _channel.invokeMethod<double>('getVolume');
+      return res ?? 0.5;
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  Future<double> setVolume(double percent) async {
+    final clamped = percent.clamp(0.0, 1.0);
+    if (useMediaKit && _mediaKitPlayer != null) {
+      try {
+        await _mediaKitPlayer!.setVolume(clamped * 100.0);
+        return clamped;
+      } catch (_) {
+        return clamped;
+      }
+    }
+    try {
+      final res = await _channel.invokeMethod<double>('setVolume', {'percent': clamped});
+      return res ?? clamped;
+    } catch (_) {
+      return clamped;
+    }
+  }
+
+  Future<double> getBrightness() async {
+    try {
+      final res = await _channel.invokeMethod<double>('getBrightness');
+      return res ?? 0.5;
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  Future<double> setBrightness(double percent) async {
+    final clamped = percent.clamp(0.01, 1.0);
+    try {
+      final res = await _channel.invokeMethod<double>('setBrightness', {'percent': clamped});
+      return res ?? clamped;
+    } catch (_) {
+      return clamped;
+    }
+  }
+
+  Future<void> resetBrightness() async {
+    try {
+      await _channel.invokeMethod('resetBrightness');
+    } catch (_) {}
+  }
+
   Future<bool> checkAudioSupported(String codec) async {
     if (useMediaKit) {
       return true;
@@ -480,6 +539,7 @@ class NativePlayerService {
   }
 
   void dispose() {
+    resetBrightness();
     for (final s in _mediaKitSubscriptions) {
       s.cancel();
     }

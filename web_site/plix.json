@@ -1,10 +1,12 @@
 {
-  "version": "1.5.1",
-  "versionCode": 36,
+  "version": "1.5.2",
+  "versionCode": 37,
   "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
   "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
   "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-  "releaseNotes": "- TV Details & Media Info: Added comprehensive file & stream metadata modal (\"Get Info\") on owned servers; removed redundant file name and improved vertical layout on TV\n- TV Show Hero Queueing: Automatically identifies and queues the next unplayed episode directly on the TV show hero (\"Resume S{s}:E{e}\" / \"Play S{s}:E{e}\")\n- Navigation & Player Exit: Returning from player refreshes watched progress and advances queued episodes seamlessly without restarting theme music\n- Android Mobile Polish: Removed visual top-left back/home buttons across screens for a clean interface using native system navigation gestures\n- Settings & Server Switching: Added interactive \"Switch Server\" button to the Connected Server tile in Settings for direct access on portrait mobile and TV\n- Jellyfin Polish: Added official Jellyfin brand logo and vibrant purple palette on connect screen; eliminated delay when opening watchlist items with instant loading feedback\n- Plex Authentication: Added official Plex logo to the device link and authentication screen\n- Appearance Screen: Streamlined Live Preview bar and added 3 new creative atmosphere themes (Cosmic Nebula, Solar Flare, Tokyo Midnight)\n- Picture-in-Picture: Fixed aspect-ratio zoom/scaling distortion on Android; paused background playback automatically when closing or dismissing the floating PiP window\n- Discord Changelog: Updated webhook avatar with the official Plix icon\n- Version Bump: v1.5.1 (versionCode 36)",
-  "releaseDate": "2026-10-29"
+  "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
+  "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
+  "releaseNotes": "- Player Swipe Gestures: Swipe vertically on the right side of the screen to adjust media volume, and on the left side to adjust screen brightness (mobile & tablet)\n- Gesture On-Screen HUD: Sleek frosted glass capsule with vertical progress bar and dynamic percentage indicator; smoothly fades out after interaction\n- System Brightness Management: Automatically restores system display brightness upon exiting the player\n- Linux Multi-Distribution Support: Added official Arch Linux package (.pkg.tar.zst) and Portable standalone Linux tarball (.tar.gz) alongside Debian/Ubuntu (.deb)\n- Linux Playback Stabilization: Integrated embedded mpv rendering and software decoding fallback to prevent grey macroblock corruption and HDR peak computation glitches\n- Website Redesign: Consolidated Linux distributions into a unified download tile with one-click access to DEB, Arch, and Portable packages; added source code repository link\n- Version Bump: v1.5.2 (versionCode 37)",
+  "releaseDate": "2026-10-30"
 }
