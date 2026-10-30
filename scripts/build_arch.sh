@@ -29,8 +29,14 @@ cat << 'EOF' > "${DIST_DIR}/usr/bin/plix"
 #!/bin/bash
 exec /usr/lib/plix/plix "$@"
 EOF
-chmod +x "${DIST_DIR}/usr/bin/plix"
-chmod +x "${DIST_DIR}/usr/lib/plix/plix"
+
+# Ensure proper permissions across bundle
+chmod -R u+rwX,go+rX,go-w "${DIST_DIR}"
+chmod 755 "${DIST_DIR}/usr/bin/plix"
+chmod 755 "${DIST_DIR}/usr/lib/plix/plix"
+if [ -d "${DIST_DIR}/usr/lib/plix/lib" ]; then
+  find "${DIST_DIR}/usr/lib/plix/lib" -type f -name "*.so*" -exec chmod 755 {} +
+fi
 
 # Desktop Entry
 cat << 'EOF' > "${DIST_DIR}/usr/share/applications/plix.desktop"

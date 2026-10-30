@@ -132,8 +132,8 @@ jobs:
           fi
 
           echo "=== Verifying media_kit Video Plugin Linking ==="
-          ldd /usr/lib/plix/lib/libmedia_kit_video_plugin.so
-          if ldd /usr/lib/plix/lib/libmedia_kit_video_plugin.so | grep -i "not found"; then
+          LD_LIBRARY_PATH=/usr/lib/plix/lib ldd /usr/lib/plix/lib/libmedia_kit_video_plugin.so
+          if LD_LIBRARY_PATH=/usr/lib/plix/lib ldd /usr/lib/plix/lib/libmedia_kit_video_plugin.so | grep -i "not found"; then
             echo "ERROR: Missing libraries found in media_kit video plugin!"
             exit 1
           fi
