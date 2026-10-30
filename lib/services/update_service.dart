@@ -14,6 +14,7 @@ class UpdateInfo {
   final String apkUrl;
   final String windowsUrl;
   final String linuxUrl;
+  final String linuxArchUrl;
   final String releaseNotes;
   final String releaseDate;
   final bool hasUpdate;
@@ -24,6 +25,7 @@ class UpdateInfo {
     required this.apkUrl,
     this.windowsUrl = '',
     this.linuxUrl = '',
+    this.linuxArchUrl = '',
     this.releaseNotes = '',
     this.releaseDate = '',
     required this.hasUpdate,
@@ -42,7 +44,12 @@ class UpdateInfo {
     final winUrl = (isArm64 && winArm64Url != null && winArm64Url.isNotEmpty)
         ? winArm64Url
         : (json['windowsUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe');
-    final linux = json['linuxUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
+
+    final linuxDeb = json['linuxUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
+    final linuxArch = json['linuxArchUrl']?.toString() ?? 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst';
+    final isArch = UpdateService.isArchLinux();
+    final effectiveLinux = isArch ? linuxArch : linuxDeb;
+
     final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 
@@ -53,7 +60,8 @@ class UpdateInfo {
       versionCode: vc,
       apkUrl: apk,
       windowsUrl: winUrl,
-      linuxUrl: linux,
+      linuxUrl: effectiveLinux,
+      linuxArchUrl: linuxArch,
       releaseNotes: notes,
       releaseDate: date,
       hasUpdate: hasUpdate,
@@ -87,6 +95,34 @@ class UpdateService {
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');
+
+  static bool isArchLinux() {
+    if (!Platform.isLinux) return false;
+    try {
+      if (File('/etc/arch-release').existsSync()) return true;
+      for (final p in ['/etc/os-release', '/usr/lib/os-release']) {
+        final f = File(p);
+        if (f.existsSync()) {
+          final content = f.readAsStringSync().toLowerCase();
+          if (content.contains('id=arch') ||
+              content.contains('id="arch"') ||
+              content.contains('id_like=arch') ||
+              content.contains('id_like="arch"') ||
+              content.contains('id=manjaro') ||
+              content.contains('id=endeavouros') ||
+              content.contains('id=garuda') ||
+              content.contains('id=artix') ||
+              content.contains('id=steamos')) {
+            return true;
+          }
+        }
+      }
+      if (File('/usr/bin/pacman').existsSync() && Directory('/var/lib/pacman').existsSync()) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
 
   static bool isVersionNewer(String remote, String current) {
     try {
@@ -177,6 +213,7 @@ class UpdateService {
         String apkUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_android.apk';
         String windowsUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe';
         String linuxUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
+        String linuxArchUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst';
         for (final a in assets) {
           final name = a['name']?.toString() ?? '';
           final dUrl = a['browser_download_url']?.toString();
@@ -187,18 +224,22 @@ class UpdateService {
               windowsUrl = dUrl;
             } else if (name == 'plix_linux.deb') {
               linuxUrl = dUrl;
+            } else if (name == 'plix_linux_arch.pkg.tar.zst' || name.endsWith('.pkg.tar.zst')) {
+              linuxArchUrl = dUrl;
             }
           }
         }
         final notes = json['body']?.toString() ?? '';
         final date = (json['published_at']?.toString() ?? '').split('T').first;
         final hasUpdate = isVersionNewer(tagName, currentVersion);
+        final isArch = isArchLinux();
         return UpdateInfo(
           version: tagName,
           versionCode: currentVersionCode,
           apkUrl: apkUrl,
           windowsUrl: windowsUrl,
-          linuxUrl: linuxUrl,
+          linuxUrl: isArch ? linuxArchUrl : linuxUrl,
+          linuxArchUrl: linuxArchUrl,
           releaseNotes: notes,
           releaseDate: date,
           hasUpdate: hasUpdate,
@@ -213,14 +254,28 @@ class UpdateService {
     required String apkUrl,
     String? windowsUrl,
     String? linuxUrl,
+    String? linuxArchUrl,
     required void Function(double progress) onProgress,
   }) async {
     if (Platform.isLinux) {
-      final downloadUrl = (linuxUrl != null && linuxUrl.isNotEmpty)
-          ? linuxUrl
+      final isArch = isArchLinux();
+      final defaultUrl = isArch
+          ? 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst'
           : 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
+
+      String downloadUrl = (linuxUrl != null && linuxUrl.isNotEmpty) ? linuxUrl : defaultUrl;
+
+      // If running on Arch Linux, ensure we do not download a .deb file
+      if (isArch && (downloadUrl.endsWith('.deb') || !downloadUrl.contains('.pkg.tar.zst'))) {
+        downloadUrl = (linuxArchUrl != null && linuxArchUrl.isNotEmpty)
+            ? linuxArchUrl
+            : 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst';
+      }
+
+      final isPkgTarZst = downloadUrl.contains('.pkg.tar.zst') || isArch;
+      final fileName = isPkgTarZst ? 'plix_linux_arch.pkg.tar.zst' : 'plix_linux.deb';
       final tempDir = Directory.systemTemp.createTempSync('plix_update_');
-      final targetFile = File('${tempDir.path}/plix_linux.deb');
+      final targetFile = File('${tempDir.path}/$fileName');
 
       if (await targetFile.exists()) {
         try {
@@ -264,7 +319,18 @@ class UpdateService {
       }
 
       onProgress(1.0);
-      await Process.start('xdg-open', [targetFile.path], mode: ProcessStartMode.detached);
+      bool opened = false;
+      if (isArch) {
+        if (File('/usr/bin/pamac-installer').existsSync()) {
+          try {
+            await Process.start('pamac-installer', [targetFile.path], mode: ProcessStartMode.detached);
+            opened = true;
+          } catch (_) {}
+        }
+      }
+      if (!opened) {
+        await Process.start('xdg-open', [targetFile.path], mode: ProcessStartMode.detached);
+      }
       exit(0);
     }
 
@@ -478,6 +544,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         apkUrl: widget.updateInfo.apkUrl,
         windowsUrl: widget.updateInfo.windowsUrl,
         linuxUrl: widget.updateInfo.linuxUrl,
+        linuxArchUrl: widget.updateInfo.linuxArchUrl,
         onProgress: (p) {
           if (mounted) {
             setState(() {

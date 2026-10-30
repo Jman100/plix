@@ -88,10 +88,11 @@ jobs:
           retention-days: 14
 
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'arch')
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
+          tag_name: v${{ env.VERSION }}
           files: |
             build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
             build/staged_linux/plix-*-linux-x86_64.tar.gz
