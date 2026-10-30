@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NativePlayerService {
   static const MethodChannel _channel = MethodChannel('com.plix.plix/native_player');
@@ -37,6 +38,61 @@ class NativePlayerService {
   static bool get useMediaKit =>
       Platform.isWindows || Platform.isIOS || Platform.isLinux || Platform.isMacOS;
 
+  static String _hwdecMode = 'auto-safe';
+  static String get hwdecMode => _hwdecMode;
+
+  static Future<void> loadSavedHwdecMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? 'auto-safe';
+    } catch (_) {}
+  }
+
+  Future<void> setHwdecMode(String mode) async {
+    _hwdecMode = mode;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('desktop_hwdec_mode', mode);
+    } catch (_) {}
+    if (_mediaKitPlayer != null) {
+      _applyMpvOptimizations(_mediaKitPlayer!);
+    }
+  }
+
+  static void _applyMpvOptimizations(Player p) {
+    try {
+      final dynamic plat = p.platform;
+      plat.setProperty('rebase-start-time', 'yes');
+      plat.setProperty('hr-seek', 'yes');
+
+      // CRITICAL: vo MUST be libmpv to render internally into Flutter's texture.
+      // Setting vo=gpu spawns a detached external standalone mpv window!
+      plat.setProperty('vo', 'libmpv');
+      plat.setProperty('keep-open', 'yes');
+
+      // Hardware decoding: 'auto-safe' prevents direct zero-copy GPU sync race conditions
+      // which cause macroblock tearing and compression artifact glitches on Linux.
+      plat.setProperty('hwdec', _hwdecMode);
+      plat.setProperty('hwdec-codecs', 'all');
+
+      // Prevent frame dropping / skipping during decode
+      plat.setProperty('framedrop', 'no');
+      plat.setProperty('vd-lavc-fast', 'no');
+      plat.setProperty('vd-lavc-skiploopfilter', 'none');
+      plat.setProperty('vd-lavc-skipidct', 'none');
+      plat.setProperty('vd-lavc-skipframe', 'none');
+      plat.setProperty('vd-lavc-threads', '0');
+
+      // Network buffer and cache settings for smooth streaming without starvation
+      plat.setProperty('cache', 'yes');
+      plat.setProperty('demuxer-max-bytes', '157286400'); // 150 MB buffer
+      plat.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
+      plat.setProperty('demuxer-readahead-secs', '30');
+      plat.setProperty('demuxer-lavf-buffersize', '1048576'); // 1 MB buffer for avformat
+      plat.setProperty('network-timeout', '30');
+    } catch (_) {}
+  }
+
   Player? _mediaKitPlayer;
   VideoController? _mediaKitVideoController;
   final List<StreamSubscription> _mediaKitSubscriptions = [];
@@ -55,14 +111,15 @@ class NativePlayerService {
     try {
       final p = Player();
       _mediaKitPlayer = p;
-      _mediaKitVideoController = VideoController(p);
+      _mediaKitVideoController = VideoController(
+        p,
+        configuration: VideoControllerConfiguration(
+          vo: 'libmpv',
+          hwdec: _hwdecMode,
+        ),
+      );
 
-      try {
-        (p.platform as dynamic).setProperty('rebase-start-time', 'yes');
-        (p.platform as dynamic).setProperty('hr-seek', 'yes');
-        (p.platform as dynamic).setProperty('hwdec', 'auto-safe');
-        (p.platform as dynamic).setProperty('vo', 'gpu');
-      } catch (_) {}
+      _applyMpvOptimizations(p);
 
       _mediaKitSubscriptions.add(p.stream.position.listen((pos) {
         _positionController.add(pos.inMilliseconds);
@@ -215,6 +272,7 @@ class NativePlayerService {
   }) async {
     if (useMediaKit && _mediaKitPlayer != null) {
       try {
+        _applyMpvOptimizations(_mediaKitPlayer!);
         await _mediaKitPlayer!.open(
           Media(
             url,

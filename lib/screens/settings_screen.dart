@@ -43,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _skipIntroFocusNode = FocusNode();
   final FocusNode _themeFocusNode = FocusNode();
   final FocusNode _screenOffFocusNode = FocusNode();
+  final FocusNode _hwdecFocusNode = FocusNode();
+  String _hwdecMode = NativePlayerService.hwdecMode;
   int _quickRewindSeconds = 10;
   int _skipAheadSeconds = 30;
 
@@ -87,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _playTvThemes = prefs.getBool('play_tv_show_themes') ?? true;
         _continuePlaybackScreenOff = prefs.getBool('continue_playback_screen_off') ?? false;
+        _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? NativePlayerService.hwdecMode;
         _quickRewindSeconds = prefs.getInt('quick_rewind_seconds') ?? 10;
         _skipAheadSeconds = prefs.getInt('skip_ahead_seconds') ?? 30;
       });
@@ -104,6 +107,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _playTvThemes = newVal);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('play_tv_show_themes', newVal);
+  }
+
+  String get _hwdecLabel {
+    switch (_hwdecMode) {
+      case 'auto-safe':
+        return 'Auto-Safe (Copy-Back)';
+      case 'no':
+        return 'Software (Pure CPU)';
+      case 'auto':
+        return 'Auto (Direct GPU)';
+      default:
+        return 'Auto-Safe (Copy-Back)';
+    }
+  }
+
+  Future<void> _cycleHwdecMode() async {
+    String next;
+    if (_hwdecMode == 'auto-safe') {
+      next = 'no';
+    } else if (_hwdecMode == 'no') {
+      next = 'auto';
+    } else {
+      next = 'auto-safe';
+    }
+    setState(() => _hwdecMode = next);
+    await NativePlayerService().setHwdecMode(next);
   }
 
   void _switchServer() async {
@@ -242,6 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _skipIntroFocusNode.dispose();
     _themeFocusNode.dispose();
     _screenOffFocusNode.dispose();
+    _hwdecFocusNode.dispose();
     _rewindFocusNode.dispose();
     _skipFocusNode.dispose();
     _autoUpdateFocusNode.dispose();
@@ -409,7 +439,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _skipFocusNode,
                     onUp: () => _rewindFocusNode.requestFocus(),
-                    onDown: () => isMobile ? _screenOffFocusNode.requestFocus() : _autoUpdateFocusNode.requestFocus(),
+                    onDown: () => isMobile
+                        ? _screenOffFocusNode.requestFocus()
+                        : (PlixDeviceHelper.isDesktop
+                            ? _hwdecFocusNode.requestFocus()
+                            : _autoUpdateFocusNode.requestFocus()),
                     title: 'Skip Ahead Duration',
                     subtitle: 'Seconds skipped forward when pressing D-pad Right or Fast Forward on remote',
                     trailing: '${_skipAheadSeconds}s',
@@ -427,6 +461,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: _continuePlaybackScreenOff ? 'Enabled' : 'Disabled',
                       isInteractive: true,
                       onTap: _toggleContinuePlaybackScreenOff,
+                    ),
+                  ] else if (PlixDeviceHelper.isDesktop) ...[
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _hwdecFocusNode,
+                      onUp: () => _skipFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Hardware Video Decoding',
+                      subtitle: 'GPU decoding mode (Auto-Safe recommended to prevent driver compression artifacts)',
+                      trailing: _hwdecLabel,
+                      isInteractive: true,
+                      onTap: _cycleHwdecMode,
                     ),
                   ],
 
@@ -453,7 +499,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoUpdateFocusNode,
-                    onUp: () => isMobile ? _screenOffFocusNode.requestFocus() : _skipFocusNode.requestFocus(),
+                    onUp: () => isMobile
+                        ? _screenOffFocusNode.requestFocus()
+                        : (PlixDeviceHelper.isDesktop
+                            ? _hwdecFocusNode.requestFocus()
+                            : _skipFocusNode.requestFocus()),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',

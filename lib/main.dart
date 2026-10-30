@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app_theme.dart';
 import 'screens/splash_screen.dart';
+import 'services/native_player_service.dart';
 import 'services/plex_auth_service.dart';
 import 'services/plex_server_service.dart';
 import 'services/plix_device_helper.dart';
@@ -25,6 +26,7 @@ void main() async {
   TvSoundService.instance.init();
 
   if (Platform.isWindows || Platform.isIOS || Platform.isLinux || Platform.isMacOS) {
+    await NativePlayerService.loadSavedHwdecMode();
     MediaKit.ensureInitialized();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       await windowManager.ensureInitialized();
