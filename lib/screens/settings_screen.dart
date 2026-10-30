@@ -111,25 +111,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String get _hwdecLabel {
     switch (_hwdecMode) {
-      case 'auto-safe':
-        return 'Auto-Safe (Copy-Back)';
       case 'no':
-        return 'Software (Pure CPU)';
+        return 'Software (Pure CPU - Recommended)';
+      case 'auto-safe':
+        return 'Auto-Safe (Copy-Back GPU)';
       case 'auto':
         return 'Auto (Direct GPU)';
       default:
-        return 'Auto-Safe (Copy-Back)';
+        return Platform.isLinux
+            ? 'Software (Pure CPU - Recommended)'
+            : 'Auto-Safe (Copy-Back GPU)';
     }
   }
 
   Future<void> _cycleHwdecMode() async {
     String next;
-    if (_hwdecMode == 'auto-safe') {
-      next = 'no';
-    } else if (_hwdecMode == 'no') {
+    if (_hwdecMode == 'no') {
+      next = 'auto-safe';
+    } else if (_hwdecMode == 'auto-safe') {
       next = 'auto';
     } else {
-      next = 'auto-safe';
+      next = 'no';
     }
     setState(() => _hwdecMode = next);
     await NativePlayerService().setHwdecMode(next);
@@ -469,7 +471,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onUp: () => _skipFocusNode.requestFocus(),
                       onDown: () => _autoUpdateFocusNode.requestFocus(),
                       title: 'Hardware Video Decoding',
-                      subtitle: 'GPU decoding mode (Auto-Safe recommended to prevent driver compression artifacts)',
+                      subtitle: 'Video decoding engine (Software pure CPU recommended on Linux to match official Plex app and eliminate driver pixelation)',
                       trailing: _hwdecLabel,
                       isInteractive: true,
                       onTap: _cycleHwdecMode,

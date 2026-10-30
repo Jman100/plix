@@ -38,13 +38,15 @@ class NativePlayerService {
   static bool get useMediaKit =>
       Platform.isWindows || Platform.isIOS || Platform.isLinux || Platform.isMacOS;
 
-  static String _hwdecMode = 'auto-safe';
+  static String get defaultHwdecMode => Platform.isLinux ? 'no' : 'auto-safe';
+
+  static String _hwdecMode = Platform.isLinux ? 'no' : 'auto-safe';
   static String get hwdecMode => _hwdecMode;
 
   static Future<void> loadSavedHwdecMode() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? 'auto-safe';
+      _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? defaultHwdecMode;
     } catch (_) {}
   }
 
@@ -66,22 +68,25 @@ class NativePlayerService {
       plat.setProperty('hr-seek', 'yes');
 
       // CRITICAL: vo MUST be libmpv to render internally into Flutter's texture.
-      // Setting vo=gpu spawns a detached external standalone mpv window!
       plat.setProperty('vo', 'libmpv');
       plat.setProperty('keep-open', 'yes');
 
-      // Hardware decoding: 'auto-safe' prevents direct zero-copy GPU sync race conditions
-      // which cause macroblock tearing and compression artifact glitches on Linux.
+      // Hardware decoding: 'no' (Software) by default on Linux matches the official Plex app,
+      // eliminating driver-level VA-API/Mesa slice corruption and grey macroblock artifacts.
       plat.setProperty('hwdec', _hwdecMode);
-      plat.setProperty('hwdec-codecs', 'all');
 
-      // Prevent frame dropping / skipping during decode
-      plat.setProperty('framedrop', 'no');
+      // Disable HDR peak luminance compute shader on desktop OpenGL (prevents grey grid/tile artifacts on 10-bit/HDR)
+      plat.setProperty('hdr-compute-peak', 'no');
+      plat.setProperty('tone-mapping', 'bt.2446a');
+
+      // Error resilience: suppress broken/corrupt frames rather than displaying grey macroblock garbage
+      plat.setProperty('vd-lavc-show-all', 'no');
+      plat.setProperty('vd-lavc-check-hw-profile', 'yes');
       plat.setProperty('vd-lavc-fast', 'no');
-      plat.setProperty('vd-lavc-skiploopfilter', 'none');
-      plat.setProperty('vd-lavc-skipidct', 'none');
-      plat.setProperty('vd-lavc-skipframe', 'none');
-      plat.setProperty('vd-lavc-threads', '0');
+      plat.setProperty('vd-lavc-threads', '0'); // Multi-threaded CPU decoding across all cores
+
+      // Prevent frame dropping
+      plat.setProperty('framedrop', 'no');
 
       // Network buffer and cache settings for smooth streaming without starvation
       plat.setProperty('cache', 'yes');
