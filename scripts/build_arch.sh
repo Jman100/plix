@@ -63,7 +63,6 @@ BUILD_DATE=$(date +%s)
 
 # Generate Arch .PKGINFO
 cat << EOF > "${DIST_DIR}/.PKGINFO"
-format = 2
 pkgname = plix-bin
 pkgbase = plix-bin
 pkgver = ${VERSION}-1
@@ -79,7 +78,7 @@ depend = mpv
 depend = libepoxy
 depend = hicolor-icon-theme
 provides = plix
-conflicts = plix
+conflict = plix
 EOF
 
 # Create .BUILDINFO (standard Arch metadata)
