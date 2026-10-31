@@ -8,6 +8,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter/services.dart';
 
 import 'package:intl/intl.dart';
@@ -333,6 +335,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   bool get _isMobile => !PlixDeviceHelper.isDesktop && !PlixDeviceHelper.isTelevision;
 
+  // TV Cast & Crew quick view state
+  bool _showTvCastCrew = true; // Default false for release, true during testing per user request
+  bool _isCastExpanded = false;
+  List<MediaPerson> _people = const [];
+  bool get _isTvCastCrewActive =>
+      PlixDeviceHelper.isTelevision && _showTvCastCrew && _people.isNotEmpty;
+  PlexMediaItem get _playbackExitItem => _currentItem.copyWith(
+        viewOffset: _currentPositionMs,
+        duration: _durationMs > 0 ? _durationMs : _currentItem.duration,
+      );
+
+
 
 
   // Skip Intro state
@@ -432,6 +446,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     ThemeMusicService.instance.stopImmediate();
 
     _currentItem = widget.item;
+
+    if (widget.item.people.isNotEmpty) {
+
+      _people = widget.item.people;
+
+    }
 
     if (_currentItem.isTrailer) {
 
@@ -816,13 +836,67 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
           _quickRewindSeconds = prefs.getInt('quick_rewind_seconds') ?? 10;
 
           _skipAheadSeconds = prefs.getInt('skip_ahead_seconds') ?? 30;
-
+          _showTvCastCrew = prefs.getBool('tv_player_cast_crew') ?? false;
         });
-
+        if (_showTvCastCrew && PlixDeviceHelper.isTelevision) {
+          _loadCastAndCrew();
+        }
       }
-
     } catch (_) {}
+  }
 
+  Future<void> _loadCastAndCrew() async {
+    if (!PlixDeviceHelper.isTelevision || !_showTvCastCrew) return;
+    try {
+      var people = _currentItem.people;
+      if ((people.isEmpty || people.length <= 2) && _currentItem.isEpisode) {
+        final showKey = _currentItem.grandparentRatingKey;
+        if (showKey != null && showKey.isNotEmpty) {
+          final show = await _mediaService.getItemMetadata(showKey);
+          if (show.people.isNotEmpty) {
+            final merged = List<MediaPerson>.from(people);
+            for (final p in show.people) {
+              if (!merged.any((existing) => existing.name == p.name)) {
+                merged.add(p);
+              }
+            }
+            people = merged;
+          }
+        }
+      } else if (people.isEmpty) {
+        final fullItem = await _mediaService.getItemMetadata(_currentItem.ratingKey);
+        people = fullItem.people;
+      }
+      if (mounted && people.isNotEmpty) {
+        setState(() {
+          _people = people;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _handleActionRowDown() {
+    if (_isTvCastCrewActive) {
+      if (!_isCastExpanded) {
+        setState(() {
+          _isCastExpanded = true;
+        });
+        _hideControlsTimer?.cancel(); // Pause overlay fade timeout while viewing cast
+      }
+    } else {
+      _hideControlsImmediate();
+    }
+  }
+
+  void _handleActionRowUp() {
+    if (_isTvCastCrewActive && _isCastExpanded) {
+      setState(() {
+        _isCastExpanded = false;
+      });
+      _scheduleHideControls();
+    } else {
+      _scrubberFocusNode.requestFocus();
+    }
   }
 
 
@@ -1118,9 +1192,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _accumulatedSeekSeconds = 0;
 
       _hasAutoSkippedIntro = false;
-
       _showSkipIntroButton = false;
-
+      _isCastExpanded = false;
+      _people = ep.people;
     });
 
 
@@ -1751,9 +1825,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
             audioCodec == 'mlp';
 
-        final isSupported = !isDtsOrLossless &&
-
-            await _nativePlayer.checkAudioSupported(audioCodec);
+        final isStandardSupported = audioCodec == 'ac3' ||
+            audioCodec == 'eac3' ||
+            audioCodec == 'e-ac3' ||
+            audioCodec == 'aac' ||
+            audioCodec == 'mp3' ||
+            audioCodec == 'flac' ||
+            audioCodec == 'opus';
+        final isSupported = isStandardSupported ||
+            (!isDtsOrLossless && await _nativePlayer.checkAudioSupported(audioCodec));
 
         _audioNeedsTranscode = isDtsOrLossless || !isSupported;
 
@@ -2696,8 +2776,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
 
     setState(() {
-
       _showControls = true;
+      _isCastExpanded = false;
 
     });
 
@@ -2722,55 +2802,33 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   void _scheduleHideControls() {
-
     _hideControlsTimer?.cancel();
-
-    if (!_isPlaying || _isPaused) return;
-
-    _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-
-      if (mounted && _isPlaying && !_isPaused) {
-
+    if (!_isPlaying || _isPaused || _isCastExpanded) return;
+    final hideDuration = _isCastExpanded ? const Duration(seconds: 8) : const Duration(seconds: 4);
+    _hideControlsTimer = Timer(hideDuration, () {
+      if (mounted && _isPlaying && !_isPaused && !_isCastExpanded) {
         setState(() {
-
           _showControls = false;
-
+          _isCastExpanded = false;
         });
-
         if (_playerFocusNode.canRequestFocus) {
-
           _playerFocusNode.requestFocus();
-
         }
-
       }
-
     });
-
   }
 
-
-
   void _hideControlsImmediate() {
-
     _hideControlsTimer?.cancel();
-
     if (mounted) {
-
       setState(() {
-
         _showControls = false;
-
+        _isCastExpanded = false;
       });
-
       if (_playerFocusNode.canRequestFocus) {
-
         _playerFocusNode.requestFocus();
-
       }
-
     }
-
   }
 
 
@@ -3088,20 +3146,21 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
           }
 
           if (_showControls) {
-
+            if (_isCastExpanded) {
+              setState(() {
+                _isCastExpanded = false;
+              });
+              _scheduleHideControls();
+              return KeyEventResult.handled;
+            }
             setState(() {
-
               _showControls = false;
-
             });
-
             _playerFocusNode.requestFocus();
-
             return KeyEventResult.handled;
-
           } else {
 
-            Navigator.of(context).maybePop();
+            Navigator.of(context).maybePop(_playbackExitItem);
 
             return KeyEventResult.handled;
 
@@ -3314,17 +3373,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     if (event is KeyDownEvent && (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
 
       if (_showControls) {
-
+        if (_isCastExpanded) {
+          setState(() {
+            _isCastExpanded = false;
+          });
+          _scheduleHideControls();
+          return true;
+        }
         setState(() {
-
           _showControls = false;
-
         });
-
         _playerFocusNode.requestFocus();
-
         return true;
-
       }
 
     }
@@ -4042,7 +4102,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                       _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
 
-                      Navigator.of(context).pop(_currentItem);
+                      Navigator.of(context).pop(_playbackExitItem);
 
                     },
 
@@ -5132,7 +5192,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                       _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
 
-                                      Navigator.of(context).pop(_currentItem);
+                                      Navigator.of(context).pop(_playbackExitItem);
 
                                     },
 
@@ -6056,7 +6116,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
           _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
 
-          Navigator.of(context).pop(_currentItem);
+          Navigator.of(context).pop(_playbackExitItem);
 
         } else {
 
@@ -6837,9 +6897,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                         ),
 
                         child: SafeArea(
-
+                          bottom: !_isTvCastCrewActive,
                           child: Column(
-
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
                             children: [
@@ -6870,7 +6929,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                         _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
 
-                                        Navigator.of(context).pop(_currentItem);
+                                        Navigator.of(context).pop(_playbackExitItem);
 
                                       },
 
@@ -7162,11 +7221,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                 ),
                               ),
 
-                              // Bottom controls (Scrubber + Playback buttons)
-
-                              Padding(
-
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                              // Bottom controls (Scrubber + Playback buttons + optional TV Cast row)
+                              TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  end: (_isTvCastCrewActive && !_isCastExpanded) ? 108.0 : 0.0,
+                                ),
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, translateY, child) {
+                                  return Transform.translate(
+                                    offset: Offset(0, translateY),
+                                    child: child,
+                                  );
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: _isTvCastCrewActive ? 12 : 20,
+                                  ),
 
                                 child: Column(
 
@@ -7394,7 +7466,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                   },
 
-                                                  onDown: _hideControlsImmediate,
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                   onFocus: _scheduleHideControls,
 
@@ -7436,9 +7508,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                         : _playPauseBtnFocusNode.requestFocus()),
 
-                                                onUp: () => _scrubberFocusNode.requestFocus(),
+                                                onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                onDown: _hideControlsImmediate,
+                                                onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                 onFocus: _scheduleHideControls,
 
@@ -7476,9 +7548,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                       : _playPauseBtnFocusNode.requestFocus(),
 
-                                                  onUp: () => _scrubberFocusNode.requestFocus(),
+                                                  onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                  onDown: _hideControlsImmediate,
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                   onFocus: _scheduleHideControls,
 
@@ -7520,9 +7592,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                   onRight: () => _playPauseBtnFocusNode.requestFocus(),
 
-                                                  onUp: () => _scrubberFocusNode.requestFocus(),
+                                                  onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                  onDown: _hideControlsImmediate,
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                   onFocus: _scheduleHideControls,
 
@@ -7568,9 +7640,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                     : _subtitleBtnFocusNode.requestFocus(),
 
-                                                onUp: () => _scrubberFocusNode.requestFocus(),
+                                                onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                onDown: _hideControlsImmediate,
+                                                onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                 onFocus: _scheduleHideControls,
 
@@ -7606,9 +7678,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                   onRight: () => _subtitleBtnFocusNode.requestFocus(),
 
-                                                  onUp: () => _scrubberFocusNode.requestFocus(),
+                                                  onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                  onDown: _hideControlsImmediate,
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                   onFocus: _scheduleHideControls,
 
@@ -7652,9 +7724,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                 onRight: () => _qualityBtnFocusNode.requestFocus(),
 
-                                                onUp: () => _scrubberFocusNode.requestFocus(),
+                                                onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                onDown: _hideControlsImmediate,
+                                                onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                 onFocus: _scheduleHideControls,
 
@@ -7696,9 +7768,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                         : null),
 
-                                                onUp: () => _scrubberFocusNode.requestFocus(),
+                                                onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                onDown: _hideControlsImmediate,
+                                                onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                 onFocus: _scheduleHideControls,
 
@@ -7740,9 +7812,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                       : null,
 
-                                                  onUp: () => _scrubberFocusNode.requestFocus(),
+                                                  onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                                  onDown: _hideControlsImmediate,
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                                   onFocus: _scheduleHideControls,
 
@@ -7788,9 +7860,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                               onRight: () {},
 
-                                              onUp: () => _scrubberFocusNode.requestFocus(),
+                                              onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
-                                              onDown: _hideControlsImmediate,
+                                              onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
 
                                               onFocus: _scheduleHideControls,
 
@@ -7802,11 +7874,64 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                     ),
 
+                                  
+                                    if (_isTvCastCrewActive) ...[
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          AnimatedRotation(
+                                            turns: _isCastExpanded ? 0.5 : 0.0,
+                                            duration: const Duration(milliseconds: 250),
+                                            curve: Curves.easeOutCubic,
+                                            child: const Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                              color: Colors.white70,
+                                              size: 18,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Text(
+                                            'Cast & Crew',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      SizedBox(
+                                        height: 130,
+                                        child: ExcludeFocus(
+                                          child: LayoutBuilder(
+                                            builder: (context, constraints) {
+                                              const cardWidth = 86.0;
+                                              const spacing = 12.0;
+                                              final maxFit = ((constraints.maxWidth + spacing) / (cardWidth + spacing)).floor();
+                                              final count = maxFit > 0 ? (maxFit < _people.length ? maxFit : _people.length) : _people.length;
+                                              final displayPeople = _people.take(count).toList();
+
+                                              return Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  for (int i = 0; i < displayPeople.length; i++) ...[
+                                                    if (i > 0) const SizedBox(width: spacing),
+                                                    _buildQuickCastCard(context, displayPeople[i]),
+                                                  ],
+                                                ],
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
-
                                 ),
-
                               ),
+                            ),
 
                             ],
 
@@ -8094,7 +8219,93 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   }
 
+  Widget _buildQuickCastCard(BuildContext context, MediaPerson person) {
+    final initials = person.name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+
+    final imageUrl = _mediaService.buildImageUrl(
+      person.thumb,
+      width: 170,
+      height: 200,
+    );
+
+    return SizedBox(
+      width: 86,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 86,
+              height: 96,
+              color: Colors.white.withOpacity(0.08),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: PlixImageCache.decodeWidth(context, 86, cap: 180),
+                      memCacheHeight: PlixImageCache.decodeHeight(context, 96, cap: 200),
+                      placeholder: (_, __) => Container(color: Colors.white.withOpacity(0.05)),
+                      errorWidget: (_, __, ___) => _quickCastInitials(initials),
+                    )
+                  : _quickCastInitials(initials),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            person.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
+            ),
+          ),
+          if (person.role.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              person.role,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 9.5,
+                height: 1.1,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _quickCastInitials(String initials) {
+    return Container(
+      color: Colors.white.withOpacity(0.08),
+      alignment: Alignment.center,
+      child: Text(
+        initials.isEmpty ? '?' : initials,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
 }
+
 
 
 

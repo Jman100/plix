@@ -67,6 +67,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   final Map<String, FocusNode> _episodeFocusNodes = {};
   String? _lastPlayedEpisodeKey;
   bool _isAnyEpisodeFocused = false;
+  bool _suppressScrollOnFocus = false;
+  int _lastFocusedEpisodeIndex = 0;
   bool _isOnWatchlist = false;
   bool _isUpdatingWatchlist = false;
   bool _isLoadingDetails = true;
@@ -105,6 +107,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   }
 
   void _switchSeasonRelative(int delta) {
+    if (_isLoadingEpisodes) return;
     if (_selectedSeason == null || _seasons.isEmpty) return;
     final currentIndex = _seasons.indexWhere(
       (s) => s.ratingKey == _selectedSeason!.ratingKey || s.key == _selectedSeason!.key,
@@ -113,7 +116,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final targetIndex = currentIndex + delta;
     if (targetIndex >= 0 && targetIndex < _seasons.length) {
       final newSeason = _seasons[targetIndex];
-      _loadEpisodesForSeason(newSeason, focusFirstEpisode: true);
+      final focusedIdx = _lastFocusedEpisodeIndex.clamp(0, _episodes.isNotEmpty ? _episodes.length - 1 : 0);
+      setState(() {
+        _suppressScrollOnFocus = true;
+      });
+      _loadEpisodesForSeason(newSeason, targetEpisodeIndex: focusedIdx, isSeasonSwap: true);
     }
   }
 
@@ -695,6 +702,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     PlexMediaItem season, {
     bool focusFirstEpisode = false,
     String? focusEpisodeKey,
+    int? targetEpisodeIndex,
+    bool isSeasonSwap = false,
   }) async {
     setState(() {
       _isLoadingEpisodes = true;
@@ -717,7 +726,26 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           _isLoadingEpisodes = false;
         });
 
-        if (focusEpisodeKey != null && _episodeFocusNodes.containsKey(focusEpisodeKey)) {
+        if (targetEpisodeIndex != null && eps.isNotEmpty) {
+          final clampedIdx = targetEpisodeIndex.clamp(0, eps.length - 1);
+          final epKey = eps[clampedIdx].ratingKey;
+          _lastFocusedEpisodeIndex = clampedIdx;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              final node = _episodeFocusNodes[epKey];
+              if (node != null && node.canRequestFocus) {
+                node.requestFocus();
+              }
+              Future.delayed(const Duration(milliseconds: 50), () {
+                if (mounted) {
+                  setState(() {
+                    _suppressScrollOnFocus = false;
+                  });
+                }
+              });
+            }
+          });
+        } else if (focusEpisodeKey != null && _episodeFocusNodes.containsKey(focusEpisodeKey)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _episodeFocusNodes[focusEpisodeKey]?.canRequestFocus == true) {
               _episodeFocusNodes[focusEpisodeKey]?.requestFocus();
@@ -761,6 +789,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         setState(() {
           _episodes = [];
           _isLoadingEpisodes = false;
+          _suppressScrollOnFocus = false;
         });
       }
     }
@@ -769,7 +798,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   void _focusFirstEpisode() {
     if (_episodes.isNotEmpty) {
       final firstKey = _episodes.first.ratingKey;
-      _episodeFocusNodes[firstKey]?.requestFocus();
+      _lastFocusedEpisodeIndex = 0;
+      final node = _episodeFocusNodes[firstKey];
+      if (node != null && node.canRequestFocus) {
+        node.requestFocus();
+      }
     }
   }
 
@@ -798,9 +831,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       if (_item.isEpisode) {
         PlexMediaItem effectiveItem = returnedItem ?? _item;
         try {
-          final isFinished = effectiveItem.isWatched ||
-              ((effectiveItem.duration != null && effectiveItem.duration! > 0) &&
-                  (effectiveItem.viewOffset ?? 0) >= effectiveItem.duration! * 0.9);
+          final duration = effectiveItem.duration ?? 0;
+          final viewOffset = effectiveItem.viewOffset ?? 0;
+          final isFinished = duration > 0 && viewOffset >= (duration * 0.9);
           if (isFinished) {
             final nextEp = await _mediaService.getNextEpisode(effectiveItem);
             if (nextEp != null) {
@@ -1993,7 +2026,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                               ],
                             ),
                             const SizedBox(height: 14),
-                            if (_isLoadingEpisodes)
+                            if (_isLoadingEpisodes && _episodes.isEmpty)
                               Center(
                                 child: Padding(
                                   padding: const EdgeInsets.all(24.0),
@@ -2036,7 +2069,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                               index < _episodes.length - 1 ? _episodes[index + 1].ratingKey : null;
 
                                   return _EpisodeTile(
+                                    key: ValueKey('ep_${ep.ratingKey}'),
                                     focusNode: _episodeFocusNodes[ep.ratingKey],
+                                    suppressScroll: _suppressScrollOnFocus,
                                     onUp: index == 0
                                         ? _focusSelectedSeason
                                         : () => _episodeFocusNodes[prevKey]?.requestFocus(),
@@ -2047,6 +2082,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                     onLeft: canPrevSeason ? () => _switchSeasonRelative(-1) : null,
                                     onRight: canNextSeason ? () => _switchSeasonRelative(1) : null,
                                     onFocusChanged: (focused) {
+                                      if (focused) {
+                                        _lastFocusedEpisodeIndex = index;
+                                      }
                                       if (focused != _isAnyEpisodeFocused) {
                                         setState(() {
                                           _isAnyEpisodeFocused = focused;
@@ -2139,8 +2177,10 @@ class _EpisodeTile extends StatefulWidget {
   final VoidCallback? onLeft;
   final VoidCallback? onRight;
   final ValueChanged<bool>? onFocusChanged;
+  final bool suppressScroll;
 
   const _EpisodeTile({
+    super.key,
     required this.episode,
     required this.episodeIndex,
     this.seasonIndex,
@@ -2153,6 +2193,7 @@ class _EpisodeTile extends StatefulWidget {
     this.onLeft,
     this.onRight,
     this.onFocusChanged,
+    this.suppressScroll = false,
   });
 
   @override
@@ -2160,24 +2201,38 @@ class _EpisodeTile extends StatefulWidget {
 }
 
 class _EpisodeTileState extends State<_EpisodeTile> {
-  late FocusNode _focusNode;
+  FocusNode? _internalFocusNode;
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? (_internalFocusNode ??= FocusNode());
   bool _isFocused = false;
   bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = widget.focusNode ?? FocusNode();
-    _focusNode.addListener(_onFocusChange);
+    _effectiveFocusNode.addListener(_onFocusChange);
+    _isFocused = _effectiveFocusNode.hasFocus;
+  }
+
+  @override
+  void didUpdateWidget(covariant _EpisodeTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldNode = oldWidget.focusNode ?? _internalFocusNode;
+    final newNode = widget.focusNode ?? _internalFocusNode;
+    if (oldNode != newNode) {
+      oldNode?.removeListener(_onFocusChange);
+      newNode?.addListener(_onFocusChange);
+      _isFocused = newNode?.hasFocus ?? false;
+    }
   }
 
   void _onFocusChange() {
     if (mounted) {
+      final hasFocus = _effectiveFocusNode.hasFocus;
       setState(() {
-        _isFocused = _focusNode.hasFocus;
+        _isFocused = hasFocus;
       });
-      widget.onFocusChanged?.call(_focusNode.hasFocus);
-      if (_focusNode.hasFocus) {
+      widget.onFocusChanged?.call(hasFocus);
+      if (hasFocus && !widget.suppressScroll) {
         if (!(Platform.isWindows || Platform.isLinux) || HardwareKeyboard.instance.logicalKeysPressed.isNotEmpty) {
           Scrollable.ensureVisible(
             context,
@@ -2192,10 +2247,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
 
   @override
   void dispose() {
-    _focusNode.removeListener(_onFocusChange);
-    if (widget.focusNode == null) {
-      _focusNode.dispose();
-    }
+    final node = widget.focusNode ?? _internalFocusNode;
+    node?.removeListener(_onFocusChange);
+    _internalFocusNode?.dispose();
     super.dispose();
   }
 
@@ -2204,7 +2258,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     final ep = widget.episode;
     final isHighlighted = _isFocused || _isHovered;
     return Focus(
-      focusNode: _focusNode,
+      focusNode: _effectiveFocusNode,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
           final key = event.logicalKey;

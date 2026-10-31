@@ -743,17 +743,13 @@ class MainActivity: FlutterActivity() {
 
     private fun isAudioCodecSupported(codec: String): Boolean {
         val lower = codec.lowercase().trim()
+        if (lower == "ac3" || lower == "eac3" || lower == "e-ac3" || lower == "aac" || lower == "mp3" || lower == "flac" || lower == "opus" || lower == "vorbis") {
+            return true
+        }
         val mime = when {
-            lower == "ac3" -> "audio/ac3"
-            lower == "eac3" || lower == "e-ac3" -> "audio/eac3"
             lower == "ac4" -> "audio/ac4"
             lower == "dca" || lower == "dts" || lower.contains("dts") -> "audio/vnd.dts"
             lower == "truehd" -> "audio/true-hd"
-            lower == "aac" -> "audio/mp4a-latm"
-            lower == "flac" -> "audio/flac"
-            lower == "opus" -> "audio/opus"
-            lower == "vorbis" -> "audio/vorbis"
-            lower == "mp3" -> "audio/mpeg"
             else -> return true
         }
 

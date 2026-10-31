@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.5.2"
-$versionCode = 37
+$version = "1.5.3"
+$versionCode = 38
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,13 +45,13 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Player Swipe Gestures: Swipe vertically on the right side of the screen to adjust media volume, and on the left side to adjust screen brightness (mobile & tablet)
-- Gesture On-Screen HUD: Sleek frosted glass capsule with vertical progress bar and dynamic percentage indicator; smoothly fades out after interaction
-- System Brightness Management: Automatically restores system display brightness upon exiting the player
-- Linux Multi-Distribution Support: Added official Arch Linux package (.pkg.tar.zst) and Portable standalone Linux tarball (.tar.gz) alongside Debian/Ubuntu (.deb)
-- Linux Playback Stabilization: Integrated embedded mpv rendering and software decoding fallback to prevent grey macroblock corruption and HDR peak computation glitches
-- Website Redesign: Consolidated Linux distributions into a unified download tile with one-click access to DEB, Arch, and Portable packages; added source code repository link
-- Version Bump: v1.5.2 (versionCode 37)
+- TV Player Cast & Crew Quick View: Added an expandable Cast & Crew row beneath playback controls on TV (revealed with D-pad Down; pauses overlay auto-hide while viewing; card row capped to avoid right-edge clipping)
+- TV Cast & Crew Setting: Added a user setting under Settings > Playback & Streaming for TV interface to toggle player cast display (defaults to off)
+- Direct Play Codec Support: Added native E-AC3, AC3, FLAC, and Opus passthrough support on Android TV to direct play multi-channel surround audio without transcoding
+- Playback Exit Episode Navigation: Fixed an issue where exiting playback of an unfinished episode could prematurely advance episode details to the next episode
+- Show Details Season Swapping: Fixed cursor trapping and UI jumping when swapping seasons via D-pad Left/Right in the episodes list; seamless D-pad Up/Down between seasons and episode tiles
+- Arch Linux Packaging Fix: Removed obsolete and non-standard metadata keys from Arch package description
+- App Version Bump: v1.5.3 (versionCode 38)
 "@
 
     $manifest = [ordered]@{

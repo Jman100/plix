@@ -40,6 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoSkipIntro = false;
   bool _playTvThemes = true;
   bool _continuePlaybackScreenOff = false;
+  bool _showTvCastCrew = false; // Default false
+  final FocusNode _tvCastCrewFocusNode = FocusNode();
   final FocusNode _skipIntroFocusNode = FocusNode();
   final FocusNode _themeFocusNode = FocusNode();
   final FocusNode _screenOffFocusNode = FocusNode();
@@ -89,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _playTvThemes = prefs.getBool('play_tv_show_themes') ?? true;
         _continuePlaybackScreenOff = prefs.getBool('continue_playback_screen_off') ?? false;
+        _showTvCastCrew = prefs.getBool('tv_player_cast_crew') ?? false;
         _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? NativePlayerService.hwdecMode;
         _quickRewindSeconds = prefs.getInt('quick_rewind_seconds') ?? 10;
         _skipAheadSeconds = prefs.getInt('skip_ahead_seconds') ?? 30;
@@ -231,6 +234,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {}
   }
 
+  Future<void> _toggleShowTvCastCrew() async {
+    final newVal = !_showTvCastCrew;
+    setState(() => _showTvCastCrew = newVal);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('tv_player_cast_crew', newVal);
+  }
+
   Future<void> _cycleRewind() async {
     const options = [5, 10, 15, 20, 30];
     final currentIdx = options.indexOf(_quickRewindSeconds);
@@ -273,6 +283,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _skipIntroFocusNode.dispose();
     _themeFocusNode.dispose();
     _screenOffFocusNode.dispose();
+    _tvCastCrewFocusNode.dispose();
     _hwdecFocusNode.dispose();
     _rewindFocusNode.dispose();
     _skipFocusNode.dispose();
@@ -445,13 +456,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? _screenOffFocusNode.requestFocus()
                         : (PlixDeviceHelper.isDesktop
                             ? _hwdecFocusNode.requestFocus()
-                            : _autoUpdateFocusNode.requestFocus()),
+                            : (PlixDeviceHelper.isTelevision
+                                ? _tvCastCrewFocusNode.requestFocus()
+                                : _autoUpdateFocusNode.requestFocus())),
                     title: 'Skip Ahead Duration',
                     subtitle: 'Seconds skipped forward when pressing D-pad Right or Fast Forward on remote',
                     trailing: '${_skipAheadSeconds}s',
                     isInteractive: true,
                     onTap: _cycleSkip,
                   ),
+                  if (PlixDeviceHelper.isTelevision) ...[
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _tvCastCrewFocusNode,
+                      onUp: () => _skipFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Cast & Crew in Player',
+                      subtitle: 'Display cast & crew quick view row below playback controls on TV',
+                      trailing: _showTvCastCrew ? 'Enabled' : 'Disabled',
+                      isInteractive: true,
+                      onTap: _toggleShowTvCastCrew,
+                    ),
+                  ],
                   if (isMobile) ...[
                     const SizedBox(height: 10),
                     _SettingsActionTile(
@@ -505,7 +531,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? _screenOffFocusNode.requestFocus()
                         : (PlixDeviceHelper.isDesktop
                             ? _hwdecFocusNode.requestFocus()
-                            : _skipFocusNode.requestFocus()),
+                            : (PlixDeviceHelper.isTelevision
+                                ? _tvCastCrewFocusNode.requestFocus()
+                                : _skipFocusNode.requestFocus())),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',
