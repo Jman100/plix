@@ -29,6 +29,8 @@ find_program(TAR_EXECUTABLE NAMES tar PATHS "C:/Windows/System32" "$ENV{SystemRo
 
 # ------------------------------------------------------------------------------
 function(download_and_verify url hash_type hash_val archive_path)
+  set(FALLBACK_URL "${ARGV4}")
+
   if(EXISTS "${archive_path}")
     file(${hash_type} "${archive_path}" CURRENT_HASH)
     if(NOT "${hash_val}" STREQUAL "${CURRENT_HASH}")
@@ -52,7 +54,26 @@ function(download_and_verify url hash_type hash_val archive_path)
     list(GET DOWNLOAD_STATUS 1 STATUS_MSG)
     if(NOT STATUS_CODE EQUAL 0)
       file(REMOVE "${archive_path}")
-      message(FATAL_ERROR "Download failed: ${STATUS_MSG}")
+      if(FALLBACK_URL)
+        message(STATUS "Primary download failed (${STATUS_MSG}). Trying fallback: ${FALLBACK_URL}...")
+        file(
+          DOWNLOAD
+          "${FALLBACK_URL}"
+          "${archive_path}"
+          EXPECTED_HASH "${hash_type}=${hash_val}"
+          STATUS FALLBACK_STATUS
+          TLS_VERIFY ON
+          TIMEOUT 300
+        )
+        list(GET FALLBACK_STATUS 0 FB_STATUS_CODE)
+        list(GET FALLBACK_STATUS 1 FB_STATUS_MSG)
+        if(NOT FB_STATUS_CODE EQUAL 0)
+          file(REMOVE "${archive_path}")
+          message(FATAL_ERROR "Fallback download failed: ${FB_STATUS_MSG}")
+        endif()
+      else()
+        message(FATAL_ERROR "Download failed: ${STATUS_MSG}")
+      endif()
     endif()
   endif()
 endfunction()
@@ -60,13 +81,15 @@ endfunction()
 # ------------------------------------------------------------------------------
 if(IS_ARM64)
   message(STATUS "Configuring media_kit_libs_windows_video for ARM64")
-  set(LIBMPV "mpv-dev-aarch64-20261023-git-41f6a64506.7z")
-  set(LIBMPV_URL "https://github.com/Carapacik/libmpv-win32-video-cmake/releases/download/20261023/${LIBMPV}")
+  set(LIBMPV "mpv-dev-aarch64-20261031-git-41f6a64506.7z")
+  set(LIBMPV_URL "https://github.com/Carapacik/libmpv-win32-video-cmake/releases/download/20261031/${LIBMPV}")
+  set(LIBMPV_FALLBACK_URL "https://github.com/Jman100/plix/releases/download/v1.5.3/${LIBMPV}")
   set(LIBMPV_HASH_TYPE "SHA256")
-  set(LIBMPV_HASH "66b89e6e34d5970f596bb8e4f480b9110652cd3d289b7421e510f1d8fa9c8e8e")
+  set(LIBMPV_HASH "497841ee27697d816ff3aa14a0e1cce0ce639b593d28b53fb4e06e4410c37df6")
 
   set(ANGLE "ANGLE-9fe55a5-windows-arm64.7z")
   set(ANGLE_URL "https://github.com/Carapacik/flutter-windows-ANGLE-OpenGL-ES/releases/download/v8078/${ANGLE}")
+  set(ANGLE_FALLBACK_URL "https://github.com/Jman100/plix/releases/download/v1.5.3/${ANGLE}")
   set(ANGLE_HASH_TYPE "SHA256")
   set(ANGLE_HASH "f2a2acd39f9d989717d6b6c308230ca0f9f0f2ff4ca082f75836957c4283589b")
 else()
@@ -92,6 +115,7 @@ download_and_verify(
   "${LIBMPV_HASH_TYPE}"
   "${LIBMPV_HASH}"
   "${LIBMPV_ARCHIVE}"
+  "${LIBMPV_FALLBACK_URL}"
 )
 
 if(NOT EXISTS "${LIBMPV_SRC}/libmpv.dll.a")
@@ -144,6 +168,7 @@ download_and_verify(
   "${ANGLE_HASH_TYPE}"
   "${ANGLE_HASH}"
   "${ANGLE_ARCHIVE}"
+  "${ANGLE_FALLBACK_URL}"
 )
 
 if(NOT EXISTS "${ANGLE_SRC}/lib/libEGL.dll.lib")
