@@ -1,12 +1,12 @@
 {
-    "version": "1.6.0",
-    "versionCode": 39,
-    "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseNotes": "- Unified Multi-Server & Favorite Libraries: Blend libraries and Continue Watching across multiple connected Plex and Jellyfin servers simultaneously; customizable Favorite Libraries manager with smart ownership defaulting and minimum library selection protection\n- First-Time Install Welcome Tour: Introduced a streamlined, platform-tailored welcome walkthrough on TV, mobile, and desktop; TV edition features a 2x2 grid displaying all key features on screen at once with full remote cursor lock\n- Four New Atmosphere Themes: Added Solar Flare, Neon Cyberpunk, Nordic Frost, and Emerald Forest to the visual styling collection (16 total presets plus custom themes)\n- Crystal Liquid Glass Redesign: Overhauled the Liquid Glass atmosphere theme with transparent frosted glass surfaces, high-contrast borders, and clean button states\n- Remote Navigation & TV Polish: Fixed playback overlay directional remote navigation, eliminated TV settings appearance header cutoff, refined TV reorder libraries button states, and optimized vertical row spacing\n- Redesigned Sign Out Confirmation: Rebalanced modal with equal button weighting, increased vertical spacing, and default focus on cancel\n- App Version Bump: v1.6.0 (versionCode 39)",
-    "releaseDate": "2026-11-02"
+    "version":  "1.6.0",
+    "versionCode":  39,
+    "apkUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
+    "windowsUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
+    "windowsArm64Url":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
+    "linuxUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
+    "linuxArchUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
+    "linuxTarballUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
+    "releaseNotes":  "- Unified Multi-Server \u0026 Favorite Libraries: Blend libraries and Continue Watching across multiple connected Plex and Jellyfin servers simultaneously; customizable Favorite Libraries manager with smart ownership defaulting and minimum library selection protection\r\n- First-Time Install Welcome Tour: Introduced a streamlined, platform-tailored welcome walkthrough on TV, mobile, and desktop; TV edition features a 2x2 grid displaying all key features on screen at once with full remote cursor lock\r\n- Four New Atmosphere Themes: Added Solar Flare, Neon Cyberpunk, Nordic Frost, and Emerald Forest to the visual styling collection (16 total presets plus custom themes)\r\n- Crystal Liquid Glass Redesign: Overhauled the Liquid Glass atmosphere theme with transparent frosted glass surfaces, high-contrast borders, and clean button states\r\n- Remote Navigation \u0026 TV Polish: Fixed playback overlay directional remote navigation, eliminated TV settings appearance header cutoff, refined TV reorder libraries button states, and optimized vertical row spacing\r\n- Redesigned Sign Out Confirmation: Rebalanced modal with equal button weighting, increased vertical spacing, and default focus on cancel\r\n- App Version Bump: v1.6.0 (versionCode 39)",
+    "releaseDate":  "2026-11-02"
 }
