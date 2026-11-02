@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
+import '../widgets/brand_logo.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import 'jellyfin_connect_screen.dart';
@@ -69,26 +70,15 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
               // Logo
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: PlixTheme.plexGold,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 36),
+                children: const [
+                  PlixAppLogo(
+                    size: 48,
+                    showWordmark: false,
+                    borderRadius: 12,
+                    glow: true,
                   ),
-                  const SizedBox(width: 14),
-                  const Text(
-                    'PLIX',
-                    style: TextStyle(
-                      color: PlixTheme.textPrimary,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3,
-                    ),
-                  ),
+                  SizedBox(width: 14),
+                  PlixWordmark(fontSize: 34),
                 ],
               ),
               const SizedBox(height: 16),
@@ -121,7 +111,7 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
                     autofocus: true,
                     title: 'Plex',
                     subtitle: 'Connect using your Plex account and link code.',
-                    icon: Icons.dns_rounded,
+                    logoWidget: PlexLogo(size: 34, color: PlixTheme.plexGold),
                     accentColor: PlixTheme.plexGold,
                     onTap: _choosePlex,
                     onRight: () => _jellyfinFocusNode.requestFocus(),
@@ -131,8 +121,8 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
                     autofocus: false,
                     title: 'Jellyfin',
                     subtitle: 'Connect using your Jellyfin server and Quick Connect.',
-                    icon: Icons.hub_rounded,
-                    accentColor: const Color(0xFF00A4DC),
+                    logoWidget: const JellyfinLogo(size: 34, color: Color(0xFF8E51DC)),
+                    accentColor: const Color(0xFF8E51DC),
                     onTap: _chooseJellyfin,
                     onLeft: () => _plexFocusNode.requestFocus(),
                   ),
@@ -151,7 +141,7 @@ class _ProviderCard extends StatefulWidget {
   final bool autofocus;
   final String title;
   final String subtitle;
-  final IconData icon;
+  final Widget logoWidget;
   final Color accentColor;
   final VoidCallback onTap;
   final VoidCallback? onLeft;
@@ -162,7 +152,7 @@ class _ProviderCard extends StatefulWidget {
     required this.autofocus,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.logoWidget,
     required this.accentColor,
     required this.onTap,
     this.onLeft,
@@ -281,7 +271,7 @@ class _ProviderCardState extends State<_ProviderCard> {
                       width: 1.5,
                     ),
                   ),
-                  child: Icon(widget.icon, color: widget.accentColor, size: 34),
+                  child: Center(child: widget.logoWidget),
                 ),
                 const SizedBox(height: 20),
                 Text(

@@ -49,9 +49,21 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  static final Map<String, List<PlexMediaItem>> _cachedRecentlyAdded = {};
+  static List<PlexMediaItem> _cachedContinueWatching = [];
+
   late PlexMediaService _mediaService;
   String _clientId = '';
 
+  List<PlexServer> _allServers = [];
+  List<PlexServer> _activeServers = [];
+  bool get isMultiServer {
+    final activeServerCount = _libraries.map((l) => l.serverId).where((s) => s != null && s.isNotEmpty).toSet().length;
+    if (activeServerCount > 0) {
+      return activeServerCount > 1;
+    }
+    return _allServers.length > 1 || _activeServers.length > 1;
+  }
   List<PlexLibrary> _libraries = [];
   List<PlexMediaItem> _continueWatching = [];
   final Map<String, List<PlexMediaItem>> _recentlyAddedByLibrary = {};
@@ -64,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final FocusNode _heroPlayFocusNode = FocusNode();
   final FocusNode _heroDetailsFocusNode = FocusNode();
   final FocusNode _sidebarHomeFocusNode = FocusNode();
+  final FocusNode _sidebarSettingsFocusNode = FocusNode();
+  final FocusNode _sidebarSwitchServerFocusNode = FocusNode();
+  final FocusNode _sidebarSignOutFocusNode = FocusNode();
   final FocusNode _firstContinueWatchingFocusNode = FocusNode();
   final Map<String, FocusNode> _viewMoreFocusNodes = {};
   final Map<String, GlobalKey<_HomeRowSectionState>> _rowSectionKeys = {};
@@ -130,7 +145,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final fetchKey = isSeasonTarget ? currentHeroItem.ratingKey : (currentHeroItem.targetRatingKey ?? currentHeroItem.ratingKey);
     if (fetchKey.isEmpty) return;
 
-    final cached = _mediaService.getDetailedCachedMetadata(fetchKey);
+    final heroServer = currentHeroItem.server ?? widget.server;
+    final heroService = PlexMediaService(server: heroServer);
+
+    final cached = heroService.getDetailedCachedMetadata(fetchKey);
     if (cached != null) {
       if (isSeasonTarget) {
         _heroItem = cached.copyWith(
@@ -140,16 +158,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           targetType: 'season',
           targetSeasonKey: currentHeroItem.targetSeasonKey,
           targetRatingKey: currentHeroItem.targetRatingKey,
+          server: heroServer,
           clearDuration: true,
         );
       } else {
-        _heroItem = cached;
+        _heroItem = cached.copyWith(server: heroServer);
       }
     }
 
     _heroMetadataDebounceTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
-        final full = await _mediaService.getItemMetadata(fetchKey);
+        final full = await heroService.getItemMetadata(fetchKey);
         if (mounted && (_heroItem?.ratingKey == currentHeroItem.ratingKey || _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey)) {
           setState(() {
             if (isSeasonTarget) {
@@ -160,10 +179,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 targetType: 'season',
                 targetSeasonKey: currentHeroItem.targetSeasonKey,
                 targetRatingKey: currentHeroItem.targetRatingKey,
+                server: heroServer,
                 clearDuration: true,
               );
             } else {
-              _heroItem = full;
+              _heroItem = full.copyWith(server: heroServer);
             }
           });
         }
@@ -208,17 +228,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   DateTime? _lastUpdateCheckTime;
   bool _isUpdateDialogOpen = false;
+  bool _isWelcomeTourOpen = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _mediaService = PlexMediaService(server: widget.server);
+    _allServers = [widget.server];
     _heroPlayFocusNode.addListener(_onHeroFocusChanged);
     _heroDetailsFocusNode.addListener(_onHeroFocusChanged);
     _initData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForAutoUpdate();
+      _checkFirstTimeWelcomeTour();
     });
   }
 
@@ -228,6 +251,62 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ThemeMusicService.instance.stopImmediate();
       _checkForAutoUpdate();
     }
+  }
+
+  Future<void> _checkFirstTimeWelcomeTour() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isFreshPending = prefs.getBool('plix_fresh_install_pending_tour') ?? false;
+      final tourAlreadyShown = prefs.getBool('plix_welcome_tour_shown') ?? false;
+
+      // Strictly for fresh installs after signing in for the first time.
+      // Never show for existing users, updates, or subsequent launches.
+      if (!isFreshPending || tourAlreadyShown) {
+        if (!tourAlreadyShown) {
+          await prefs.setBool('plix_welcome_tour_shown', true);
+        }
+        await prefs.remove('plix_fresh_install_pending_tour');
+        await prefs.remove('plix_is_fresh_install');
+        return;
+      }
+
+      // Mark tour as permanently shown and remove pending flags immediately
+      await prefs.setBool('plix_welcome_tour_shown', true);
+      await prefs.remove('plix_fresh_install_pending_tour');
+      await prefs.remove('plix_is_fresh_install');
+
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
+      setState(() {
+        _isWelcomeTourOpen = true;
+      });
+      FocusManager.instance.primaryFocus?.unfocus();
+
+      try {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          useRootNavigator: true,
+          builder: (ctx) => const _WelcomeTourDialog(),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isWelcomeTourOpen = false;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+              if (_continueWatching.isNotEmpty) {
+                _heroPlayFocusNode.requestFocus();
+              } else if (_activeRowIds.isNotEmpty) {
+                _rowSectionKeys[_activeRowIds.first]?.currentState?.focusAt(0);
+              }
+            }
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkForAutoUpdate() async {
@@ -298,6 +377,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _heroPlayFocusNode.dispose();
     _heroDetailsFocusNode.dispose();
     _sidebarHomeFocusNode.dispose();
+    _sidebarSettingsFocusNode.dispose();
+    _sidebarSwitchServerFocusNode.dispose();
+    _sidebarSignOutFocusNode.dispose();
     _firstContinueWatchingFocusNode.dispose();
     for (final node in _viewMoreFocusNodes.values) {
       node.dispose();
@@ -306,8 +388,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  bool _isItemInFavoritedLibraries(PlexMediaItem item) {
+    if (_libraries.isEmpty) return false;
+
+    final itemServerId = item.serverId ?? item.server?.clientIdentifier;
+
+    // Filter libraries to only those on the same server (if serverId is known)
+    final serverLibs = (itemServerId != null && itemServerId.isNotEmpty)
+        ? _libraries.where((l) => l.serverId == itemServerId).toList()
+        : _libraries;
+
+    if (serverLibs.isEmpty) return false;
+
+    for (final lib in serverLibs) {
+      // 1. Direct match via librarySectionId (Plex & Jellyfin)
+      if (item.librarySectionId != null && item.librarySectionId!.isNotEmpty) {
+        final normItemKey = item.librarySectionId!.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        final normLibKey = lib.key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        if (item.librarySectionId == lib.key || normItemKey == normLibKey) {
+          return true;
+        }
+      }
+
+      // 2. Match via ancestorIds (Jellyfin hierarchy)
+      if (item.ancestorIds.isNotEmpty) {
+        final normalizedLibKey = lib.key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        for (final ancestor in item.ancestorIds) {
+          final normalizedAncestor = ancestor.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+          if (normalizedAncestor == normalizedLibKey) {
+            return true;
+          }
+        }
+      }
+
+      // 3. Fallback match via librarySectionTitle if on the same server
+      if (item.librarySectionTitle != null && item.librarySectionTitle!.isNotEmpty &&
+          item.librarySectionTitle!.toLowerCase() == lib.title.toLowerCase()) {
+        return true;
+      }
+
+      // 4. If this server only has ONE favorited library, and item came from this server:
+      // Match if media types are compatible (e.g. movie in movie library, episode/show in show library)
+      if (serverLibs.length == 1) {
+        final singleLib = serverLibs.first;
+        if (singleLib.isMovie && item.isMovie) return true;
+        if (singleLib.isShow && (item.isEpisode || item.isShow)) return true;
+        if (!singleLib.isMovie && !singleLib.isShow) return true;
+      }
+    }
+
+    return false;
+  }
+
   Future<void> _initData() async {
     ThemeMusicService.instance.stopImmediate();
+    _lastFocusedContentNode = null;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -315,46 +450,197 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     try {
       _clientId = await widget.authService.getClientIdentifier();
-      final libs = await _mediaService.getLibraries();
+      final token = await widget.authService.getSavedToken() ?? '';
+      final servers = await widget.serverService.fetchServers(token);
+      _allServers = servers;
 
-      // Apply saved library order
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final savedOrder = prefs.getStringList('library_order_${widget.server.clientIdentifier}');
-        if (savedOrder != null && savedOrder.isNotEmpty) {
-          final Map<String, int> orderMap = {
-            for (int i = 0; i < savedOrder.length; i++) savedOrder[i]: i,
-          };
-          libs.sort((a, b) {
-            final aOrder = orderMap[a.key] ?? 999;
-            final bOrder = orderMap[b.key] ?? 999;
-            return aOrder.compareTo(bOrder);
+      // Determine servers that actually have favorited libraries to avoid hitting unused servers
+      final favoriteIds = await widget.serverService.getFavoriteLibraryIds();
+      final relevantServerIds = <String>{};
+      if (favoriteIds != null && favoriteIds.isNotEmpty) {
+        for (final fav in favoriteIds) {
+          final serverId = fav.contains(':')
+              ? fav.split(':').first
+              : (fav.contains('_') ? fav.split('_').first : fav);
+          relevantServerIds.add(serverId);
+        }
+      }
+
+      // Include all servers with favorited libraries, plus any saved Jellyfin servers, and current server
+      final activeServers = servers.where((s) {
+        if (relevantServerIds.isEmpty) return true;
+        return relevantServerIds.contains(s.clientIdentifier) ||
+            s.isJellyfin ||
+            s.clientIdentifier == widget.server.clientIdentifier;
+      }).toList();
+
+      // Resolve connection tests for active servers concurrently
+      await Future.wait(activeServers.map((s) async {
+        try {
+          await widget.serverService.testAndResolveBestConnection(s);
+        } catch (_) {}
+      }));
+      _activeServers = activeServers;
+
+      // First, quickly display cached items if available so the UI renders immediately!
+      if (_cachedContinueWatching.isNotEmpty && _continueWatching.isEmpty) {
+        final cached = _libraries.isNotEmpty
+            ? _cachedContinueWatching.where(_isItemInFavoritedLibraries).toList()
+            : _cachedContinueWatching;
+        if (cached.isNotEmpty) {
+          _continueWatching = List.from(cached);
+          _heroItem = _continueWatching.first;
+        }
+      }
+      if (_cachedRecentlyAdded.isNotEmpty && _recentlyAddedByLibrary.isEmpty) {
+        _recentlyAddedByLibrary.addAll(_cachedRecentlyAdded);
+      }
+      if (_continueWatching.isNotEmpty || _recentlyAddedByLibrary.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
           });
         }
-      } catch (_) {}
+      }
 
-      final continueWatching = await _mediaService.getContinueWatching();
+      // Gather libraries across active servers concurrently (8s timeout with cache fallback)
+      final allLibrariesLists = await Future.wait(activeServers.map((server) async {
+        final isOnline = server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty;
+        if (isOnline) {
+          try {
+            final libs = await PlexMediaService(server: server).getLibraries().timeout(const Duration(seconds: 8));
+            await widget.serverService.cacheServerLibraries(server.clientIdentifier, libs);
+            return libs;
+          } catch (_) {
+            return await widget.serverService.getCachedServerLibraries(server.clientIdentifier, server);
+          }
+        } else {
+          return await widget.serverService.getCachedServerLibraries(server.clientIdentifier, server);
+        }
+      }));
 
-      _libraries = libs;
-      _continueWatching = continueWatching;
+      final List<PlexLibrary> allLibraries = [];
+      for (final list in allLibrariesLists) {
+        allLibraries.addAll(list);
+      }
+
+      List<PlexLibrary> userLibraries;
+      if (favoriteIds != null && favoriteIds.isNotEmpty) {
+        userLibraries = allLibraries.where((l) {
+          return favoriteIds.contains(l.compositeId) ||
+              favoriteIds.contains('${l.serverId}_${l.key}') ||
+              favoriteIds.contains('${l.serverId}:${l.key}');
+        }).toList();
+        if (userLibraries.isEmpty && allLibraries.isNotEmpty) {
+          userLibraries = allLibraries;
+        }
+      } else {
+        userLibraries = allLibraries;
+      }
+
+      // Apply saved library custom order
+      final prefs = await SharedPreferences.getInstance();
+      final savedOrder = prefs.getStringList('plix_multi_server_library_order');
+      if (savedOrder != null && savedOrder.isNotEmpty) {
+        final Map<String, int> orderMap = {
+          for (int i = 0; i < savedOrder.length; i++) savedOrder[i]: i,
+        };
+        userLibraries.sort((a, b) {
+          final aOrder = orderMap[a.compositeId] ?? 999999;
+          final bOrder = orderMap[b.compositeId] ?? 999999;
+          if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+          final sA = (a.serverName ?? '').toLowerCase();
+          final sB = (b.serverName ?? '').toLowerCase();
+          final cmp = sA.compareTo(sB);
+          if (cmp != 0) return cmp;
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+      } else {
+        userLibraries.sort((a, b) {
+          final sA = (a.serverName ?? '').toLowerCase();
+          final sB = (b.serverName ?? '').toLowerCase();
+          final cmp = sA.compareTo(sB);
+          if (cmp != 0) return cmp;
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        });
+      }
+
+      final serverMap = {for (final s in servers) s.clientIdentifier: s};
+      _libraries = userLibraries.map((l) {
+        final s = l.server ?? serverMap[l.serverId];
+        final isOnline = s != null && s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty;
+        return l.copyWith(server: s, isServerOnline: isOnline);
+      }).toList();
+
+      final onlineServers = activeServers.where((s) => s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty).toList();
+      final onlineLibs = userLibraries.where((l) {
+        final s = l.server ?? serverMap[l.serverId];
+        return s != null && s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty;
+      }).map((l) {
+        final s = l.server ?? serverMap[l.serverId]!;
+        return l.copyWith(server: s, isServerOnline: true);
+      }).toList();
+
+      // Gather Continue Watching only from servers that have favorited libraries
+      final cwServers = onlineServers.where((s) {
+        return _libraries.any((lib) => lib.serverId == s.clientIdentifier);
+      }).toList();
+      final targetCwServers = cwServers.isNotEmpty ? cwServers : onlineServers;
+
+      final cwFuture = Future.wait(targetCwServers.map((s) async {
+        try {
+          final serverLibKeys = _libraries
+              .where((l) => l.serverId == s.clientIdentifier)
+              .map((l) => l.key)
+              .toList();
+          return await PlexMediaService(server: s)
+              .getContinueWatching(libraryKeys: serverLibKeys)
+              .timeout(const Duration(seconds: 8));
+        } catch (_) {
+          return <PlexMediaItem>[];
+        }
+      }));
+
+      final recentFuture = Future.wait(onlineLibs.map((lib) async {
+        try {
+          final items = await PlexMediaService(server: lib.server!)
+              .getRecentlyAdded(lib.key, limit: 15, libraryType: lib.type)
+              .timeout(const Duration(seconds: 8));
+          if (items.isNotEmpty) {
+            _recentlyAddedByLibrary[lib.compositeId] = items.take(15).toList();
+            _cachedRecentlyAdded[lib.compositeId] = items.take(15).toList();
+            if (mounted) {
+              setState(() {
+                _heroItem ??= items.first;
+              });
+            }
+          }
+        } catch (_) {}
+      }));
+
+      final results = await Future.wait([cwFuture, recentFuture]);
+      final cwLists = results[0] as List<List<PlexMediaItem>>;
+      final continueWatching = <PlexMediaItem>[];
+      for (final list in cwLists) {
+        continueWatching.addAll(list);
+      }
+      final filteredContinueWatching = continueWatching.where(_isItemInFavoritedLibraries).toList();
+      filteredContinueWatching.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
+      _continueWatching = filteredContinueWatching;
+      _cachedContinueWatching = List.from(filteredContinueWatching);
 
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
         if (_heroItem!.ratingKey.isNotEmpty) {
           _fetchHeroFullMetadata(_heroItem!);
         }
-      }
-
-      // Fetch recently added for each library (limit to 15 on home screen)
-      for (final lib in libs) {
-        final items = await _mediaService.getRecentlyAdded(
-          lib.key,
-          limit: 15,
-          libraryType: lib.type,
-        );
-        _recentlyAddedByLibrary[lib.key] = items.take(15).toList();
-        if (_heroItem == null && items.isNotEmpty) {
-          _heroItem = items.first;
+      } else if (_heroItem == null) {
+        for (final lib in _libraries) {
+          final recents = _recentlyAddedByLibrary[lib.compositeId];
+          if (recents != null && recents.isNotEmpty) {
+            _heroItem = recents.first;
+            break;
+          }
         }
       }
 
@@ -366,9 +652,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _startMobileHeroTimer();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_isUpdateDialogOpen || ModalRoute.of(context)?.isCurrent != true) return;
+          if (_isUpdateDialogOpen || _isWelcomeTourOpen || ModalRoute.of(context)?.isCurrent != true) return;
           if (PlixDeviceHelper.isPhone(context)) return;
           if (!mounted) return;
+          final currentFocus = FocusScope.of(context).focusedChild;
+          final hasActiveFocus = currentFocus != null &&
+              currentFocus != FocusScope.of(context) &&
+              currentFocus.hasFocus;
+          if (hasActiveFocus) return;
+
           if (_continueWatching.isNotEmpty) {
             _heroPlayFocusNode.requestFocus();
           } else {
@@ -395,8 +687,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = reordered.map((l) => l.key).toList();
-      await prefs.setStringList('library_order_${widget.server.clientIdentifier}', keys);
+      final keys = reordered.map((l) => l.compositeId).toList();
+      await prefs.setStringList('plix_multi_server_library_order', keys);
     } catch (_) {}
   }
 
@@ -404,8 +696,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final list = <String>[];
     if (_continueWatching.isNotEmpty) list.add('continue_watching');
     for (final lib in _libraries) {
-      if (_recentlyAddedByLibrary[lib.key]?.isNotEmpty == true) {
-        list.add('lib_${lib.key}');
+      if (_recentlyAddedByLibrary[lib.compositeId]?.isNotEmpty == true) {
+        list.add('lib_${lib.compositeId}');
       }
     }
     return list;
@@ -427,6 +719,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (targetIdx >= 0 && targetIdx < rowIds.length) {
       final targetRowId = rowIds[targetIdx];
       final targetItemIndex = _rowLastFocusedIndices[targetRowId] ?? 0;
+      if (targetRowId == 'continue_watching') {
+        _lastFocusedRowId = 'continue_watching';
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _rowSectionKeys['continue_watching']?.currentState?.focusAt(targetItemIndex);
+          if (!_firstContinueWatchingFocusNode.hasFocus) {
+            _firstContinueWatchingFocusNode.requestFocus();
+          }
+        });
+        return;
+      }
       _rowSectionKeys[targetRowId]?.currentState?.focusAt(targetItemIndex);
     }
   }
@@ -466,6 +775,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Timer? _heroDebounceTimer;
+
   void _onRowItemFocused(PlexMediaItem item, BuildContext rowContext, String rowId, [FocusNode? node, bool isFirstRow = false, int? itemIndex]) {
     _heroViewMoreTitle = null;
     if (node != null) {
@@ -478,11 +789,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (rowChanged) {
       _lastFocusedRowId = rowId;
     }
-    setState(() {
-      _heroItem = item;
-    });
-    if (item.ratingKey.isNotEmpty) {
-      _fetchHeroFullMetadata(item);
+
+    _heroDebounceTimer?.cancel();
+    if (rowChanged) {
+      setState(() {
+        _heroItem = item;
+      });
+      if (item.ratingKey.isNotEmpty) {
+        _fetchHeroFullMetadata(item);
+      }
+    } else {
+      _heroDebounceTimer = Timer(const Duration(milliseconds: 140), () {
+        if (mounted) {
+          setState(() {
+            _heroItem = item;
+          });
+          if (item.ratingKey.isNotEmpty) {
+            _fetchHeroFullMetadata(item);
+          }
+        }
+      });
     }
 
     // Only scroll vertically when changing rows (not when navigating horizontally within the same row)
@@ -515,14 +841,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _openDetails(PlexMediaItem item) async {
     PlexMediaItem targetItem = item;
     String? seasonKey = item.targetSeasonKey;
+    final itemServer = item.server ?? widget.server;
+    final itemService = PlexMediaService(server: itemServer);
 
     if (item.targetType == 'episode' && item.targetRatingKey != null) {
       try {
-        final ep = await _mediaService.getItemMetadata(item.targetRatingKey!);
-        targetItem = ep;
+        final ep = await itemService.getItemMetadata(item.targetRatingKey!);
+        targetItem = ep.copyWith(server: itemServer);
       } catch (_) {
-        targetItem = item;
+        targetItem = item.copyWith(server: itemServer);
       }
+    } else {
+      targetItem = item.copyWith(server: itemServer);
     }
 
     if (!mounted) return;
@@ -536,7 +866,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => DetailsScreen(
           initialItem: targetItem,
           initialSeasonKey: seasonKey,
-          server: widget.server,
+          server: itemServer,
           clientId: _clientId,
         ),
       ),
@@ -549,27 +879,67 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String? openedRatingKey,
     String? previousFirstKey,
     bool forceFocusFirst = false,
+    bool keepSidebarFocus = false,
   }) async {
     try {
-      final cwFuture = _mediaService.getContinueWatching();
-      final recentlyAddedMap = <String, List<PlexMediaItem>>{};
-      final recentlyAddedFutures = _libraries.map((lib) async {
-        try {
-          final items = await _mediaService.getRecentlyAdded(
-            lib.key,
-            limit: 15,
-            libraryType: lib.type,
-          );
-          recentlyAddedMap[lib.key] = items.take(15).toList();
-        } catch (_) {}
-      });
+      List<PlexServer> targetServers = List.from(_activeServers);
+      if (targetServers.isEmpty) {
+        final token = await widget.authService.getSavedToken() ?? '';
+        final fetched = await widget.serverService.fetchServers(token);
+        await Future.wait(fetched.map((s) async {
+          try {
+            await widget.serverService.testAndResolveBestConnection(s);
+          } catch (_) {}
+        }));
+        targetServers = fetched;
+        _activeServers = targetServers;
+      }
 
-      final cw = await cwFuture;
-      await Future.wait(recentlyAddedFutures);
+      final Map<String, PlexServer> serverMap = {
+        for (final s in targetServers)
+          if (s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty)
+            s.clientIdentifier: s,
+      };
+      for (final lib in _libraries) {
+        if (lib.server != null &&
+            lib.server!.activeConnectionUri != null &&
+            lib.server!.activeConnectionUri!.isNotEmpty) {
+          serverMap[lib.server!.clientIdentifier] = lib.server!;
+        }
+      }
+      if (widget.server.activeConnectionUri != null &&
+          widget.server.activeConnectionUri!.isNotEmpty) {
+        serverMap[widget.server.clientIdentifier] = widget.server;
+      }
+      final onlineServers = serverMap.values.toList();
+
+      final cwServers = onlineServers.where((s) {
+        return _libraries.any((lib) => lib.serverId == s.clientIdentifier);
+      }).toList();
+      final targetCwServers = cwServers.isNotEmpty ? cwServers : onlineServers;
+
+      final cwLists = await Future.wait(targetCwServers.map((s) async {
+        try {
+          final serverLibKeys = _libraries
+              .where((l) => l.serverId == s.clientIdentifier)
+              .map((l) => l.key)
+              .toList();
+          return await PlexMediaService(server: s)
+              .getContinueWatching(libraryKeys: serverLibKeys);
+        } catch (_) {
+          return <PlexMediaItem>[];
+        }
+      }));
+      final cw = <PlexMediaItem>[];
+      for (final list in cwLists) {
+        cw.addAll(list);
+      }
+      final filteredCw = cw.where(_isItemInFavoritedLibraries).toList();
+      filteredCw.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
 
       if (mounted) {
         final oldFirst = _continueWatching.firstOrNull;
-        final newFirst = cw.firstOrNull;
+        final newFirst = filteredCw.firstOrNull;
         final newFirstKey = newFirst?.ratingKey;
         final continueWatchingChanged = oldFirst == null ||
             newFirst == null ||
@@ -579,24 +949,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final didItemMoveToFront = openedRatingKey != null &&
             newFirstKey != null &&
             newFirstKey != previousFirstKey &&
-            (newFirstKey == openedRatingKey || cw.any((it) => it.ratingKey == openedRatingKey && it.ratingKey == newFirstKey));
+            (newFirstKey == openedRatingKey || filteredCw.any((it) => it.ratingKey == openedRatingKey && it.ratingKey == newFirstKey));
 
         // After playback, the active Continue Watching item may be a later
         // episode (or even a different show). Keep the hero in sync with it.
         final shouldUpdateHero = openedRatingKey != null &&
-            cw.isNotEmpty &&
+            filteredCw.isNotEmpty &&
             continueWatchingChanged;
         final shouldFocusFirst = forceFocusFirst || didItemMoveToFront || shouldUpdateHero;
 
+        _cachedContinueWatching = List.from(filteredCw);
         setState(() {
-          _continueWatching = cw;
-          if (recentlyAddedMap.isNotEmpty) {
-            _recentlyAddedByLibrary.addAll(recentlyAddedMap);
-          }
-          if ((shouldFocusFirst || shouldUpdateHero) && cw.isNotEmpty) {
-            _heroItem = cw.first;
+          _continueWatching = filteredCw;
+          if ((shouldFocusFirst || shouldUpdateHero) && filteredCw.isNotEmpty) {
+            _heroItem = filteredCw.first;
           } else if (_heroItem != null) {
-            final match = cw.where((item) => item.ratingKey == _heroItem!.ratingKey);
+            final match = filteredCw.where((item) => item.ratingKey == _heroItem!.ratingKey);
             if (match.isNotEmpty) {
               _heroItem = match.first;
             }
@@ -606,11 +974,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _startMobileHeroTimer();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_isUpdateDialogOpen || ModalRoute.of(context)?.isCurrent != true) return;
+          if (_isUpdateDialogOpen || _isWelcomeTourOpen || ModalRoute.of(context)?.isCurrent != true) return;
           if (PlixDeviceHelper.isPhone(context)) return;
           if (!mounted) return;
           // Never steal focus if user currently has focus in sidebar nav or on a sidebar item!
-          if (_isSidebarFocused || _sidebarHomeFocusNode.hasFocus) {
+          if (keepSidebarFocus || _sidebarSettingsFocusNode.hasFocus || _isSidebarFocused || _sidebarHomeFocusNode.hasFocus) {
             return;
           }
           if (shouldFocusFirst) {
@@ -625,6 +993,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           }
         });
       }
+
+      // Concurrently update recently added in background without delaying Continue Watching
+      final recentlyAddedMap = <String, List<PlexMediaItem>>{};
+      final recentlyAddedFutures = _libraries.where((l) => l.isServerOnline && l.server != null).map((lib) async {
+        try {
+          final items = await PlexMediaService(server: lib.server!).getRecentlyAdded(
+            lib.key,
+            limit: 15,
+            libraryType: lib.type,
+          );
+          recentlyAddedMap[lib.compositeId] = items.take(15).toList();
+        } catch (_) {}
+      });
+      await Future.wait(recentlyAddedFutures);
+
+      if (mounted && recentlyAddedMap.isNotEmpty) {
+        setState(() {
+          _recentlyAddedByLibrary.addAll(recentlyAddedMap);
+        });
+      }
     } catch (_) {}
   }
 
@@ -634,7 +1022,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
           item: item,
-          server: widget.server,
+          server: item.server ?? widget.server,
           clientId: _clientId,
           initialPositionMs: item.viewOffset ?? 0,
         ),
@@ -651,7 +1039,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final servers = await widget.serverService.fetchServers(token);
     if (!mounted) return;
     NativePlayerService().stop();
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ServerSelectScreen(
           servers: servers,
@@ -661,13 +1049,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+    if (mounted) {
+      _initData();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _sidebarSwitchServerFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   void _signOut() async {
-    await widget.authService.logout();
-    if (widget.server.isJellyfin) {
-      await widget.serverService.removeServer(widget.server.clientIdentifier);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => const _SignOutDialog(),
+    );
+
+    if (confirmed != true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _sidebarSignOutFocusNode.canRequestFocus) {
+          _sidebarSignOutFocusNode.requestFocus();
+        }
+      });
+      return;
     }
+
+    await widget.authService.logout();
+    await widget.serverService.clearAllServers();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -685,7 +1094,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => LibraryScreen(
           library: lib,
-          server: widget.server,
+          server: lib.server ?? widget.server,
           clientId: _clientId,
         ),
       ),
@@ -695,20 +1104,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _openRecentlyAdded(PlexLibrary lib) {
-    final focusNode = _viewMoreFocusNodes[lib.key];
+    final focusNode = _viewMoreFocusNodes[lib.compositeId];
     NativePlayerService().stop();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RecentlyAddedScreen(
           library: lib,
-          server: widget.server,
+          server: lib.server ?? widget.server,
           clientId: _clientId,
         ),
       ),
     ).then((_) {
-      _refreshContinueWatching(forceFocusFirst: false);
-      if (focusNode != null && focusNode.canRequestFocus) {
-        focusNode.requestFocus();
+      if (mounted) {
+        setState(() {
+          _heroViewMoreTitle = null;
+          final items = _recentlyAddedByLibrary[lib.compositeId];
+          if (items != null && items.isNotEmpty) {
+            _heroItem = items.first;
+          }
+        });
+        _refreshContinueWatching(forceFocusFirst: false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (focusNode != null && focusNode.canRequestFocus) {
+            focusNode.requestFocus();
+          }
+        });
       }
     });
   }
@@ -759,7 +1179,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     ).then((_) {
-      _refreshContinueWatching(forceFocusFirst: false);
+      _initData();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _sidebarSettingsFocusNode.requestFocus();
+        }
+      });
     });
   }
 
@@ -871,7 +1296,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildMobileHero(BuildContext context, String heroBackdropUrl) {
     if (_heroItem == null) return const SizedBox.shrink();
     final item = _heroItem!;
-    final posterUrl = _mediaService.buildImageUrl(
+    final heroService = item.server != null ? PlexMediaService(server: item.server!) : _mediaService;
+    final posterUrl = heroService.buildImageUrl(
       item.thumb ?? item.art,
       width: PlixImageCache.mobileHeroWidth,
       height: PlixImageCache.mobileHeroHeight,
@@ -1358,8 +1784,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
+    final heroService = _heroItem?.server != null ? PlexMediaService(server: _heroItem!.server!) : _mediaService;
     final heroBackdropUrl = _heroItem != null
-        ? _mediaService.buildImageUrl(
+        ? heroService.buildImageUrl(
             _heroItem!.art ?? _heroItem!.thumb,
             width: 1920,
             height: 1080,
@@ -1535,7 +1962,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: PlixTheme.background,
         body: ExcludeFocus(
-          excluding: _isUpdateDialogOpen,
+          excluding: _isUpdateDialogOpen || _isWelcomeTourOpen,
           child: Focus(
           canRequestFocus: false,
           skipTraversal: true,
@@ -1548,51 +1975,82 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             }
             return KeyEventResult.ignored;
           },
-          child: Row(
+          child: Stack(
             children: [
-              SidebarNav(
-                currentServer: widget.server,
-                libraries: _libraries,
-                activeDestination: NavDestination.home,
-                homeFocusNode: _sidebarHomeFocusNode,
-                onLibrariesReordered: _saveLibraryOrder,
-                onFocusChange: (focused) => setState(() => _isSidebarFocused = focused),
-                onOpenSettings: _openSettings,
-                onDestinationSelected: (dest) {
-                  if (dest == NavDestination.home) {
-                    _refreshContinueWatching(forceFocusFirst: false);
-                    if (_lastFocusedContentNode != null &&
-                        _lastFocusedContentNode!.canRequestFocus) {
-                      _lastFocusedContentNode!.requestFocus();
-                    } else if (_heroPlayFocusNode.canRequestFocus) {
-                      _heroPlayFocusNode.requestFocus();
-                    }
-                  } else if (dest == NavDestination.search) {
-                    _openSearch();
-                  } else if (dest == NavDestination.watchlist) {
-                    _openWatchlist();
-                  }
-                },
-                onLibrarySelected: _openLibrary,
-                onSwitchServer: _switchServer,
-                onSignOut: _signOut,
-                onNavigateRight: () {
-                  if (_lastFocusedContentNode != null &&
-                      _lastFocusedContentNode!.canRequestFocus &&
-                      _lastFocusedContentNode!.context != null &&
-                      _lastFocusedContentNode!.context!.mounted) {
-                    _lastFocusedContentNode!.requestFocus();
-                    return;
-                  }
-                  if (_heroPlayFocusNode.canRequestFocus &&
-                      _heroPlayFocusNode.context != null &&
-                      _heroPlayFocusNode.context!.mounted) {
-                    _heroPlayFocusNode.requestFocus();
-                    return;
-                  }
-                },
+              Positioned.fill(
+                left: 72,
+                child: RepaintBoundary(
+                  child: mainContentArea,
+                ),
               ),
-              Expanded(child: mainContentArea),
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: 0,
+                child: RepaintBoundary(
+                  child: SidebarNav(
+                    currentServer: widget.server,
+                    libraries: _libraries,
+                    activeDestination: NavDestination.home,
+                    homeFocusNode: _sidebarHomeFocusNode,
+                    settingsFocusNode: _sidebarSettingsFocusNode,
+                    switchServerFocusNode: _sidebarSwitchServerFocusNode,
+                    signOutFocusNode: _sidebarSignOutFocusNode,
+                    onLibrariesReordered: _saveLibraryOrder,
+                    onFocusChange: (focused) => _isSidebarFocused = focused,
+                    onOpenSettings: _openSettings,
+                    onDestinationSelected: (dest) {
+                      if (dest == NavDestination.home) {
+                        _refreshContinueWatching(forceFocusFirst: false);
+                        if (_continueWatching.isNotEmpty) {
+                          if (_rowSectionKeys['continue_watching']?.currentState != null) {
+                            _rowSectionKeys['continue_watching']!.currentState!.focusAt(0);
+                          } else if (_firstContinueWatchingFocusNode.canRequestFocus) {
+                            _firstContinueWatchingFocusNode.requestFocus();
+                          }
+                        } else {
+                          final rowIds = _activeRowIds;
+                          if (rowIds.isNotEmpty) {
+                            _rowSectionKeys[rowIds.first]?.currentState?.focusAt(0);
+                          }
+                        }
+                      } else if (dest == NavDestination.search) {
+                        _openSearch();
+                      } else if (dest == NavDestination.watchlist) {
+                        _openWatchlist();
+                      }
+                    },
+                    onLibrarySelected: _openLibrary,
+                    onSwitchServer: _switchServer,
+                    onSignOut: _signOut,
+                    onNavigateRight: () {
+                      if (_lastFocusedContentNode != null &&
+                          _lastFocusedContentNode!.canRequestFocus &&
+                          _lastFocusedContentNode!.context != null &&
+                          _lastFocusedContentNode!.context!.mounted) {
+                        _lastFocusedContentNode!.requestFocus();
+                        return;
+                      }
+                      if (_heroPlayFocusNode.canRequestFocus &&
+                          _heroPlayFocusNode.context != null &&
+                          _heroPlayFocusNode.context!.mounted) {
+                        _heroPlayFocusNode.requestFocus();
+                        return;
+                      }
+                      if (_continueWatching.isNotEmpty) {
+                        _rowSectionKeys['continue_watching']?.currentState?.focusAt(0);
+                        return;
+                      }
+                      final rowIds = _activeRowIds;
+                      if (rowIds.isNotEmpty) {
+                        final targetRow = rowIds.first;
+                        final targetIdx = _rowLastFocusedIndices[targetRow] ?? 0;
+                        _rowSectionKeys[targetRow]?.currentState?.focusAt(targetIdx);
+                      }
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1616,6 +2074,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             icon: Icons.history_rounded,
             items: _continueWatching,
             mediaService: _mediaService,
+            hasTopServerName: isMultiServer,
             autofocusFirst: false,
             isFirstRow: true,
             firstItemFocusNode: _firstContinueWatchingFocusNode,
@@ -1636,23 +2095,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (final lib in _libraries)
-                if (_recentlyAddedByLibrary[lib.key]?.isNotEmpty == true)
+                if (_recentlyAddedByLibrary[lib.compositeId]?.isNotEmpty == true)
                   Builder(builder: (context) {
                     final isTopRecentlyAdded = !firstRowFound;
                     firstRowFound = true;
-                    final viewMoreNode = _viewMoreFocusNodes.putIfAbsent(lib.key, () => FocusNode());
-                    final rowId = 'lib_${lib.key}';
+                    final viewMoreNode = _viewMoreFocusNodes.putIfAbsent(lib.compositeId, () => FocusNode());
+                    final rowId = 'lib_${lib.compositeId}';
+                    final serverLabel = (isMultiServer && lib.serverName != null && lib.serverName!.isNotEmpty) ? ' (${lib.serverName})' : '';
                     return _HomeRowSection(
                       key: _rowSectionKeys.putIfAbsent(rowId, () => GlobalKey<_HomeRowSectionState>()),
                       rowId: rowId,
-                      title: 'Recently Added in ${lib.title}',
+                      title: 'Recently Added in ${lib.title}$serverLabel',
                       icon: lib.isMovie
                           ? Icons.movie_outlined
                           : Icons.tv_outlined,
                       onViewMore: () => _openRecentlyAdded(lib),
                       viewMoreFocusNode: viewMoreNode,
-                      items: _recentlyAddedByLibrary[lib.key]!.take(15).toList(),
-                      mediaService: _mediaService,
+                      items: _recentlyAddedByLibrary[lib.compositeId]!.take(15).toList(),
+                      mediaService: lib.server != null ? PlexMediaService(server: lib.server!) : _mediaService,
                       autofocusFirst: _continueWatching.isEmpty && isTopRecentlyAdded,
                       isFirstRow: _continueWatching.isEmpty && isTopRecentlyAdded,
                       onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
@@ -1702,6 +2162,7 @@ class _HomeRowSection extends StatefulWidget {
   final VoidCallback? onRowDown;
   final bool isLastRow;
   final String? highlightedItemId;
+  final bool hasTopServerName;
 
   final void Function(PlexMediaItem item, bool isHovered)? onItemHovered;
 
@@ -1714,6 +2175,7 @@ class _HomeRowSection extends StatefulWidget {
     this.viewMoreFocusNode,
     required this.items,
     required this.mediaService,
+    this.hasTopServerName = false,
     this.autofocusFirst = false,
     this.isFirstRow = false,
     this.firstItemFocusNode,
@@ -1887,7 +2349,12 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
               ),
             ),
             SizedBox(
-              height: isCompact ? 245 : 230,
+              height: widget.rowId == 'continue_watching'
+                  ? (widget.hasTopServerName ? (isCompact ? 10 : 14) : (isCompact ? 8 : 10))
+                  : (isCompact ? 8 : 8),
+            ),
+            SizedBox(
+              height: widget.hasTopServerName ? (isCompact ? 268 : 252) : (isCompact ? 245 : 230),
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
@@ -1904,11 +2371,17 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                     final itemNode = _focusNodeAt(index);
 
                     final isHighlightedCard = isCompact && widget.highlightedItemId != null && item.ratingKey == widget.highlightedItemId;
+                    final itemService = (item.server != null && item.server != widget.mediaService.server)
+                        ? PlexMediaService(server: item.server!)
+                        : widget.mediaService;
+                    final serverName = item.server?.name ?? (item.server?.isJellyfin == true ? 'Jellyfin' : 'Plex');
                     return MediaCard(
+                      key: ValueKey('${item.server?.clientIdentifier ?? "srv"}_${item.ratingKey}_${item.viewOffset ?? 0}'),
                       enableHighlight: !isCompact || isHighlightedCard,
                       isForcedHighlighted: isHighlightedCard,
                       item: item,
-                      mediaService: widget.mediaService,
+                      mediaService: itemService,
+                      topServerName: widget.hasTopServerName ? serverName : null,
                       autofocus: widget.autofocusFirst && isFirst,
                       focusNode: itemNode,
                       width: isCompact ? 120 : 112,
@@ -2149,6 +2622,447 @@ class _ViewMoreCardState extends State<_ViewMoreCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+class _SignOutDialog extends StatefulWidget {
+  const _SignOutDialog();
+
+  @override
+  State<_SignOutDialog> createState() => _SignOutDialogState();
+}
+
+class _SignOutDialogState extends State<_SignOutDialog> {
+  final FocusNode _cancelFocusNode = FocusNode();
+  final FocusNode _signOutFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _cancelFocusNode.dispose();
+    _signOutFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: PlixTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: PlixTheme.cardBorder, width: 1.2),
+      ),
+      title: const Row(
+        children: [
+          Icon(Icons.logout_rounded, color: Colors.white70, size: 24),
+          SizedBox(width: 10),
+          Text(
+            'Sign Out',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'Are you sure you want to sign out? This will sign you out of all connected servers.',
+        style: TextStyle(
+          color: PlixTheme.textSecondary,
+          fontSize: 14,
+          height: 1.4,
+        ),
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PlixButton(
+                focusNode: _signOutFocusNode,
+                label: 'Sign Out',
+                isPrimary: false,
+                autofocus: false,
+                backgroundColor: PlixTheme.surface,
+                highlightColor: PlixTheme.cardFocused,
+                borderColor: PlixTheme.cardBorder,
+                textColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                onUp: () {},
+                onDown: () => _cancelFocusNode.requestFocus(),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: 12),
+              PlixButton(
+                focusNode: _cancelFocusNode,
+                label: 'Cancel',
+                isPrimary: false,
+                autofocus: true,
+                backgroundColor: PlixTheme.surface,
+                highlightColor: PlixTheme.cardFocused,
+                borderColor: PlixTheme.cardBorder,
+                textColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                onUp: () => _signOutFocusNode.requestFocus(),
+                onDown: () {},
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+class _WelcomeTourDialog extends StatefulWidget {
+  const _WelcomeTourDialog();
+
+  @override
+  State<_WelcomeTourDialog> createState() => _WelcomeTourDialogState();
+}
+
+class _WelcomeTourDialogState extends State<_WelcomeTourDialog> {
+  final FocusNode _getStartedFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _getStartedFocusNode.canRequestFocus) {
+        _getStartedFocusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _getStartedFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompact = PlixDeviceHelper.isCompact(context);
+    final isTv = PlixDeviceHelper.isTelevision;
+    final isMobile = !isTv && (isCompact || Platform.isAndroid || Platform.isIOS);
+
+    return PopScope(
+      canPop: true,
+      child: FocusScope(
+        autofocus: true,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : (isTv ? 48 : 40),
+            vertical: isCompact ? 20 : 28,
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: isTv ? 800 : (isCompact ? 380 : 580),
+              maxHeight: MediaQuery.of(context).size.height * 0.90,
+            ),
+            decoration: BoxDecoration(
+              color: PlixTheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: PlixTheme.cardBorder, width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 20 : (isTv ? 28 : 28),
+                      vertical: isCompact ? 16 : (isTv ? 16 : 20),
+                    ),
+                    decoration: BoxDecoration(
+                      color: PlixTheme.background.withOpacity(0.5),
+                      border: Border(bottom: BorderSide(color: PlixTheme.cardBorder)),
+                    ),
+                    child: Row(
+                      children: [
+                        PlixAppLogo(size: isTv ? 38 : 44, glow: true, borderRadius: 10),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  PlixWordmark(fontSize: isTv ? 22 : 24),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: PlixTheme.plexGold.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                                    ),
+                                    child: Text(
+                                      isTv ? 'TV EDITION' : (isMobile ? 'MOBILE' : 'DESKTOP'),
+                                      style: TextStyle(
+                                        color: PlixTheme.plexGold,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                isTv
+                                    ? 'Welcome to your big-screen media client.'
+                                    : (isMobile
+                                        ? 'Welcome to your personal media player.'
+                                        : 'Welcome to your desktop media client.'),
+                                style: const TextStyle(
+                                  color: PlixTheme.textSecondary,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Feature highlights:
+                  // For TV: ALL features fit on screen at once in a 2x2 grid. NO scrolling list!
+                  if (isTv)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _buildFeatureCard(
+                                  icon: Icons.palette_rounded,
+                                  accentColor: PlixTheme.plexGold,
+                                  title: 'Atmosphere Themes & Styles',
+                                  description:
+                                      '16 atmosphere presets—from crystal Liquid Glass to Midnight, Aurora, and Abyssal Depth—plus custom accent colors.',
+                                  isTv: true,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _buildFeatureCard(
+                                  icon: Icons.dns_rounded,
+                                  accentColor: const Color(0xFF8E51DC),
+                                  title: 'Unified Multi-Server Experience',
+                                  description:
+                                      'Connect multiple Plex and Jellyfin servers simultaneously. Blend your favorite libraries and Continue Watching.',
+                                  isTv: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _buildFeatureCard(
+                                  icon: Icons.tv_rounded,
+                                  accentColor: Colors.amberAccent,
+                                  title: 'Living Room D-Pad Navigation',
+                                  description:
+                                      'Optimized directional remote controls with focus retention, quick scrub progress bar, and instant track selectors.',
+                                  isTv: true,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: _buildFeatureCard(
+                                  icon: Icons.high_quality_rounded,
+                                  accentColor: Colors.lightBlueAccent,
+                                  title: '4K HDR & Direct Audio Passthrough',
+                                  description:
+                                      'Direct Play high-bitrate 4K HDR10 and Dolby Vision streams with bitstream audio passthrough for receiver surround sound.',
+                                  isTv: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    // Mobile / Desktop: Clean column
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isCompact ? 20 : 28,
+                          vertical: 20,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildFeatureCard(
+                              icon: Icons.palette_rounded,
+                              accentColor: PlixTheme.plexGold,
+                              title: 'Atmosphere Themes & Visual Styles',
+                              description:
+                                  'Customize your look with 16 atmosphere presets—from crystal Liquid Glass to Midnight, Aurora, and Abyssal Depth—plus custom accent colors.',
+                            ),
+                            const SizedBox(height: 14),
+                            _buildFeatureCard(
+                              icon: Icons.dns_rounded,
+                              accentColor: const Color(0xFF8E51DC),
+                              title: 'Unified Multi-Server Experience',
+                              description:
+                                  'Connect multiple Plex and Jellyfin servers simultaneously. Blend your favorite libraries and Continue Watching in one place.',
+                            ),
+                            const SizedBox(height: 14),
+                            if (isMobile) ...[
+                              _buildFeatureCard(
+                                icon: Icons.swipe_vertical_rounded,
+                                accentColor: Colors.cyanAccent,
+                                title: 'Swipe Gestures for Brightness & Volume',
+                                description:
+                                    'Swipe vertically on the left side of the player to adjust screen brightness, and on the right side to adjust volume smoothly.',
+                              ),
+                              const SizedBox(height: 14),
+                              _buildFeatureCard(
+                                icon: Icons.picture_in_picture_alt_rounded,
+                                accentColor: Colors.greenAccent,
+                                title: 'Picture-in-Picture (PiP) Multitasking',
+                                description:
+                                    'Keep watching in a floating player overlay while browsing other apps or checking messages.',
+                              ),
+                            ] else ...[
+                              _buildFeatureCard(
+                                icon: Icons.keyboard_rounded,
+                                accentColor: Colors.tealAccent,
+                                title: 'Keyboard Shortcuts & Quick Controls',
+                                description:
+                                    'Full keyboard navigation, Spacebar play/pause, arrow scrubbing, and double-click fullscreen toggles.',
+                              ),
+                              const SizedBox(height: 14),
+                              _buildFeatureCard(
+                                icon: Icons.high_quality_rounded,
+                                accentColor: Colors.deepPurpleAccent,
+                                title: 'Direct Hardware Playback',
+                                description:
+                                    'Seamless hardware-accelerated playback supporting native direct streams and multi-codec audio channels.',
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Bottom Button with locked focus
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 20 : 28,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: PlixTheme.background.withOpacity(0.3),
+                      border: Border(top: BorderSide(color: PlixTheme.cardBorder)),
+                    ),
+                    child: PlixButton(
+                      focusNode: _getStartedFocusNode,
+                      autofocus: true,
+                      blockUp: true,
+                      blockDown: true,
+                      blockLeft: true,
+                      blockRight: true,
+                      label: 'Get Started',
+                      isPrimary: true,
+                      backgroundColor: PlixTheme.plexGold,
+                      highlightColor: const Color(0xFFFFB82E),
+                      borderColor: PlixTheme.plexGold,
+                      textColor: Colors.black,
+                      fontSize: 15,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required Color accentColor,
+    required String title,
+    required String description,
+    bool isTv = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(isTv ? 12 : 14),
+      decoration: BoxDecoration(
+        color: PlixTheme.cardFocused.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PlixTheme.cardBorder.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: accentColor, size: isTv ? 20 : 22),
+          ),
+          SizedBox(width: isTv ? 10 : 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: PlixTheme.textPrimary,
+                    fontSize: isTv ? 13 : 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: PlixTheme.textSecondary,
+                    fontSize: isTv ? 11.5 : 12.5,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

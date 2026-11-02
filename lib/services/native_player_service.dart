@@ -329,6 +329,21 @@ class NativePlayerService {
     }
   }
 
+  Future<List<String>> getSupportedAudioFormats() async {
+    if (useMediaKit) {
+      return [
+        'aac', 'mp3', 'flac', 'opus', 'vorbis', 'pcm', 'wav', 'alac',
+        'ac3', 'eac3', 'truehd', 'dts', 'dts-hd', 'dca', 'ac4'
+      ];
+    }
+    try {
+      final res = await _channel.invokeListMethod<String>('getSupportedAudioFormats');
+      return res ?? ['aac', 'mp3', 'flac', 'opus', 'vorbis', 'pcm', 'wav', 'alac', 'ac3', 'eac3'];
+    } catch (_) {
+      return ['aac', 'mp3', 'flac', 'opus', 'vorbis', 'pcm', 'wav', 'alac', 'ac3', 'eac3'];
+    }
+  }
+
   Future<void> play({
     required String url,
     Map<String, String>? headers,

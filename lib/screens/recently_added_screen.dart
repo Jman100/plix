@@ -355,16 +355,21 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Recently Added in ${widget.library.title}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: PlixTheme.textPrimary,
-                          fontSize: isCompact ? 16 : 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: Builder(builder: (context) {
+                        final serverLabel = widget.library.serverName != null && widget.library.serverName!.isNotEmpty
+                            ? widget.library.serverName!
+                            : widget.server.name;
+                        return Text(
+                          'Recently Added in ${widget.library.title} ($serverLabel)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: PlixTheme.textPrimary,
+                            fontSize: isCompact ? 16 : 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }),
                     ),
                     if (!_isLoading && _items.isNotEmpty) ...[
                       const SizedBox(width: 10),

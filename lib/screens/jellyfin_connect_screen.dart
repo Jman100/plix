@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'favorite_libraries_screen.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +11,8 @@ import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
 import '../services/update_service.dart';
 import '../widgets/brand_logo.dart';
-import 'home_screen.dart';
+import '../widgets/plix_back_button.dart';
+import '../widgets/plix_home_button.dart';
 
 class JellyfinConnectScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -51,6 +54,11 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _connectBtnFocusNode.canRequestFocus) {
+        _connectBtnFocusNode.requestFocus();
+      }
+    });
     _startLanDiscovery();
   }
 
@@ -191,14 +199,20 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
       await widget.serverService.saveJellyfinServer(server);
       await widget.serverService.setActiveServerId(server.clientIdentifier);
 
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('plix_is_fresh_install') == true) {
+        await prefs.setBool('plix_fresh_install_pending_tour', true);
+      }
+
       if (!mounted) return;
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => HomeScreen(
-            server: server,
+          builder: (_) => FavoriteLibrariesScreen(
             authService: widget.authService,
             serverService: widget.serverService,
+            primaryServer: server,
+            isInitialSetup: true,
           ),
         ),
         (route) => false,
@@ -231,11 +245,38 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 16),
+                child: Row(
+                  children: [
+                    PlixBackButton(
+                      focusNode: _backBtnFocusNode,
+                      onRight: () => _homeBtnFocusNode.requestFocus(),
+                      onDown: () => _isStep2QuickConnect ? _cancelBtnFocusNode.requestFocus() : _urlFocusNode.requestFocus(),
+                    ),
+                    const SizedBox(width: 10),
+                    PlixHomeButton(
+                      focusNode: _homeBtnFocusNode,
+                      onLeft: () => _backBtnFocusNode.requestFocus(),
+                      onDown: () => _isStep2QuickConnect ? _cancelBtnFocusNode.requestFocus() : _urlFocusNode.requestFocus(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 20 : 30),
+                padding: EdgeInsets.only(
+                  left: isCompact ? 16 : 40,
+                  right: isCompact ? 16 : 40,
+                  top: isCompact ? 70 : 80,
+                  bottom: isCompact ? 20 : 30,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 580),
                   child: _isStep2QuickConnect
@@ -311,58 +352,100 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
           ),
         ],
 
-        // URL Input Field with clear focus outline
-        AnimatedBuilder(
-          animation: _urlFocusNode,
-          builder: (context, _) {
-            final isFocused = _urlFocusNode.hasFocus;
-            return Container(
-              decoration: BoxDecoration(
-                color: PlixTheme.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isFocused ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
-                  width: isFocused ? 2.5 : 1.0,
-                ),
-                boxShadow: isFocused
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF8E51DC).withOpacity(0.35),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: TextField(
-                controller: _urlController,
-                focusNode: _urlFocusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                decoration: const InputDecoration(
-                  hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
-                  hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.dns_rounded, color: Color(0xFF8E51DC)),
-                ),
-                onSubmitted: (val) => _onConnectServer(val),
-              ),
-            );
+        // URL Input Field with clear focus outline and D-Pad trap prevention
+        Focus(
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                _connectBtnFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                _backBtnFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                   event.logicalKey == LogicalKeyboardKey.select ||
+                   event.logicalKey == LogicalKeyboardKey.space ||
+                   event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                SystemChannels.textInput.invokeMethod('TextInput.show');
+              }
+            }
+            return KeyEventResult.ignored;
           },
+          child: AnimatedBuilder(
+            animation: _urlFocusNode,
+            builder: (context, _) {
+              final isFocused = _urlFocusNode.hasFocus;
+              return Container(
+                decoration: BoxDecoration(
+                  color: PlixTheme.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isFocused ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
+                    width: isFocused ? 2.5 : 1.0,
+                  ),
+                  boxShadow: isFocused
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF8E51DC).withOpacity(0.35),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: TextField(
+                  controller: _urlController,
+                  focusNode: _urlFocusNode,
+                  keyboardType: TextInputType.url,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  decoration: const InputDecoration(
+                    hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
+                    hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    border: InputBorder.none,
+                    prefixIcon: Icon(Icons.dns_rounded, color: Color(0xFF8E51DC)),
+                  ),
+                  onTap: () {
+                    SystemChannels.textInput.invokeMethod('TextInput.show');
+                  },
+                  onSubmitted: (val) => _onConnectServer(val),
+                ),
+              );
+            },
+          ),
         ),
         const SizedBox(height: 20),
 
         // Connect Button with clear focus outline
         Focus(
           focusNode: _connectBtnFocusNode,
+          autofocus: true,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                 event.logicalKey == LogicalKeyboardKey.select ||
-                 event.logicalKey == LogicalKeyboardKey.space ||
-                 event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              _onConnectServer(_urlController.text);
-              return KeyEventResult.handled;
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                _urlFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                if (_discoveredServers.isNotEmpty) {
+                  final srvKey = _discoveredServers.first.id.isNotEmpty
+                      ? _discoveredServers.first.id
+                      : _discoveredServers.first.address;
+                  _lanServerFocusNodes[srvKey]?.requestFocus();
+                  return KeyEventResult.handled;
+                }
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                   event.logicalKey == LogicalKeyboardKey.select ||
+                   event.logicalKey == LogicalKeyboardKey.space ||
+                   event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                _onConnectServer(_urlController.text);
+                return KeyEventResult.handled;
+              }
             }
             return KeyEventResult.ignored;
           },
@@ -427,31 +510,58 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
           ),
           const SizedBox(height: 10),
           Column(
-            children: _discoveredServers.map((srv) {
-              final srvKey = srv.id.isNotEmpty ? srv.id : srv.address;
-              final focusNode = _lanServerFocusNodes.putIfAbsent(srvKey, () => FocusNode());
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: _DiscoveredServerTile(
-                  server: srv,
-                  focusNode: focusNode,
-                  onTap: () {
-                    _urlController.text = srv.address;
-                    _onConnectServer(srv.address);
-                  },
-                ),
-              );
-            }).toList(),
+            children: [
+              for (int i = 0; i < _discoveredServers.length; i++) ...[
+                Builder(builder: (context) {
+                  final srv = _discoveredServers[i];
+                  final srvKey = srv.id.isNotEmpty ? srv.id : srv.address;
+                  final focusNode = _lanServerFocusNodes.putIfAbsent(srvKey, () => FocusNode());
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: _DiscoveredServerTile(
+                      server: srv,
+                      focusNode: focusNode,
+                      onUp: () {
+                        if (i == 0) {
+                          _connectBtnFocusNode.requestFocus();
+                        } else {
+                          final prevKey = _discoveredServers[i - 1].id.isNotEmpty
+                              ? _discoveredServers[i - 1].id
+                              : _discoveredServers[i - 1].address;
+                          _lanServerFocusNodes[prevKey]?.requestFocus();
+                        }
+                      },
+                      onDown: () {
+                        if (i < _discoveredServers.length - 1) {
+                          final nextKey = _discoveredServers[i + 1].id.isNotEmpty
+                              ? _discoveredServers[i + 1].id
+                              : _discoveredServers[i + 1].address;
+                          _lanServerFocusNodes[nextKey]?.requestFocus();
+                        }
+                      },
+                      onTap: () {
+                        _urlController.text = srv.address;
+                        _onConnectServer(srv.address);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ],
           ),
         ] else if (_isScanningLAN) ...[
           const Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)),
               SizedBox(width: 10),
-              Text(
-                'Scanning local network for Jellyfin servers...',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+              Flexible(
+                child: Text(
+                  'Scanning local network for Jellyfin servers...',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -638,11 +748,15 @@ class _DiscoveredServerTile extends StatefulWidget {
   final JellyfinServerInfo server;
   final VoidCallback onTap;
   final FocusNode focusNode;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
 
   const _DiscoveredServerTile({
     required this.server,
     required this.onTap,
     required this.focusNode,
+    this.onUp,
+    this.onDown,
   });
 
   @override
@@ -694,13 +808,23 @@ class _DiscoveredServerTileState extends State<_DiscoveredServerTile> {
     return Focus(
       focusNode: widget.focusNode,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.enter ||
-             event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.space ||
-             event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-          widget.onTap();
-          return KeyEventResult.handled;
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+            widget.onUp!();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown && widget.onDown != null) {
+            widget.onDown!();
+            return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+               event.logicalKey == LogicalKeyboardKey.select ||
+               event.logicalKey == LogicalKeyboardKey.space ||
+               event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },

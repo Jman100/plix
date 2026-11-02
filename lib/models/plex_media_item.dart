@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'plex_server.dart';
 
 class PlexSubtitleStream {
   final String id;
@@ -241,6 +242,11 @@ class PlexMediaItem {
   final List<MediaPerson> people;
   final String? filePath;
   final int? fileSize;
+  final PlexServer? server;
+  final String? serverId;
+  final String? librarySectionId;
+  final String? librarySectionTitle;
+  final List<String> ancestorIds;
 
   const PlexMediaItem({
     required this.ratingKey,
@@ -306,6 +312,11 @@ class PlexMediaItem {
     this.people = const [],
     this.filePath,
     this.fileSize,
+    this.server,
+    this.serverId,
+    this.librarySectionId,
+    this.librarySectionTitle,
+    this.ancestorIds = const [],
   });
 
   bool get isMovie => type == 'movie';
@@ -965,6 +976,20 @@ class PlexMediaItem {
 
     final parsedRatingKey = json['ratingKey']?.toString() ?? json['id']?.toString() ?? '';
     final parsedKey = json['key']?.toString() ?? (parsedRatingKey.isNotEmpty ? '/library/metadata/$parsedRatingKey' : '');
+    final parsedLibrarySectionId = json['librarySectionID']?.toString() ??
+        json['librarySectionId']?.toString() ??
+        json['librarySectionKey']?.toString().replaceFirst('/library/sections/', '');
+    final parsedLibrarySectionTitle = json['librarySectionTitle']?.toString();
+    final rawAncestors = json['AncestorIds'] ?? json['ancestorIds'];
+    final List<String> parsedAncestors = [];
+    if (rawAncestors is List) {
+      for (final a in rawAncestors) {
+        if (a != null) {
+          final s = a.toString().trim();
+          if (s.isNotEmpty) parsedAncestors.add(s);
+        }
+      }
+    }
 
     return PlexMediaItem(
       ratingKey: parsedRatingKey,
@@ -1047,6 +1072,9 @@ class PlexMediaItem {
       people: people,
       filePath: fPath,
       fileSize: fSize,
+      librarySectionId: parsedLibrarySectionId,
+      librarySectionTitle: parsedLibrarySectionTitle,
+      ancestorIds: parsedAncestors,
     );
   }
 
@@ -1113,6 +1141,11 @@ class PlexMediaItem {
     List<MediaPerson>? people,
     String? filePath,
     int? fileSize,
+    PlexServer? server,
+    String? serverId,
+    String? librarySectionId,
+    String? librarySectionTitle,
+    List<String>? ancestorIds,
   }) {
     return PlexMediaItem(
       ratingKey: ratingKey ?? this.ratingKey,
@@ -1178,6 +1211,11 @@ class PlexMediaItem {
       people: people ?? this.people,
       filePath: filePath ?? this.filePath,
       fileSize: fileSize ?? this.fileSize,
+      server: server ?? this.server,
+      serverId: serverId ?? this.serverId,
+      librarySectionId: librarySectionId ?? this.librarySectionId,
+      librarySectionTitle: librarySectionTitle ?? this.librarySectionTitle,
+      ancestorIds: ancestorIds ?? this.ancestorIds,
     );
   }
 }

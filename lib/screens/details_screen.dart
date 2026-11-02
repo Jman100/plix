@@ -418,10 +418,17 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
               focusEpisodeKey: targetEpToFocus,
               focusFirstEpisode: widget.initialEpisodeKey != null,
             );
-            if (targetEpToFocus == null && ((Platform.isWindows || Platform.isLinux) || (!restoreFocus && _lastPlayedEpisodeKey == null))) {
+            final currentFocus = FocusScope.of(context).focusedChild;
+            final hasActiveFocus = currentFocus != null &&
+                currentFocus != FocusScope.of(context) &&
+                currentFocus.hasFocus;
+            if (!hasActiveFocus && targetEpToFocus == null && ((Platform.isWindows || Platform.isLinux) || (!restoreFocus && _lastPlayedEpisodeKey == null))) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && _showPlayFocusNode.canRequestFocus) {
-                  _showPlayFocusNode.requestFocus();
+                  final focusNow = FocusScope.of(context).focusedChild;
+                  if (focusNow == null || focusNow == FocusScope.of(context) || !focusNow.hasFocus) {
+                    _showPlayFocusNode.requestFocus();
+                  }
                 }
               });
             }
@@ -470,7 +477,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     )
         .then((_) {
       if (mounted) {
-        _loadFullDetails(restoreFocus: true);
+        _lastPlayedEpisodeKey = null;
+        _loadFullDetails(restoreFocus: false);
       }
     });
   }
@@ -747,7 +755,12 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           });
         } else if (focusEpisodeKey != null && _episodeFocusNodes.containsKey(focusEpisodeKey)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _episodeFocusNodes[focusEpisodeKey]?.canRequestFocus == true) {
+            if (!mounted) return;
+            final currentFocus = FocusScope.of(context).focusedChild;
+            final hasActiveFocus = currentFocus != null &&
+                currentFocus != FocusScope.of(context) &&
+                currentFocus.hasFocus;
+            if (!hasActiveFocus && _episodeFocusNodes[focusEpisodeKey]?.canRequestFocus == true) {
               _episodeFocusNodes[focusEpisodeKey]?.requestFocus();
             }
           });
@@ -1000,6 +1013,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final rawShowKey = _item.grandparentRatingKey;
     if (rawShowKey == null || rawShowKey.isEmpty) return;
     final showKey = ThemeMusicService.normalizeKey(rawShowKey);
+    final targetServer = _item.server ?? widget.server;
     final seriesItem = PlexMediaItem(
       ratingKey: showKey,
       key: '/library/metadata/$showKey',
@@ -1008,13 +1022,14 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       thumb: _item.grandparentThumb,
       art: _item.art,
       theme: _item.theme,
+      server: targetServer,
     );
     Navigator.of(context)
         .push(
       MaterialPageRoute(
         builder: (_) => DetailsScreen(
           initialItem: seriesItem,
-          server: widget.server,
+          server: targetServer,
           clientId: widget.clientId,
         ),
       ),

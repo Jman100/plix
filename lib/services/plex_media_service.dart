@@ -159,7 +159,7 @@ class PlexMediaService {
       return _jfService.getLibraries();
     }
     final url = Uri.parse('$baseUrl/library/sections');
-    final response = await http.get(url, headers: _headers);
+    final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
 
     if (response.statusCode != 200) {
       throw Exception('Failed to fetch libraries: ${response.statusCode}');
@@ -170,7 +170,13 @@ class PlexMediaService {
     final dirList = container['Directory'] as List<dynamic>? ?? [];
 
     return dirList
-        .map((d) => PlexLibrary.fromJson(d as Map<String, dynamic>))
+        .map((d) => PlexLibrary.fromJson(d as Map<String, dynamic>).copyWith(
+              serverId: server.clientIdentifier,
+              serverName: server.name,
+              isJellyfin: false,
+              server: server,
+              isServerOnline: true,
+            ))
         .where((lib) => lib.isMovie || lib.isShow)
         .toList();
   }
@@ -241,21 +247,28 @@ class PlexMediaService {
     return keys;
   }
 
-  final Map<String, PlexMediaItem> _metadataCache = {};
-  final Map<String, PlexMediaItem> _detailedMetadataCache = {};
+  static final Map<String, PlexMediaItem> _metadataCache = {};
+  static final Map<String, PlexMediaItem> _detailedMetadataCache = {};
 
-  PlexMediaItem? getCachedMetadata(String ratingKey) => _metadataCache[ratingKey];
-  PlexMediaItem? getDetailedCachedMetadata(String ratingKey) => _detailedMetadataCache[ratingKey];
+  String _cacheKey(String ratingKey) => '${server.clientIdentifier}_$ratingKey';
+
+  PlexMediaItem? getCachedMetadata(String ratingKey) =>
+      _metadataCache[_cacheKey(ratingKey)] ?? _metadataCache[ratingKey];
+  PlexMediaItem? getDetailedCachedMetadata(String ratingKey) =>
+      _detailedMetadataCache[_cacheKey(ratingKey)] ?? _detailedMetadataCache[ratingKey];
 
   void cacheMetadata(PlexMediaItem item) {
     if (item.ratingKey.isNotEmpty) {
+      _metadataCache[_cacheKey(item.ratingKey)] = item;
       _metadataCache[item.ratingKey] = item;
     }
   }
 
   void invalidateCache([String? ratingKey]) {
     if (ratingKey != null) {
+      _metadataCache.remove(_cacheKey(ratingKey));
       _metadataCache.remove(ratingKey);
+      _detailedMetadataCache.remove(_cacheKey(ratingKey));
       _detailedMetadataCache.remove(ratingKey);
     } else {
       _metadataCache.clear();
@@ -298,14 +311,14 @@ class PlexMediaService {
     return null;
   }
 
-  Future<List<PlexMediaItem>> getContinueWatching() async {
+  Future<List<PlexMediaItem>> getContinueWatching({List<String>? libraryKeys}) async {
     if (server.isJellyfin) {
-      return _jfService.getContinueWatching();
+      return _jfService.getContinueWatching(libraryKeys: libraryKeys);
     }
     final List<PlexMediaItem> rawList = [];
     final url = Uri.parse('$baseUrl/hubs/continueWatching?includeStreams=1&includeGuids=1');
     try {
-      final response = await http.get(url, headers: _headers);
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
@@ -334,7 +347,7 @@ class PlexMediaService {
     if (rawList.isEmpty) {
       try {
         final fallbackUrl = Uri.parse('$baseUrl/library/onDeck?includeStreams=1&includeGuids=1');
-        final response = await http.get(fallbackUrl, headers: _headers);
+        final response = await http.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 8));
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final container = data['MediaContainer'] as Map<String, dynamic>? ?? {};
@@ -348,7 +361,9 @@ class PlexMediaService {
       } catch (_) {}
     }
 
-    return deduplicateContinueWatching(rawList);
+    return deduplicateContinueWatching(rawList)
+        .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
+        .toList();
   }
 
   Future<List<PlexMediaItem>> getRecentlyAdded(
@@ -358,7 +373,9 @@ class PlexMediaService {
   }) async {
     if (server.isJellyfin) {
       final items = await _jfService.getRecentlyAdded(sectionKey, limit: limit, libraryType: libraryType);
-      return deduplicateShows(items);
+      return deduplicateShows(items)
+          .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
+          .toList();
     }
     // Fetch with progressive pagination until we have at least 'limit' unique items or end of section
     final List<PlexMediaItem> rawItems = [];
@@ -369,7 +386,7 @@ class PlexMediaService {
     while (rawItems.length < maxFetch) {
       final url = Uri.parse(
           '$baseUrl/library/sections/$sectionKey/recentlyAdded?X-Plex-Container-Start=$start&X-Plex-Container-Size=$pageSize&includeStreams=1&includeGuids=1');
-      final response = await http.get(url, headers: _headers);
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) break;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -387,7 +404,10 @@ class PlexMediaService {
 
       final deduped = deduplicateShows(rawItems);
       if (deduped.length >= limit) {
-        return deduped.take(limit).toList();
+        return deduped
+            .take(limit)
+            .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
+            .toList();
       }
 
       start += metadata.length;
@@ -404,7 +424,10 @@ class PlexMediaService {
 
     final deduped = deduplicateShows(rawItems);
     if (deduped.length >= limit) {
-      return deduped.take(limit).toList();
+      return deduped
+          .take(limit)
+          .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
+          .toList();
     }
 
     // TV libraries are de-duplicated down to shows. If the recently-added
@@ -438,12 +461,18 @@ class PlexMediaService {
             }
             if (merged.length >= limit) break;
           }
-          return merged.take(limit).toList();
+          return merged
+              .take(limit)
+              .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
+              .toList();
         }
       } catch (_) {}
     }
 
-    return deduped.take(limit).toList();
+    return deduped
+        .take(limit)
+        .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
+        .toList();
   }
 
   String _showKeyFor(PlexMediaItem item) {
@@ -747,10 +776,12 @@ class PlexMediaService {
       return _jfService.getItemMetadata(ratingKey);
     }
     if (refresh) {
+      _metadataCache.remove(_cacheKey(ratingKey));
       _metadataCache.remove(ratingKey);
+      _detailedMetadataCache.remove(_cacheKey(ratingKey));
       _detailedMetadataCache.remove(ratingKey);
     } else {
-      final detailed = _detailedMetadataCache[ratingKey];
+      final detailed = _detailedMetadataCache[_cacheKey(ratingKey)] ?? _detailedMetadataCache[ratingKey];
       if (detailed != null) {
         return detailed;
       }
@@ -776,7 +807,9 @@ class PlexMediaService {
     }
 
     final parsed = PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
+    _metadataCache[_cacheKey(ratingKey)] = parsed;
     _metadataCache[ratingKey] = parsed;
+    _detailedMetadataCache[_cacheKey(ratingKey)] = parsed;
     _detailedMetadataCache[ratingKey] = parsed;
     return parsed;
   }
@@ -1498,7 +1531,10 @@ class PlexMediaService {
     required String clientId,
   }) async {
     if (server.isJellyfin) {
-      return _jfService.getWatchlist();
+      final items = await _jfService.getWatchlist();
+      return items
+          .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
+          .toList();
     }
     final tokensToTry = [
       if (userToken.isNotEmpty) userToken,
@@ -1606,7 +1642,9 @@ class PlexMediaService {
 
           if (allParsed.isNotEmpty) {
             _imageToken = t;
-            return allParsed;
+            return allParsed
+                .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
+                .toList();
           }
         } catch (_) {}
       }

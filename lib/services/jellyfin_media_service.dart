@@ -30,7 +30,7 @@ class JellyfinMediaService {
   };
 
   static const String _itemFields =
-      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path';
+      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path,AncestorIds';
 
   PlexLibrary _parseLibrary(Map<String, dynamic> json) {
     final id = json['Id']?.toString() ?? '';
@@ -48,6 +48,11 @@ class JellyfinMediaService {
       key: id,
       title: name,
       type: type,
+      serverId: server.clientIdentifier,
+      serverName: server.name,
+      isJellyfin: true,
+      server: server,
+      isServerOnline: true,
     );
   }
 
@@ -227,6 +232,21 @@ class JellyfinMediaService {
     final seasonPoster = seasonId != null ? '/Items/$seasonId/Images/Primary' : null;
     final itemThumb = '/Items/$id/Images/Primary';
 
+    final rawAncestors = json['AncestorIds'] ?? json['ancestorIds'];
+    final List<String> parsedAncestors = [];
+    if (rawAncestors is List) {
+      for (final a in rawAncestors) {
+        if (a != null) {
+          final s = a.toString().trim();
+          if (s.isNotEmpty) parsedAncestors.add(s);
+        }
+      }
+    }
+    final parentId = json['ParentId']?.toString();
+    if (parentId != null && parentId.isNotEmpty && !parsedAncestors.contains(parentId)) {
+      parsedAncestors.add(parentId);
+    }
+
     final people = <MediaPerson>[];
     final rawPeople = json['People'] as List<dynamic>? ?? [];
     for (final rawPerson in rawPeople) {
@@ -282,17 +302,25 @@ class JellyfinMediaService {
       videoFrameRate: videoFrameRate,
       filePath: filePath,
       fileSize: fileSize,
+      server: server,
+      serverId: server.clientIdentifier,
+      librarySectionId: parsedAncestors.firstOrNull,
+      ancestorIds: parsedAncestors,
     );
   }
 
   Future<List<PlexLibrary>> getLibraries() async {
-    final url = Uri.parse('$baseUrl/Users/$userId/Views');
-    final response = await http.get(url, headers: _headers);
-    if (response.statusCode != 200) return [];
+    try {
+      final url = Uri.parse('$baseUrl/Users/$userId/Views');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 4));
+      if (response.statusCode != 200) return [];
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final items = data['Items'] as List<dynamic>? ?? [];
-    return items.map((m) => _parseLibrary(m as Map<String, dynamic>)).toList();
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['Items'] as List<dynamic>? ?? [];
+      return items.map((m) => _parseLibrary(m as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<PlexMediaItem?> getNextUpForShow(String showRatingKey) async {
@@ -321,16 +349,96 @@ class JellyfinMediaService {
     return null;
   }
 
-  Future<List<PlexMediaItem>> getContinueWatching({int limit = 30}) async {
-    final url = Uri.parse(
-      '$baseUrl/Users/$userId/Items/Resume?MediaTypes=Video&Limit=$limit&Fields=$_itemFields',
-    );
-    final response = await http.get(url, headers: _headers);
-    if (response.statusCode != 200) return [];
+  Future<List<PlexMediaItem>> getContinueWatching({List<String>? libraryKeys, String? parentId, int limit = 30}) async {
+    final List<PlexMediaItem> results = [];
+    final Set<String> seenIds = {};
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final items = data['Items'] as List<dynamic>? ?? [];
-    return items.map((m) => _parseItem(m as Map<String, dynamic>)).toList();
+    final effectiveKeys = <String>[
+      if (parentId != null && parentId.isNotEmpty) parentId,
+      if (libraryKeys != null) ...libraryKeys,
+    ];
+
+    if (effectiveKeys.isNotEmpty) {
+      final perLibFutures = effectiveKeys.map((libKey) async {
+        final List<PlexMediaItem> libItems = [];
+        try {
+          final url = Uri.parse(
+            '$baseUrl/Users/$userId/Items/Resume?ParentId=$libKey&Recursive=true&MediaTypes=Video&Limit=$limit&Fields=$_itemFields',
+          );
+          final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 6));
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body) as Map<String, dynamic>;
+            final items = data['Items'] as List<dynamic>? ?? [];
+            for (final m in items) {
+              final it = _parseItem(m as Map<String, dynamic>).copyWith(
+                server: server,
+                serverId: server.clientIdentifier,
+                librarySectionId: libKey,
+              );
+              libItems.add(it);
+            }
+          }
+        } catch (_) {}
+
+        if (libItems.isEmpty) {
+          try {
+            final fallbackUrl = Uri.parse(
+              '$baseUrl/Users/$userId/Items?ParentId=$libKey&Filters=IsResumable&Recursive=true&MediaTypes=Video&Limit=$limit&SortBy=DatePlayed&SortOrder=Descending&Fields=$_itemFields',
+            );
+            final response = await http.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 6));
+            if (response.statusCode == 200) {
+              final data = jsonDecode(response.body) as Map<String, dynamic>;
+              final items = data['Items'] as List<dynamic>? ?? [];
+              for (final m in items) {
+                final it = _parseItem(m as Map<String, dynamic>).copyWith(
+                  server: server,
+                  serverId: server.clientIdentifier,
+                  librarySectionId: libKey,
+                );
+                libItems.add(it);
+              }
+            }
+          } catch (_) {}
+        }
+        return libItems;
+      });
+
+      final perLibResults = await Future.wait(perLibFutures);
+      for (final list in perLibResults) {
+        for (final item in list) {
+          if (seenIds.add(item.ratingKey)) {
+            results.add(item);
+          }
+        }
+      }
+    }
+
+    // If no items were returned via library-scoped queries (or no keys provided), query global Items/Resume
+    if (results.isEmpty) {
+      try {
+        final url = Uri.parse(
+          '$baseUrl/Users/$userId/Items/Resume?MediaTypes=Video&Limit=$limit&Fields=$_itemFields',
+        );
+        final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final items = data['Items'] as List<dynamic>? ?? [];
+          final defaultKey = effectiveKeys.length == 1 ? effectiveKeys.first : null;
+          for (final m in items) {
+            final it = _parseItem(m as Map<String, dynamic>).copyWith(
+              server: server,
+              serverId: server.clientIdentifier,
+              librarySectionId: defaultKey,
+            );
+            if (seenIds.add(it.ratingKey)) {
+              results.add(it);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return results;
   }
 
   Future<bool> addToWatchlist(String itemId) async {
@@ -366,7 +474,7 @@ class JellyfinMediaService {
 
     final dynamic data = jsonDecode(response.body);
     final List<dynamic> items = data is List ? data : (data['Items'] as List<dynamic>? ?? []);
-    return items.map((m) => _parseItem(m as Map<String, dynamic>)).toList();
+    return items.map((m) => _parseItem(m as Map<String, dynamic>).copyWith(librarySectionId: sectionKey)).toList();
   }
 
   Future<List<PlexMediaItem>> getLibraryItems(

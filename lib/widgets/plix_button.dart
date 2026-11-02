@@ -106,15 +106,23 @@ class _PlixButtonState extends State<PlixButton> {
     final effectiveHighlightColor = widget.highlightColor ??
         (widget.isPrimary ? PlixTheme.plexGoldLight : PlixTheme.cardFocused);
 
-    final bgColor = widget.backgroundColor != null
+    final isGlass = PlixTheme.isGlass;
+    final isMutedBg = widget.backgroundColor == null ||
+        widget.backgroundColor == Colors.white12 ||
+        widget.backgroundColor == Colors.white10 ||
+        widget.backgroundColor == const Color(0x1FFFFFFF) ||
+        widget.backgroundColor == const Color(0x30FFFFFF);
+    final useGlassDecoration = isGlass && !widget.isPrimary && isMutedBg;
+
+    final bgColor = widget.backgroundColor != null && !useGlassDecoration
         ? (isHighlighted ? effectiveHighlightColor : widget.backgroundColor!)
         : (widget.isPrimary
             ? (isHighlighted ? PlixTheme.plexGoldLight : PlixTheme.plexGold)
             : (isHighlighted
-                ? PlixTheme.cardFocused
+                ? (isGlass ? const Color(0x30FFFFFF) : PlixTheme.cardFocused)
                 : (PlixTheme.isOLED
                     ? const Color(0xFF000000)
-                    : (PlixTheme.isGlass ? const Color(0x30FFFFFF) : PlixTheme.surface))));
+                    : (isGlass ? const Color(0x12FFFFFF) : PlixTheme.surface))));
 
     final fgColor = widget.textColor != null
         ? widget.textColor!
@@ -123,12 +131,12 @@ class _PlixButtonState extends State<PlixButton> {
             : (isHighlighted ? PlixTheme.textPrimary : PlixTheme.textSecondary));
 
     final borderColor = isHighlighted
-        ? (widget.borderColor ?? PlixTheme.plexGold)
+        ? (widget.borderColor ?? (isGlass ? Colors.white : PlixTheme.plexGold))
         : (widget.isPrimary
             ? Colors.transparent
             : (PlixTheme.isOLED
                 ? PlixTheme.cardBorder
-                : (PlixTheme.isGlass ? const Color(0x45FFFFFF) : Colors.transparent)));
+                : (isGlass ? const Color(0x38FFFFFF) : Colors.transparent)));
 
     final glowColor = widget.borderColor ??
         widget.highlightColor ??
@@ -206,12 +214,12 @@ class _PlixButtonState extends State<PlixButton> {
             width: widget.width,
             alignment: Alignment.center,
             padding: widget.padding,
-            decoration: (PlixTheme.isGlass && widget.backgroundColor == null)
+            decoration: useGlassDecoration
                 ? PlixTheme.glassBoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     isHighlighted: isHighlighted,
                     accent: glowColor,
-                    borderWidth: 1.5,
+                    borderWidth: 1.2,
                   )
                 : BoxDecoration(
                     color: bgColor,
@@ -233,7 +241,7 @@ class _PlixButtonState extends State<PlixButton> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                if (PlixTheme.isGlass && widget.backgroundColor == null)
+                if (useGlassDecoration)
                   PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(8)),
                 Center(
                   child: Row(

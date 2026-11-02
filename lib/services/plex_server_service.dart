@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plex_server.dart';
+import '../models/plex_library.dart';
 import 'plex_auth_service.dart';
 
 class PlexServerService {
@@ -10,8 +11,34 @@ class PlexServerService {
   static const String _prefPinnedServersKey = 'plix_pinned_servers';
   static const String _prefActiveServerIdKey = 'plix_active_server_id';
   static const String _prefSavedJellyfinServersKey = 'plix_saved_jellyfin_servers';
+  static const String _prefFavoriteLibrariesKey = 'plix_favorite_library_composite_ids';
+  static const String _prefCachedLibrariesPrefix = 'plix_cached_libraries_';
+  static const String _prefServerAddedOrderKey = 'plix_server_added_order';
 
   PlexServerService({required this.authService});
+
+  Future<List<String>> getServerAddedOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+  }
+
+  Future<void> recordServersAdded(List<String> serverIds) async {
+    if (serverIds.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+    current.removeWhere((id) => serverIds.contains(id));
+    current.insertAll(0, serverIds);
+    await prefs.setStringList(_prefServerAddedOrderKey, current);
+  }
+
+  Future<void> clearAllServers() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefSavedJellyfinServersKey);
+    await prefs.remove(_prefFavoriteLibrariesKey);
+    await prefs.remove(_prefPinnedServersKey);
+    await prefs.remove(_prefActiveServerIdKey);
+    await prefs.remove(_prefServerAddedOrderKey);
+  }
 
   Future<List<PlexServer>> getSavedJellyfinServers() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,9 +60,10 @@ class PlexServerService {
     final prefs = await SharedPreferences.getInstance();
     final existing = await getSavedJellyfinServers();
     existing.removeWhere((s) => s.clientIdentifier == server.clientIdentifier);
-    existing.add(server);
+    existing.insert(0, server);
     final rawList = existing.map((s) => jsonEncode(s.toJson())).toList();
     await prefs.setStringList(_prefSavedJellyfinServersKey, rawList);
+    await recordServersAdded([server.clientIdentifier]);
   }
 
   Future<void> removeServer(String clientIdentifier) async {
@@ -44,6 +72,11 @@ class PlexServerService {
     existing.removeWhere((s) => s.clientIdentifier == clientIdentifier);
     final rawList = existing.map((s) => jsonEncode(s.toJson())).toList();
     await prefs.setStringList(_prefSavedJellyfinServersKey, rawList);
+    final order = prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+    if (order.contains(clientIdentifier)) {
+      order.remove(clientIdentifier);
+      await prefs.setStringList(_prefServerAddedOrderKey, order);
+    }
   }
 
   Future<List<PlexServer>> fetchServers(String authToken) async {
@@ -84,9 +117,8 @@ class PlexServerService {
     return servers;
   }
 
-  Future<String?> testAndResolveBestConnection(PlexServer server) async {
+  Future<String?> testAndResolveBestConnection(PlexServer server, {bool fallbackToFirstCandidate = false}) async {
     if (server.isJellyfin) {
-      // For Jellyfin, test active URI or configured connection URLs
       final candidates = <String>[];
       if (server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty) {
         candidates.add(server.activeConnectionUri!);
@@ -97,25 +129,62 @@ class PlexServerService {
         }
       }
 
-      for (final uri in candidates) {
+      // Quick test for active connection first if present
+      if (server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty) {
         try {
-          final testUrl = Uri.parse('$uri/System/Info/Public');
-          final res = await http.get(testUrl).timeout(const Duration(milliseconds: 2500));
+          final res = await http.get(Uri.parse('${server.activeConnectionUri}/System/Info/Public'))
+              .timeout(const Duration(milliseconds: 1200));
           if (res.statusCode == 200) {
-            server.activeConnectionUri = uri;
-            return uri;
+            return server.activeConnectionUri;
           }
         } catch (_) {}
       }
 
-      if (candidates.isNotEmpty) {
+      // Test all candidates concurrently for fastest response
+      final futures = candidates.map((uri) async {
+        try {
+          final testUrl = Uri.parse('$uri/System/Info/Public');
+          final res = await http.get(testUrl).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode == 200) {
+            return uri;
+          }
+        } catch (_) {}
+        return null;
+      });
+
+      final results = await Future.wait(futures);
+      final working = results.firstWhere((u) => u != null, orElse: () => null);
+      if (working != null) {
+        server.activeConnectionUri = working;
+        return working;
+      }
+
+      if (fallbackToFirstCandidate && candidates.isNotEmpty) {
         server.activeConnectionUri = candidates.first;
         return server.activeConnectionUri;
       }
+      server.activeConnectionUri = null;
       return null;
     }
 
     // Plex Server connection resolution
+    // First, test existing activeConnectionUri with short timeout
+    final token = server.accessToken.isNotEmpty
+        ? server.accessToken
+        : (await authService.getSavedToken() ?? '');
+
+    if (server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty) {
+      try {
+        final res = await http.get(
+          Uri.parse('${server.activeConnectionUri}/identity'),
+          headers: {'Accept': 'application/json', 'X-Plex-Token': token},
+        ).timeout(const Duration(milliseconds: 1200));
+        if (res.statusCode == 200) {
+          return server.activeConnectionUri;
+        }
+      } catch (_) {}
+    }
+
     final sorted = List<PlexConnection>.from(server.connections);
     sorted.sort((a, b) {
       if (a.local && !b.local) return -1;
@@ -125,34 +194,53 @@ class PlexServerService {
       return 0;
     });
 
-    final token = server.accessToken.isNotEmpty
-        ? server.accessToken
-        : (await authService.getSavedToken() ?? '');
-
-    for (final conn in sorted) {
-      final uri = conn.uri;
-      if (uri.isEmpty) continue;
-      final testUrl = Uri.parse('$uri/identity');
-      try {
-        final res = await http.get(
-          testUrl,
-          headers: {
-            'Accept': 'application/json',
-            'X-Plex-Token': token,
-          },
-        ).timeout(const Duration(milliseconds: 2500));
-
-        if (res.statusCode == 200) {
-          server.activeConnectionUri = uri;
-          return uri;
-        }
-      } catch (_) {}
+    // Test local connections first concurrently (LAN responds in <100ms)
+    final localConns = sorted.where((c) => c.local && c.uri.isNotEmpty).toList();
+    if (localConns.isNotEmpty) {
+      final localFutures = localConns.map((conn) async {
+        try {
+          final res = await http.get(
+            Uri.parse('${conn.uri}/identity'),
+            headers: {'Accept': 'application/json', 'X-Plex-Token': token},
+          ).timeout(const Duration(milliseconds: 1000));
+          if (res.statusCode == 200) return conn.uri;
+        } catch (_) {}
+        return null;
+      });
+      final localResults = await Future.wait(localFutures);
+      final workingLocal = localResults.firstWhere((u) => u != null, orElse: () => null);
+      if (workingLocal != null) {
+        server.activeConnectionUri = workingLocal;
+        return workingLocal;
+      }
     }
 
-    if (sorted.isNotEmpty && sorted.first.uri.isNotEmpty) {
+    // Test remote/remaining connections concurrently
+    final remoteConns = sorted.where((c) => !c.local && c.uri.isNotEmpty).toList();
+    if (remoteConns.isNotEmpty) {
+      final remoteFutures = remoteConns.map((conn) async {
+        try {
+          final res = await http.get(
+            Uri.parse('${conn.uri}/identity'),
+            headers: {'Accept': 'application/json', 'X-Plex-Token': token},
+          ).timeout(const Duration(milliseconds: 1500));
+          if (res.statusCode == 200) return conn.uri;
+        } catch (_) {}
+        return null;
+      });
+      final remoteResults = await Future.wait(remoteFutures);
+      final workingRemote = remoteResults.firstWhere((u) => u != null, orElse: () => null);
+      if (workingRemote != null) {
+        server.activeConnectionUri = workingRemote;
+        return workingRemote;
+      }
+    }
+
+    if (fallbackToFirstCandidate && sorted.isNotEmpty && sorted.first.uri.isNotEmpty) {
       server.activeConnectionUri = sorted.first.uri;
       return server.activeConnectionUri;
     }
+    server.activeConnectionUri = null;
     return null;
   }
 
@@ -185,5 +273,52 @@ class PlexServerService {
   Future<void> setActiveServerId(String serverId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefActiveServerIdKey, serverId);
+  }
+
+  Future<List<String>?> getFavoriteLibraryIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_prefFavoriteLibrariesKey);
+  }
+
+  Future<void> saveFavoriteLibraryIds(List<String> compositeIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefFavoriteLibrariesKey, compositeIds);
+  }
+
+  Future<bool> hasSavedFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(_prefFavoriteLibrariesKey);
+  }
+
+  Future<void> cacheServerLibraries(String serverId, List<PlexLibrary> libraries) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = libraries.map((lib) => jsonEncode(lib.toJson())).toList();
+      await prefs.setStringList('$_prefCachedLibrariesPrefix$serverId', jsonList);
+    } catch (_) {}
+  }
+
+  Future<List<PlexLibrary>> getCachedServerLibraries(String serverId, PlexServer server) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getStringList('$_prefCachedLibrariesPrefix$serverId') ?? [];
+      final List<PlexLibrary> result = [];
+      for (final raw in rawList) {
+        try {
+          final map = jsonDecode(raw) as Map<String, dynamic>;
+          final lib = PlexLibrary.fromJson(map).copyWith(
+            serverId: server.clientIdentifier,
+            serverName: server.name,
+            isJellyfin: server.isJellyfin,
+            server: server,
+            isServerOnline: server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty,
+          );
+          result.add(lib);
+        } catch (_) {}
+      }
+      return result;
+    } catch (_) {
+      return [];
+    }
   }
 }

@@ -128,7 +128,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: isCompact ? 16 : 36,
-              vertical: isCompact ? 10 : 16,
+              vertical: isCompact ? 10 : (isTv ? 10 : 16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,7 +201,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
               // Live Theme Preview Bar
               _LiveThemePreviewBar(),
-              const SizedBox(height: 14),
+              SizedBox(height: isTv ? 8 : 14),
 
               // Atmosphere Presets Header
               Row(
@@ -280,14 +280,14 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                             ],
                           ],
                         ),
-                        if (row < rows - 1) const SizedBox(height: 8),
+                        if (row < rows - 1) SizedBox(height: isTv ? 6 : 8),
                       ],
                     ],
                   );
                 },
               ),
 
-              const SizedBox(height: 14),
+              SizedBox(height: isTv ? 10 : 14),
 
               // Accent Colors Header
               Row(
@@ -381,7 +381,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                             ],
                           ],
                         ),
-                        if (row < rows - 1) const SizedBox(height: 8),
+                        if (row < rows - 1) SizedBox(height: isTv ? 5 : 8),
                       ],
                     ],
                   );
@@ -596,7 +596,7 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          height: 48,
+          height: PlixDeviceHelper.isTelevision ? 42 : 48,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: isGlass
               ? PlixTheme.glassBoxDecoration(
@@ -702,6 +702,30 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                         decoration: BoxDecoration(color: const Color(0xFFE91E63).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
                         child: const Text('TOKYO', style: TextStyle(color: Color(0xFFF48FB1), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'abyss')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFF00E5FF).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('ABYSS', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'aurora')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFF00FFA3).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('AURORA', style: TextStyle(color: Color(0xFF00FFA3), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'dune')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFFE5A00D).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('DESERT', style: TextStyle(color: Color(0xFFE5A00D), fontSize: 8, fontWeight: FontWeight.bold)),
+                      )
+                    else if (widget.preset.id == 'royal')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(color: const Color(0xFFBA68C8).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('ROYAL', style: TextStyle(color: Color(0xFFCE93D8), fontSize: 8, fontWeight: FontWeight.bold)),
                       )
                     else if (widget.preset.id == 'custom')
                       Container(
@@ -823,7 +847,7 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          height: 36,
+          height: PlixDeviceHelper.isTelevision ? 32 : 36,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: isGlass
               ? PlixTheme.glassBoxDecoration(

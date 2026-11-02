@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'favorite_libraries_screen.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -7,8 +9,6 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/brand_logo.dart';
-import 'home_screen.dart';
-import 'server_select_screen.dart';
 import '../services/plix_device_helper.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -93,32 +93,28 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      if (servers.length == 1) {
-        final server = servers.first;
-        await widget.serverService.testAndResolveBestConnection(server);
-        await widget.serverService.setActiveServerId(server.clientIdentifier);
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              server: server,
-              authService: widget.authService,
-              serverService: widget.serverService,
-            ),
-          ),
-        );
-      } else {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => ServerSelectScreen(
-              servers: servers,
-              authService: widget.authService,
-              serverService: widget.serverService,
-            ),
-          ),
-        );
+      final plexServers = servers.where((s) => !s.isJellyfin).toList();
+      await widget.serverService.recordServersAdded(
+        plexServers.map((s) => s.clientIdentifier).toList(),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('plix_is_fresh_install') == true) {
+        await prefs.setBool('plix_fresh_install_pending_tour', true);
       }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => FavoriteLibrariesScreen(
+            authService: widget.authService,
+            serverService: widget.serverService,
+            servers: servers,
+            primaryServer: servers.firstOrNull,
+            isInitialSetup: true,
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         setState(() {

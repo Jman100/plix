@@ -1,12 +1,12 @@
 {
-    "version":  "1.5.3",
-    "versionCode":  38,
-    "apkUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "windowsUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsArm64Url":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "linuxUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxArchUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxTarballUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseNotes":  "- TV Player Cast \u0026 Crew Quick View: Added an expandable Cast \u0026 Crew row beneath playback controls on TV (revealed with D-pad Down; pauses overlay auto-hide while viewing; card row capped to avoid right-edge clipping)\n- TV Cast \u0026 Crew Setting: Added a user setting under Settings \u003e Playback \u0026 Streaming for TV interface to toggle player cast display (defaults to off)\n- Direct Play Codec Support: Added native E-AC3, AC3, FLAC, and Opus passthrough support on Android TV to direct play multi-channel surround audio without transcoding\n- Playback Exit Episode Navigation: Fixed an issue where exiting playback of an unfinished episode could prematurely advance episode details to the next episode\n- Show Details Season Swapping: Fixed cursor trapping and UI jumping when swapping seasons via D-pad Left/Right in the episodes list; seamless D-pad Up/Down between seasons and episode tiles\n- Arch Linux Packaging Fix: Removed obsolete and non-standard metadata keys from Arch package description\n- App Version Bump: v1.5.3 (versionCode 38)",
-    "releaseDate":  "2026-10-31"
+    "version": "1.6.0",
+    "versionCode": 39,
+    "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
+    "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
+    "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
+    "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
+    "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
+    "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
+    "releaseNotes": "- Unified Multi-Server & Favorite Libraries: Blend libraries and Continue Watching across multiple connected Plex and Jellyfin servers simultaneously; customizable Favorite Libraries manager with smart ownership defaulting and minimum library selection protection\n- First-Time Install Welcome Tour: Introduced a streamlined, platform-tailored welcome walkthrough on TV, mobile, and desktop; TV edition features a 2x2 grid displaying all key features on screen at once with full remote cursor lock\n- Four New Atmosphere Themes: Added Solar Flare, Neon Cyberpunk, Nordic Frost, and Emerald Forest to the visual styling collection (16 total presets plus custom themes)\n- Crystal Liquid Glass Redesign: Overhauled the Liquid Glass atmosphere theme with transparent frosted glass surfaces, high-contrast borders, and clean button states\n- Remote Navigation & TV Polish: Fixed playback overlay directional remote navigation, eliminated TV settings appearance header cutoff, refined TV reorder libraries button states, and optimized vertical row spacing\n- Redesigned Sign Out Confirmation: Rebalanced modal with equal button weighting, increased vertical spacing, and default focus on cancel\n- App Version Bump: v1.6.0 (versionCode 39)",
+    "releaseDate": "2026-11-02"
 }

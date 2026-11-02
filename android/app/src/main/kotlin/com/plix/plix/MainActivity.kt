@@ -3,6 +3,7 @@ package com.plix.plix
 import android.os.PowerManager
 import android.view.SoundEffectConstants
 import androidx.media3.common.AudioAttributes
+import android.media.AudioFormat
 import android.media.AudioManager
 import android.provider.Settings
 import kotlin.math.roundToInt
@@ -361,6 +362,9 @@ class MainActivity: FlutterActivity() {
                 "checkAudioSupported" -> {
                     val codec = call.argument<String>("codec") ?: ""
                     result.success(isAudioCodecSupported(codec))
+                }
+                "getSupportedAudioFormats" -> {
+                    result.success(getSupportedAudioFormats())
                 }
                 "play" -> {
                     val url = call.argument<String>("url") ?: ""
@@ -743,30 +747,142 @@ class MainActivity: FlutterActivity() {
 
     private fun isAudioCodecSupported(codec: String): Boolean {
         val lower = codec.lowercase().trim()
-        if (lower == "ac3" || lower == "eac3" || lower == "e-ac3" || lower == "aac" || lower == "mp3" || lower == "flac" || lower == "opus" || lower == "vorbis") {
+        if (lower.isEmpty()) return true
+
+        // Universal standard codecs natively supported across all Android platforms without passthrough
+        if (lower == "aac" || lower == "mp4a" || lower == "mp3" || lower == "flac" ||
+            lower == "opus" || lower == "vorbis" || lower == "pcm" || lower == "wav" ||
+            lower == "alac" || lower.startsWith("pcm_")) {
             return true
         }
-        val mime = when {
-            lower == "ac4" -> "audio/ac4"
-            lower == "dca" || lower == "dts" || lower.contains("dts") -> "audio/vnd.dts"
-            lower == "truehd" -> "audio/true-hd"
+
+        val encodingsToCheck = when {
+            lower == "ac3" || lower == "ac-3" || lower == "dolby digital" -> {
+                listOf(AudioFormat.ENCODING_AC3)
+            }
+            lower == "eac3" || lower == "e-ac3" || lower == "ec-3" || lower == "eac-3" ||
+            lower == "dolby digital plus" || lower == "dd+" || lower == "eac3-joc" || lower == "atmos" -> {
+                val list = mutableListOf(AudioFormat.ENCODING_E_AC3)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    list.add(AudioFormat.ENCODING_E_AC3_JOC)
+                }
+                list
+            }
+            lower == "ac4" || lower == "ac-4" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    listOf(AudioFormat.ENCODING_AC4)
+                } else emptyList()
+            }
+            lower == "dca" || lower == "dts" || lower.contains("dts") -> {
+                val list = mutableListOf<Int>()
+                list.add(AudioFormat.ENCODING_DTS)
+                list.add(AudioFormat.ENCODING_DTS_HD)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    list.add(AudioFormat.ENCODING_DTS_UHD)
+                }
+                list
+            }
+            lower == "truehd" || lower == "true-hd" || lower == "mlp" -> {
+                listOf(AudioFormat.ENCODING_DOLBY_TRUEHD)
+            }
             else -> return true
         }
 
         try {
+            // 1. Check AudioCapabilities (HDMI passthrough / receiver capabilities)
+            val capabilities = AudioCapabilities.getCapabilities(this)
+            for (encoding in encodingsToCheck) {
+                if (capabilities.supportsEncoding(encoding)) {
+                    android.util.Log.i("PlixAudio", "Codec $lower supported via AudioCapabilities (encoding $encoding)")
+                    return true
+                }
+            }
+
+            // 2. Check connected output devices (HDMI, soundbar, eARC, etc. on API 23+)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                for (device in devices) {
+                    val supportedEncodings = device.encodings
+                    for (encoding in encodingsToCheck) {
+                        if (supportedEncodings.contains(encoding)) {
+                            android.util.Log.i("PlixAudio", "Codec $lower supported via Device ${device.productName} (encoding $encoding)")
+                            return true
+                        }
+                    }
+                }
+            }
+
+            // 3. Check direct playback support via AudioTrack (Android 10+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                for (encoding in encodingsToCheck) {
+                    try {
+                        val format = AudioFormat.Builder()
+                            .setEncoding(encoding)
+                            .setSampleRate(48000)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
+                            .build()
+                        val attributes = android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
+                            .build()
+                        if (android.media.AudioTrack.isDirectPlaybackSupported(format, attributes)) {
+                            android.util.Log.i("PlixAudio", "Codec $lower supported via AudioTrack direct playback (encoding $encoding)")
+                            return true
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // 4. Check MediaCodecList for hardware or software decoders
+            val mimeList = when {
+                lower == "ac3" || lower == "ac-3" || lower == "dolby digital" -> listOf("audio/ac3")
+                lower == "eac3" || lower == "e-ac3" || lower == "ec-3" || lower == "eac-3" ||
+                lower == "dolby digital plus" || lower == "dd+" || lower == "eac3-joc" || lower == "atmos" -> listOf("audio/eac3", "audio/eac3-joc")
+                lower == "ac4" || lower == "ac-4" -> listOf("audio/ac4")
+                lower == "dca" || lower == "dts" || lower.contains("dts") -> listOf("audio/vnd.dts", "audio/vnd.dts.hd", "audio/vnd.dts.uhd", "audio/dts")
+                lower == "truehd" || lower == "true-hd" || lower == "mlp" -> listOf("audio/true-hd", "audio/mlp")
+                else -> emptyList()
+            }
             val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
             for (info in codecList.codecInfos) {
                 if (info.isEncoder) continue
                 for (type in info.supportedTypes) {
-                    if (type.equals(mime, ignoreCase = true)) {
-                        return true
+                    for (mime in mimeList) {
+                        if (type.equals(mime, ignoreCase = true)) {
+                            android.util.Log.i("PlixAudio", "Codec $lower supported via MediaCodec ${info.name}")
+                            return true
+                        }
                     }
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        android.util.Log.i("PlixAudio", "Codec $lower is NOT supported on this device")
         return false
+    }
+
+    private fun getSupportedAudioFormats(): List<String> {
+        val supported = mutableListOf("aac", "mp3", "flac", "opus", "vorbis", "pcm", "wav", "alac")
+        if (isAudioCodecSupported("ac3")) {
+            supported.add("ac3")
+        }
+        if (isAudioCodecSupported("eac3")) {
+            supported.add("eac3")
+        }
+        if (isAudioCodecSupported("dts")) {
+            supported.add("dts")
+            supported.add("dca")
+            supported.add("dts-hd")
+        }
+        if (isAudioCodecSupported("truehd")) {
+            supported.add("truehd")
+        }
+        if (isAudioCodecSupported("ac4")) {
+            supported.add("ac4")
+        }
+        return supported
     }
 
     private fun playMedia(url: String, headers: Map<String, String>?, positionMs: Long) {
@@ -790,11 +906,13 @@ class MainActivity: FlutterActivity() {
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink {
                 return DefaultAudioSink.Builder(context)
-                    .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                    .setAudioCapabilities(AudioCapabilities.getCapabilities(context))
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(false)
                     .build()
             }
+        }.apply {
+            setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
         }
 
         val player = ExoPlayer.Builder(this, renderersFactory).build().apply {
@@ -853,6 +971,13 @@ class MainActivity: FlutterActivity() {
                             nativePlayerChannel?.invokeMethod("onBufferingChanged", mapOf("isBuffering" to false))
                             nativePlayerChannel?.invokeMethod("onPlayerEnded", null)
                         }
+                    }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    mainHandler.post {
+                        nativePlayerChannel?.invokeMethod("onBufferingChanged", mapOf("isBuffering" to false))
+                        nativePlayerChannel?.invokeMethod("onPlayerError", mapOf("error" to (error.message ?: error.errorCodeName)))
                     }
                 }
 

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.5.3"
-$versionCode = 38
+$version = "1.6.0"
+$versionCode = 39
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,13 +45,13 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- TV Player Cast & Crew Quick View: Added an expandable Cast & Crew row beneath playback controls on TV (revealed with D-pad Down; pauses overlay auto-hide while viewing; card row capped to avoid right-edge clipping)
-- TV Cast & Crew Setting: Added a user setting under Settings > Playback & Streaming for TV interface to toggle player cast display (defaults to off)
-- Direct Play Codec Support: Added native E-AC3, AC3, FLAC, and Opus passthrough support on Android TV to direct play multi-channel surround audio without transcoding
-- Playback Exit Episode Navigation: Fixed an issue where exiting playback of an unfinished episode could prematurely advance episode details to the next episode
-- Show Details Season Swapping: Fixed cursor trapping and UI jumping when swapping seasons via D-pad Left/Right in the episodes list; seamless D-pad Up/Down between seasons and episode tiles
-- Arch Linux Packaging Fix: Removed obsolete and non-standard metadata keys from Arch package description
-- App Version Bump: v1.5.3 (versionCode 38)
+- Unified Multi-Server & Favorite Libraries: Blend libraries and Continue Watching across multiple connected Plex and Jellyfin servers simultaneously; customizable Favorite Libraries manager with smart ownership defaulting and minimum library selection protection
+- First-Time Install Welcome Tour: Introduced a streamlined, platform-tailored welcome walkthrough on TV, mobile, and desktop; TV edition features a 2x2 grid displaying all key features on screen at once with full remote cursor lock
+- Four New Atmosphere Themes: Added Solar Flare, Neon Cyberpunk, Nordic Frost, and Emerald Forest to the visual styling collection (16 total presets plus custom themes)
+- Crystal Liquid Glass Redesign: Overhauled the Liquid Glass atmosphere theme with transparent frosted glass surfaces, high-contrast borders, and clean button states
+- Remote Navigation & TV Polish: Fixed playback overlay directional remote navigation, eliminated TV settings appearance header cutoff, refined TV reorder libraries button states, and optimized vertical row spacing
+- Redesigned Sign Out Confirmation: Rebalanced modal with equal button weighting, increased vertical spacing, and default focus on cancel
+- App Version Bump: v1.6.0 (versionCode 39)
 "@
 
     $manifest = [ordered]@{

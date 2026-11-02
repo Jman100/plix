@@ -21,6 +21,8 @@ class MediaCard extends StatefulWidget {
   final bool isForcedHighlighted;
   final bool showResolutionBadge;
   final EdgeInsetsGeometry? margin;
+  final String? topServerName;
+  final String? bottomServerName;
 
   const MediaCard({
     super.key,
@@ -37,6 +39,8 @@ class MediaCard extends StatefulWidget {
     this.isForcedHighlighted = false,
     this.showResolutionBadge = false,
     this.margin,
+    this.topServerName,
+    this.bottomServerName,
     this.onLeft,
     this.onRight,
     this.onUp,
@@ -104,7 +108,10 @@ class _MediaCardState extends State<MediaCard> {
     final height = widget.width / widget.aspectRatio;
     final imageWidth = PlixImageCache.requestWidth(widget.width);
     final imageHeight = PlixImageCache.requestHeight(height);
-    final imageUrl = widget.mediaService.buildImageUrl(
+    final effectiveMediaService = (widget.item.server != null && widget.item.server != widget.mediaService.server)
+        ? PlexMediaService(server: widget.item.server!)
+        : widget.mediaService;
+    final imageUrl = effectiveMediaService.buildImageUrl(
       widget.item.posterThumb,
       width: imageWidth,
       height: imageHeight,
@@ -161,6 +168,7 @@ class _MediaCardState extends State<MediaCard> {
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
         child: InkWell(
+          canRequestFocus: false,
           onTap: widget.onTap,
           onHover: (hovered) {
             if ((Platform.isWindows || Platform.isLinux) && mounted) {
@@ -180,6 +188,35 @@ class _MediaCardState extends State<MediaCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.topServerName != null && widget.topServerName!.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5, left: 1, right: 1),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.dns_rounded,
+                          size: 11,
+                          color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            widget.topServerName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // Poster image with border
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
@@ -229,6 +266,7 @@ class _MediaCardState extends State<MediaCard> {
                       children: [
                         if (imageUrl.isNotEmpty)
                           CachedNetworkImage(
+                            key: ValueKey(imageUrl),
                             imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: PlixImageCache.decodeWidth(context, widget.width),
@@ -384,6 +422,33 @@ class _MediaCardState extends State<MediaCard> {
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                ],
+                if (widget.bottomServerName != null && widget.bottomServerName!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.dns_rounded,
+                        size: 10,
+                        color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
+                      ),
+                      const SizedBox(width: 3.5),
+                      Flexible(
+                        child: Text(
+                          widget.bottomServerName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: widget.width < 125 ? 9.5 : 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],

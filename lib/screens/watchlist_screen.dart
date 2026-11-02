@@ -37,6 +37,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   List<PlexMediaItem> _items = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isMultiServer = false;
   int? _lastSelectedIndex;
   int? _openingIndex;
   final Map<int, FocusNode> _focusNodes = {};
@@ -157,14 +158,75 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
           ? widget.clientId
           : await widget.authService.getClientIdentifier();
 
-      final items = await _mediaService.getWatchlist(
-        userToken: userToken,
-        clientId: clientId,
-      );
+      List<PlexServer> allServers = [];
+      if (widget.serverService != null) {
+        try {
+          allServers = await widget.serverService!.fetchServers(userToken);
+        } catch (_) {}
+      }
+      if (allServers.isEmpty) {
+        allServers = [widget.server];
+      }
+
+      // Find servers that have favorited libraries
+      final favIds = await widget.serverService?.getFavoriteLibraryIds();
+      final Set<String> favServerIds = {};
+      if (favIds != null && favIds.isNotEmpty) {
+        for (final id in favIds) {
+          final sId = id.contains(':') ? id.split(':').first : id.split('_').first;
+          favServerIds.add(sId);
+        }
+      }
+
+      final targetServers = favServerIds.isNotEmpty
+          ? allServers.where((s) => favServerIds.contains(s.clientIdentifier)).toList()
+          : allServers;
+
+      if (targetServers.isEmpty) {
+        targetServers.add(widget.server);
+      }
+      _isMultiServer = targetServers.length > 1;
+
+      final List<PlexMediaItem> aggregatedItems = [];
+      final Set<String> seenGuidsOrKeys = {};
+      bool fetchedPlexWatchlist = false;
+
+      for (final server in targetServers) {
+        if (server.isJellyfin) {
+          try {
+            final jfItems = await PlexMediaService(server: server).getWatchlist(
+              userToken: userToken,
+              clientId: clientId,
+            );
+            for (final it in jfItems) {
+              final key = it.guid?.isNotEmpty == true ? it.guid! : '${server.clientIdentifier}_${it.ratingKey}';
+              if (seenGuidsOrKeys.add(key)) {
+                aggregatedItems.add(it.copyWith(server: server, serverId: server.clientIdentifier));
+              }
+            }
+          } catch (_) {}
+        } else {
+          if (!fetchedPlexWatchlist) {
+            fetchedPlexWatchlist = true;
+            try {
+              final plexItems = await PlexMediaService(server: server).getWatchlist(
+                userToken: userToken,
+                clientId: clientId,
+              );
+              for (final it in plexItems) {
+                final key = it.guid?.isNotEmpty == true ? it.guid! : it.ratingKey;
+                if (seenGuidsOrKeys.add(key)) {
+                  aggregatedItems.add(it.copyWith(server: server, serverId: server.clientIdentifier));
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      }
 
       if (mounted) {
         setState(() {
-          _items = items;
+          _items = aggregatedItems;
           _isLoading = false;
         });
         if (_lastSelectedIndex != null) {
@@ -216,8 +278,9 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     _lastSelectedIndex = index;
     setState(() => _openingIndex = index);
     try {
+      final targetServer = item.server ?? widget.server;
       final PlexMediaItem resolvedItem;
-      if (widget.server.isJellyfin) {
+      if (targetServer.isJellyfin) {
         // Jellyfin watchlist items are already server items from the library
         resolvedItem = item;
       } else {
@@ -230,7 +293,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
         MaterialPageRoute(
           builder: (_) => DetailsScreen(
             initialItem: resolvedItem,
-            server: widget.server,
+            server: resolvedItem.server ?? targetServer,
             clientId: widget.clientId,
           ),
         ),
@@ -332,14 +395,15 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                 ),
                               )
                             : Padding(
-                                padding: const EdgeInsets.only(top: 88),
+                                padding: EdgeInsets.only(top: isCompact ? 88 : 102),
                                 child: GridView.builder(
                                 controller: _gridScrollController,
-                                clipBehavior: Clip.hardEdge,
+                                clipBehavior: Clip.none,
                                 // Keep the number of decoded posters bounded on
                                 // low-memory TVs while scrolling a large list.
                                 cacheExtent: 200,
                                 padding: EdgeInsets.only(
+                                  top: isCompact ? 10 : 20,
                                   left: isCompact ? 14 : 32,
                                   right: isCompact ? 14 : 32,
                                   bottom: isCompact ? 24 : 140,
@@ -349,11 +413,11 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   crossAxisCount: (MediaQuery.of(context).size.width / 130).floor().clamp(3, 7),
                                         crossAxisSpacing: 10,
                                         mainAxisSpacing: 12,
-                                        childAspectRatio: 0.51,
+                                        childAspectRatio: 0.47,
                                       )
                                     : const SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: 165,
-                                        childAspectRatio: 0.52,
+                                        childAspectRatio: 0.47,
                                         crossAxisSpacing: 16,
                                         mainAxisSpacing: 18,
                                       ),
@@ -367,7 +431,12 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                         children: [
                                           MediaCard(
                                             item: item,
-                                            mediaService: _mediaService,
+                                            mediaService: (item.server != null && item.server != _mediaService.server)
+                                                ? PlexMediaService(server: item.server!)
+                                                : _mediaService,
+                                            bottomServerName: _isMultiServer
+                                                ? (item.server?.name ?? (item.server?.isJellyfin == true ? 'Jellyfin' : 'Plex'))
+                                                : null,
                                             focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
                                             autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
                                             enableHighlight: !isCompact,

@@ -73,17 +73,17 @@ class PlixTheme {
     ThemePresetOption(
       id: 'glass',
       name: 'Liquid Glass',
-      description: 'Apple-inspired frosted glass with translucent blur and specular luminous edges',
+      description: 'Ultra-clear crystal glass with specular sheen and luminous refractive edges',
       icon: Icons.blur_on_rounded,
-      background: Color(0xFF080D18),
-      surface: Color(0x3818243A),
-      surfaceLight: Color(0x4D22324E),
-      card: Color(0x331C283E),
-      cardBorder: Color(0x52FFFFFF),
-      cardFocused: Color(0x66293C5E),
+      background: Color(0xFF070B14),
+      surface: Color(0x18FFFFFF),
+      surfaceLight: Color(0x28FFFFFF),
+      card: Color(0x15FFFFFF),
+      cardBorder: Color(0x3DFFFFFF),
+      cardFocused: Color(0x35FFFFFF),
       defaultAccentId: 'frost',
       isGlass: true,
-      previewGradient: [Color(0xFF0A1224), Color(0x442C4472), Color(0x66FFFFFF)],
+      previewGradient: [Color(0xFF091120), Color(0x30FFFFFF), Color(0x80FFFFFF)],
     ),
     ThemePresetOption(
       id: 'oled',
@@ -213,6 +213,62 @@ class PlixTheme {
       cardFocused: Color(0xFF1A273F),
       defaultAccentId: 'fuchsia',
       previewGradient: [Color(0xFF080C14), Color(0xFF1A1A36), Color(0xFFE91E63)],
+    ),
+    ThemePresetOption(
+      id: 'abyss',
+      name: 'Abyssal Depth',
+      description: 'Midnight oceanic trench with luminous sapphire and deep bioluminescent cyan photophores',
+      icon: Icons.waves_rounded,
+      background: Color(0xFF030813),
+      surface: Color(0xFF061324),
+      surfaceLight: Color(0xFF0C1E36),
+      card: Color(0xFF08182D),
+      cardBorder: Color(0xFF13365E),
+      cardFocused: Color(0xFF0F2648),
+      defaultAccentId: 'cyan',
+      previewGradient: [Color(0xFF030813), Color(0xFF072140), Color(0xFF00E5FF)],
+    ),
+    ThemePresetOption(
+      id: 'aurora',
+      name: 'Borealis Aurora',
+      description: 'Arctic night sky illuminated by dancing emerald and ultraviolet solar ribbons',
+      icon: Icons.filter_vintage_rounded,
+      background: Color(0xFF040A0C),
+      surface: Color(0xFF081519),
+      surfaceLight: Color(0xFF0E2228),
+      card: Color(0xFF0B1C22),
+      cardBorder: Color(0xFF1A444E),
+      cardFocused: Color(0xFF13323C),
+      defaultAccentId: 'mint',
+      previewGradient: [Color(0xFF040A0C), Color(0xFF0A2B24), Color(0xFF00FFA3)],
+    ),
+    ThemePresetOption(
+      id: 'dune',
+      name: 'Desert Mirage',
+      description: 'Starlit dunes with warm spiced saffron, sun-baked obsidian, and golden bronze sands',
+      icon: Icons.landscape_rounded,
+      background: Color(0xFF110B06),
+      surface: Color(0xFF1C130A),
+      surfaceLight: Color(0xFF2B1D10),
+      card: Color(0xFF24180E),
+      cardBorder: Color(0xFF54381E),
+      cardFocused: Color(0xFF382515),
+      defaultAccentId: 'gold',
+      previewGradient: [Color(0xFF110B06), Color(0xFF35200C), Color(0xFFE5A00D)],
+    ),
+    ThemePresetOption(
+      id: 'royal',
+      name: 'Imperial Amethyst',
+      description: 'Opulent Byzantine obsidian with deep regal jewel-toned velvet and royal amethyst',
+      icon: Icons.diamond_rounded,
+      background: Color(0xFF0A0512),
+      surface: Color(0xFF140A22),
+      surfaceLight: Color(0xFF1E1033),
+      card: Color(0xFF190D2C),
+      cardBorder: Color(0xFF40206D),
+      cardFocused: Color(0xFF281446),
+      defaultAccentId: 'amethyst',
+      previewGradient: [Color(0xFF0A0512), Color(0xFF260E3F), Color(0xFFBA68C8)],
     ),
     ThemePresetOption(
       id: 'custom',
@@ -392,7 +448,7 @@ class PlixTheme {
     BorderRadius? borderRadius,
     bool isHighlighted = false,
     Color? accent,
-    double borderWidth = 1.4,
+    double borderWidth = 1.2,
   }) {
     final effectiveAccent = accent ?? plexGold;
     return BoxDecoration(
@@ -400,33 +456,32 @@ class PlixTheme {
       gradient: LinearGradient(
         begin: const Alignment(-0.8, -1.0),
         end: const Alignment(0.8, 1.0),
-        stops: const [0.0, 0.45, 1.0],
         colors: isHighlighted
             ? [
-                Colors.white.withOpacity(0.28),
-                effectiveAccent.withOpacity(0.22),
-                const Color(0x66101E32),
+                Colors.white.withOpacity(0.24),
+                effectiveAccent.withOpacity(0.18),
+                Colors.white.withOpacity(0.08),
               ]
             : [
-                Colors.white.withOpacity(0.12),
-                const Color(0x3819283F),
-                const Color(0x240F1826),
+                Colors.white.withOpacity(0.14),
+                Colors.white.withOpacity(0.05),
+                Colors.white.withOpacity(0.02),
               ],
       ),
       border: Border.all(
         color: isHighlighted
             ? Colors.white.withOpacity(0.92)
-            : Colors.white.withOpacity(0.38),
+            : Colors.white.withOpacity(0.32),
         width: isHighlighted ? borderWidth + 0.6 : borderWidth,
       ),
       boxShadow: [
         BoxShadow(
           color: isHighlighted
-              ? effectiveAccent.withOpacity(0.50)
-              : Colors.black.withOpacity(0.35),
-          blurRadius: isHighlighted ? 18 : 8,
-          spreadRadius: isHighlighted ? 1.5 : 0,
-          offset: isHighlighted ? Offset.zero : const Offset(0, 3),
+              ? effectiveAccent.withOpacity(0.40)
+              : Colors.black.withOpacity(0.25),
+          blurRadius: isHighlighted ? 16 : 8,
+          spreadRadius: isHighlighted ? 1.0 : 0,
+          offset: isHighlighted ? Offset.zero : const Offset(0, 2),
         ),
         if (isHighlighted)
           BoxShadow(

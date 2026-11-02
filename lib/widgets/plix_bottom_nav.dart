@@ -227,14 +227,15 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        final savedOrder = prefs.getStringList('library_order_${widget.server.clientIdentifier}');
+        final savedOrder = prefs.getStringList('plix_multi_server_library_order') ??
+            prefs.getStringList('library_order_${widget.server.clientIdentifier}');
         if (savedOrder != null && savedOrder.isNotEmpty) {
           final Map<String, int> orderMap = {
             for (int i = 0; i < savedOrder.length; i++) savedOrder[i]: i,
           };
           fetched.sort((a, b) {
-            final aOrder = orderMap[a.key] ?? 999;
-            final bOrder = orderMap[b.key] ?? 999;
+            final aOrder = orderMap[a.compositeId] ?? orderMap[a.key] ?? 999;
+            final bOrder = orderMap[b.compositeId] ?? orderMap[b.key] ?? 999;
             return aOrder.compareTo(bOrder);
           });
         }
@@ -257,8 +258,8 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
     });
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = reordered.map((l) => l.key).toList();
-      await prefs.setStringList('library_order_${widget.server.clientIdentifier}', keys);
+      final keys = reordered.map((l) => l.compositeId).toList();
+      await prefs.setStringList('plix_multi_server_library_order', keys);
     } catch (_) {}
     widget.onLibrariesReordered?.call(List.from(reordered));
   }
@@ -269,7 +270,7 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
       MaterialPageRoute(
         builder: (_) => LibraryScreen(
           library: lib,
-          server: widget.server,
+          server: lib.server ?? widget.server,
           clientId: widget.clientId,
         ),
       ),
@@ -373,12 +374,18 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                           if (lib.type == 'artist') icon = Icons.music_note_rounded;
 
                           return ListTile(
-                            key: ValueKey('reorder_${lib.key}'),
+                            key: ValueKey('reorder_${lib.compositeId}'),
                             leading: Icon(icon, color: PlixTheme.plexGold),
                             title: Text(
                               lib.title,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                             ),
+                            subtitle: _libs.map((l) => l.serverId).toSet().length > 1
+                                ? Text(
+                                    lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
+                                    style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
+                                  )
+                                : null,
                             trailing: ReorderableDragStartListener(
                               index: i,
                               child: const Icon(Icons.drag_handle_rounded, color: Colors.white70),
@@ -404,6 +411,12 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                               lib.title,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                             ),
+                            subtitle: _libs.map((l) => l.serverId).toSet().length > 1
+                                ? Text(
+                                    lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
+                                    style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
+                                  )
+                                : null,
                             trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
                             onTap: () => _openLibrary(lib),
                           );

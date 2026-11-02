@@ -14,6 +14,7 @@ import '../services/native_player_service.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import 'appearance_screen.dart';
+import 'favorite_libraries_screen.dart';
 import 'server_select_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -60,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _rewindFocusNode = FocusNode();
   final FocusNode _skipFocusNode = FocusNode();
   final FocusNode _aboutServerFocusNode = FocusNode();
+  final FocusNode _manageLibrariesFocusNode = FocusNode();
   final FocusNode _aboutClientFocusNode = FocusNode();
   final FocusNode _aboutVersionFocusNode = FocusNode();
   final FocusNode _aboutWebsiteFocusNode = FocusNode();
@@ -154,6 +156,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           authService: authService,
           serverService: serverService,
           currentServer: widget.server,
+        ),
+      ),
+    );
+  }
+
+  void _openFavoriteLibraries() async {
+    final authService = PlexAuthService();
+    final serverService = PlexServerService(authService: authService);
+    final token = await authService.getSavedToken() ?? '';
+    final servers = await serverService.fetchServers(token);
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FavoriteLibrariesScreen(
+          authService: authService,
+          serverService: serverService,
+          servers: servers,
+          primaryServer: widget.server,
+          isInitialSetup: false,
         ),
       ),
     );
@@ -290,6 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _autoUpdateFocusNode.dispose();
     _checkUpdateBtnFocusNode.dispose();
     _aboutServerFocusNode.dispose();
+    _manageLibrariesFocusNode.dispose();
     _aboutClientFocusNode.dispose();
     _aboutVersionFocusNode.dispose();
     _aboutWebsiteFocusNode.dispose();
@@ -585,7 +607,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsActionTile(
                       focusNode: _aboutServerFocusNode,
                       onUp: () => _checkUpdateBtnFocusNode.requestFocus(),
-                      onDown: () => _aboutClientFocusNode.requestFocus(),
+                      onDown: () => _manageLibrariesFocusNode.requestFocus(),
                       title: 'Connected Server',
                       subtitle: widget.server!.name,
                       trailing: widget.server!.activeConnectionUri ??
@@ -596,8 +618,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         isPrimary: false,
                         fontSize: 11.5,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-                        label: 'Switch Server',
+                        icon: const Icon(Icons.tune_rounded, size: 16),
+                        label: 'Customize Servers',
                         onPressed: _switchServer,
                       ),
                       isInteractive: true,
@@ -605,11 +627,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailingBelow: isCompact,
                     ),
                     const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _manageLibrariesFocusNode,
+                      onUp: () => _aboutServerFocusNode.requestFocus(),
+                      onDown: () => _aboutClientFocusNode.requestFocus(),
+                      title: 'Favorite Libraries',
+                      subtitle: 'Choose which libraries appear on Home and Navigation',
+                      trailingWidget: PlixButton(
+                        isPrimary: false,
+                        fontSize: 11.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        icon: const Icon(Icons.favorite_rounded, size: 16),
+                        label: 'Manage Libraries',
+                        onPressed: _openFavoriteLibraries,
+                      ),
+                      isInteractive: true,
+                      onTap: _openFavoriteLibraries,
+                      trailingBelow: isCompact,
+                    ),
+                    const SizedBox(height: 10),
                   ],
                   _SettingsActionTile(
                     focusNode: _aboutClientFocusNode,
                     onUp: () => widget.server != null
-                        ? _aboutServerFocusNode.requestFocus()
+                        ? _manageLibrariesFocusNode.requestFocus()
                         : _checkUpdateBtnFocusNode.requestFocus(),
                     onDown: () => _aboutVersionFocusNode.requestFocus(),
                     title: 'Client Identifier',
@@ -685,12 +726,16 @@ class _AppearanceHeroTileState extends State<_AppearanceHeroTile> {
     if (mounted) {
       setState(() => _isFocused = widget.focusNode.hasFocus);
       if (widget.focusNode.hasFocus) {
-        Scrollable.ensureVisible(
-          context,
-          alignment: 0.0,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOutCubic,
-        );
+        final scrollable = Scrollable.maybeOf(context);
+        if (scrollable != null && scrollable.position.hasContentDimensions) {
+          if (scrollable.position.pixels > 0) {
+            scrollable.position.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOutCubic,
+            );
+          }
+        }
       }
     }
   }

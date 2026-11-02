@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/brand_logo.dart';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
@@ -6,6 +7,7 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import 'auth_chooser_screen.dart';
 import 'home_screen.dart';
+import 'favorite_libraries_screen.dart';
 import 'server_select_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -48,10 +50,32 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
 
+    final prefs = await SharedPreferences.getInstance();
     final token = await widget.authService.getSavedToken();
     final jfServers = await widget.serverService.getSavedJellyfinServers();
+    final hasSavedToken = token != null && token.isNotEmpty;
+    final hasSavedJf = jfServers.isNotEmpty;
+    final hasSavedActiveServer = prefs.containsKey('active_server_id');
+    final hasSavedFavorites = prefs.containsKey('favorite_libraries');
+    final hasSavedThemes = prefs.containsKey('plix_theme');
+    final hasExistingInstallData = hasSavedToken ||
+        hasSavedJf ||
+        hasSavedActiveServer ||
+        hasSavedFavorites ||
+        hasSavedThemes ||
+        (prefs.getKeys().isNotEmpty && !prefs.containsKey('plix_is_fresh_install'));
 
-    if ((token == null || token.isEmpty) && jfServers.isEmpty) {
+    if (hasExistingInstallData) {
+      // Existing install or app update: ensure welcome tour is permanently disabled
+      await prefs.setBool('plix_welcome_tour_shown', true);
+      await prefs.remove('plix_fresh_install_pending_tour');
+      await prefs.remove('plix_is_fresh_install');
+    } else {
+      // Brand new clean install
+      await prefs.setBool('plix_is_fresh_install', true);
+    }
+
+    if (!hasSavedToken && !hasSavedJf) {
       _navigateToAuthChooser();
       return;
     }
@@ -71,12 +95,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         return;
       }
 
+      final bool v160FavoritesPrompted = prefs.getBool('plix_v160_favorites_prompted') ?? false;
+
       if (servers.length == 1) {
         // Only one server accessible: use it by default
         final server = servers.first;
         await widget.serverService.testAndResolveBestConnection(server);
         await widget.serverService.setActiveServerId(server.clientIdentifier);
-        _navigateToHome(server);
+        final favoriteIds = await widget.serverService.getFavoriteLibraryIds();
+        if (favoriteIds == null || !v160FavoritesPrompted) {
+          await prefs.setBool('plix_v160_favorites_prompted', true);
+          _navigateToFavoriteLibraries(servers, server);
+        } else {
+          _navigateToHome(server);
+        }
       } else {
         // Multiple servers accessible
         final savedActiveId = await widget.serverService.getActiveServerId();
@@ -93,9 +125,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             (s) => pinnedIds.contains(s.clientIdentifier),
             orElse: () => servers.first,
           );
+        } else {
+          selectedServer = servers.first;
         }
 
-        if (selectedServer != null && savedActiveId != null) {
+        if (!v160FavoritesPrompted) {
+          await prefs.setBool('plix_v160_favorites_prompted', true);
+          if (selectedServer != null) {
+            await widget.serverService.testAndResolveBestConnection(selectedServer);
+            await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
+          }
+          _navigateToFavoriteLibraries(servers, selectedServer ?? servers.first);
+        } else if (selectedServer != null && savedActiveId != null) {
           await widget.serverService.testAndResolveBestConnection(selectedServer);
           _navigateToHome(selectedServer);
         } else {
@@ -128,6 +169,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           servers: servers,
           authService: widget.authService,
           serverService: widget.serverService,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToFavoriteLibraries(List<PlexServer> servers, PlexServer primaryServer) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => FavoriteLibrariesScreen(
+          authService: widget.authService,
+          serverService: widget.serverService,
+          servers: servers,
+          primaryServer: primaryServer,
+          isInitialSetup: true,
         ),
       ),
     );

@@ -430,6 +430,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   bool _isUpdatingWatchlist = false;
 
   bool _isFullScreen = false;
+  DateTime? _lastControlsHiddenByBackTime;
 
   StreamSubscription<String?>? _serverStopSubscription;
 
@@ -605,12 +606,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         }
 
-        if (!NativePlayerService.useMediaKit && Platform.isIOS && _selectedQuality.isDirectPlay) {
-
+        if (_selectedQuality.isDirectPlay) {
+          _audioNeedsTranscode = true;
           _changeQuality(VideoQualityOption.directStream, force: true);
-
           return;
-
         }
 
         setState(() {
@@ -1814,33 +1813,23 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       final audioCodec = (_currentItem.audioCodec ?? '').toLowerCase();
 
       if (audioCodec.isNotEmpty) {
-
-        final isDtsOrLossless = audioCodec.contains('dts') ||
-
-            audioCodec == 'dca' ||
-
-            audioCodec.contains('truehd') ||
-
-            audioCodec.contains('true-hd') ||
-
-            audioCodec == 'mlp';
-
-        final isStandardSupported = audioCodec == 'ac3' ||
-            audioCodec == 'eac3' ||
-            audioCodec == 'e-ac3' ||
-            audioCodec == 'aac' ||
+        final isStandardSupported = audioCodec == 'aac' ||
+            audioCodec == 'mp4a' ||
             audioCodec == 'mp3' ||
             audioCodec == 'flac' ||
-            audioCodec == 'opus';
+            audioCodec == 'opus' ||
+            audioCodec == 'vorbis' ||
+            audioCodec == 'pcm' ||
+            audioCodec == 'wav' ||
+            audioCodec == 'alac' ||
+            audioCodec.startsWith('pcm_');
         final isSupported = isStandardSupported ||
-            (!isDtsOrLossless && await _nativePlayer.checkAudioSupported(audioCodec));
+            await _nativePlayer.checkAudioSupported(audioCodec);
 
-        _audioNeedsTranscode = isDtsOrLossless || !isSupported;
+        _audioNeedsTranscode = !isSupported;
 
         if (_audioNeedsTranscode) {
-
           _selectedQuality = VideoQualityOption.directStream;
-
         }
 
       }
@@ -3095,6 +3084,29 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+  bool _handleBackPressHideControls() {
+    _lastControlsHiddenByBackTime = DateTime.now();
+    _hideControlsTimer?.cancel();
+
+    if (_isCastExpanded) {
+      setState(() {
+        _isCastExpanded = false;
+      });
+      _scheduleHideControls();
+      return true;
+    }
+
+    if (_showControls) {
+      setState(() {
+        _showControls = false;
+      });
+      _playerFocusNode.requestFocus();
+      return true;
+    }
+
+    return false;
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
 
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -3134,38 +3146,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
         // Back key handling: exit fullscreen first if active, else close UI first if open; only exit if UI closed
-
         if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
-
           if ((Platform.isWindows || Platform.isLinux) && _isFullScreen) {
-
             _toggleFullScreen();
-
             return KeyEventResult.handled;
-
           }
 
-          if (_showControls) {
-            if (_isCastExpanded) {
-              setState(() {
-                _isCastExpanded = false;
-              });
-              _scheduleHideControls();
-              return KeyEventResult.handled;
-            }
-            setState(() {
-              _showControls = false;
-            });
-            _playerFocusNode.requestFocus();
+          if (_isCastExpanded || _showControls) {
+            _handleBackPressHideControls();
             return KeyEventResult.handled;
           } else {
-
-            Navigator.of(context).maybePop(_playbackExitItem);
-
+            final now = DateTime.now();
+            final wasJustHidden = _lastControlsHiddenByBackTime != null &&
+                now.difference(_lastControlsHiddenByBackTime!).inMilliseconds < 600;
+            if (!wasJustHidden) {
+              Navigator.of(context).maybePop(_playbackExitItem);
+            }
             return KeyEventResult.handled;
-
           }
-
         }
 
       }
@@ -3369,27 +3367,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
     // Remote Back button
-
     if (event is KeyDownEvent && (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
-
-      if (_showControls) {
-        if (_isCastExpanded) {
-          setState(() {
-            _isCastExpanded = false;
-          });
-          _scheduleHideControls();
-          return true;
-        }
-        setState(() {
-          _showControls = false;
-        });
-        _playerFocusNode.requestFocus();
+      if (_isCastExpanded || _showControls) {
+        _handleBackPressHideControls();
         return true;
       }
-
     }
-
-
 
     if (!_showControls) {
 
@@ -6101,37 +6084,28 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
     return PopScope(
-
       canPop: false,
-
       onPopInvokedWithResult: (didPop, result) {
-
         if (didPop) return;
 
-        if (isDuoTabletop || isPortrait || !_showControls) {
+        final now = DateTime.now();
+        final wasJustHiddenByBack = _lastControlsHiddenByBackTime != null &&
+            now.difference(_lastControlsHiddenByBackTime!).inMilliseconds < 600;
 
-          _nativePlayer.stop();
-
-          _timelineService.stop(_currentPositionMs);
-
-          _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
-
-          Navigator.of(context).pop(_playbackExitItem);
-
-        } else {
-
-          setState(() {
-
-            _showControls = false;
-
-          });
-
-          _playerFocusNode.requestFocus();
-
+        if (wasJustHiddenByBack) {
+          return;
         }
 
-      },
+        if (_isCastExpanded || _showControls) {
+          _handleBackPressHideControls();
+          return;
+        }
 
+        _nativePlayer.stop();
+        _timelineService.stop(_currentPositionMs);
+        _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+        Navigator.of(context).pop(_playbackExitItem);
+      },
       child: isDuoTabletop
 
           ? _buildDuoTabletopLayout(context, effectiveProgressMs, maxMs)
@@ -7498,6 +7472,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                 onPressed: _showSpeedSelector,
 
+                                                onLeft: () {},
+
                                                 onRight: () => (_currentItem.audioStreams.length > 1)
 
                                                     ? _audioBtnFocusNode.requestFocus()
@@ -7852,7 +7828,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                 } else {
 
-                                                  _speedBtnFocusNode.requestFocus();
+                                                  _qualityBtnFocusNode.requestFocus();
 
                                                 }
 
