@@ -56,6 +56,8 @@ class JellyfinMediaService {
     );
   }
 
+  PlexMediaItem parseItem(Map<String, dynamic> json) => _parseItem(json);
+
   PlexMediaItem _parseItem(Map<String, dynamic> json) {
     final id = json['Id']?.toString() ?? '';
     final name = json['Name']?.toString() ?? '';
@@ -228,6 +230,18 @@ class JellyfinMediaService {
 
     final seriesId = json['SeriesId']?.toString() ?? (type == 'season' ? json['ParentId']?.toString() : null);
     final seasonId = json['SeasonId']?.toString() ?? (type == 'episode' ? json['ParentId']?.toString() : null);
+
+    String? itemClearLogo;
+    final imgTags = json['ImageTags'];
+    if (imgTags is Map && imgTags.containsKey('Logo')) {
+      itemClearLogo = '/Items/$id/Images/Logo';
+    } else {
+      final parentLogoId = json['ParentLogoItemId']?.toString() ?? seriesId;
+      final parentLogoTag = json['ParentLogoImageTag']?.toString();
+      if (parentLogoId != null && parentLogoId.isNotEmpty && (parentLogoTag != null || seriesId != null)) {
+        itemClearLogo = '/Items/$parentLogoId/Images/Logo';
+      }
+    }
     final showPoster = seriesId != null ? '/Items/$seriesId/Images/Primary' : null;
     final seasonPoster = seasonId != null ? '/Items/$seasonId/Images/Primary' : null;
     final itemThumb = '/Items/$id/Images/Primary';
@@ -306,6 +320,7 @@ class JellyfinMediaService {
       serverId: server.clientIdentifier,
       librarySectionId: parsedAncestors.firstOrNull,
       ancestorIds: parsedAncestors,
+      clearLogo: itemClearLogo,
     );
   }
 

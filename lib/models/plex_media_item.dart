@@ -247,6 +247,7 @@ class PlexMediaItem {
   final String? librarySectionId;
   final String? librarySectionTitle;
   final List<String> ancestorIds;
+  final String? clearLogo;
 
   const PlexMediaItem({
     required this.ratingKey,
@@ -317,6 +318,7 @@ class PlexMediaItem {
     this.librarySectionId,
     this.librarySectionTitle,
     this.ancestorIds = const [],
+    this.clearLogo,
   });
 
   bool get isMovie => type == 'movie';
@@ -980,6 +982,24 @@ class PlexMediaItem {
         json['librarySectionId']?.toString() ??
         json['librarySectionKey']?.toString().replaceFirst('/library/sections/', '');
     final parsedLibrarySectionTitle = json['librarySectionTitle']?.toString();
+    String? parsedClearLogo = json['clearLogo']?.toString() ??
+        json['grandparentClearLogo']?.toString() ??
+        json['parentClearLogo']?.toString();
+    if (parsedClearLogo == null || parsedClearLogo.isEmpty) {
+      final rawImages = json['Image'] ?? json['images'] ?? json['Images'];
+      if (rawImages is List) {
+        for (final img in rawImages) {
+          if (img is Map && (img['type']?.toString() == 'clearLogo' || img['type']?.toString() == 'logo')) {
+            final u = img['url']?.toString();
+            if (u != null && u.isNotEmpty) {
+              parsedClearLogo = u;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     final rawAncestors = json['AncestorIds'] ?? json['ancestorIds'];
     final List<String> parsedAncestors = [];
     if (rawAncestors is List) {
@@ -1075,6 +1095,7 @@ class PlexMediaItem {
       librarySectionId: parsedLibrarySectionId,
       librarySectionTitle: parsedLibrarySectionTitle,
       ancestorIds: parsedAncestors,
+      clearLogo: parsedClearLogo,
     );
   }
 
@@ -1146,6 +1167,7 @@ class PlexMediaItem {
     String? librarySectionId,
     String? librarySectionTitle,
     List<String>? ancestorIds,
+    String? clearLogo,
   }) {
     return PlexMediaItem(
       ratingKey: ratingKey ?? this.ratingKey,
@@ -1216,6 +1238,7 @@ class PlexMediaItem {
       librarySectionId: librarySectionId ?? this.librarySectionId,
       librarySectionTitle: librarySectionTitle ?? this.librarySectionTitle,
       ancestorIds: ancestorIds ?? this.ancestorIds,
+      clearLogo: clearLogo ?? this.clearLogo,
     );
   }
 }
