@@ -4,6 +4,8 @@ import '../models/plex_library.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/plex_media_service.dart';
+import '../services/plex_auth_service.dart';
+import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_bottom_nav.dart';
@@ -46,7 +48,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void initState() {
     super.initState();
-    _mediaService = PlexMediaService(server: widget.server);
+    final effectiveServer = widget.library.server ?? widget.server;
+    _mediaService = PlexMediaService(server: effectiveServer);
     _loadItems();
   }
 
@@ -168,6 +171,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
 
     try {
+      if (_mediaService.server.activeConnectionUri == null ||
+          _mediaService.server.activeConnectionUri!.isEmpty) {
+        final serverService = PlexServerService(authService: PlexAuthService());
+        await serverService.testAndResolveBestConnection(_mediaService.server);
+      }
       final items = await _mediaService.getLibraryItems(widget.library.key);
       if (mounted) {
         setState(() {

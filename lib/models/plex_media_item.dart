@@ -247,6 +247,7 @@ class PlexMediaItem {
   final String? librarySectionId;
   final String? librarySectionTitle;
   final List<String> ancestorIds;
+  final String? clearLogo;
 
   const PlexMediaItem({
     required this.ratingKey,
@@ -317,6 +318,7 @@ class PlexMediaItem {
     this.librarySectionId,
     this.librarySectionTitle,
     this.ancestorIds = const [],
+    this.clearLogo,
   });
 
   bool get isMovie => type == 'movie';
@@ -980,6 +982,57 @@ class PlexMediaItem {
         json['librarySectionId']?.toString() ??
         json['librarySectionKey']?.toString().replaceFirst('/library/sections/', '');
     final parsedLibrarySectionTitle = json['librarySectionTitle']?.toString();
+
+    // Language-aware clear logo selection (prefers English variants)
+    String? bestLogoFromImages(dynamic imagesList) {
+      if (imagesList is! List) return null;
+      String? bestUrl;
+      int bestScore = -1;
+
+      for (final img in imagesList) {
+        if (img is! Map) continue;
+        final type = img['type']?.toString();
+        if (type != 'clearLogo' && type != 'logo') continue;
+        final u = img['url']?.toString();
+        if (u == null || u.isEmpty) continue;
+
+        final lang = (img['language'] ?? img['lang'] ?? img['languageCode'] ?? img['locale'])?.toString().toLowerCase().trim();
+        final selected = img['selected'] == true || img['selected'] == '1' || img['selected'] == 1;
+
+        int score = 50; // default for neutral/unspecified language
+        if (lang != null && lang.isNotEmpty) {
+          if (lang.startsWith('en')) {
+            score = 1000;
+          } else {
+            score = 10; // specific non-English language (e.g. ru, de, fr)
+          }
+        }
+        if (selected) score += 200;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestUrl = u;
+        }
+      }
+      return bestUrl;
+    }
+
+    final rawImages = json['Image'] ?? json['images'] ?? json['Images'];
+    String? parsedClearLogo = bestLogoFromImages(rawImages);
+
+    // If no logo found or only low-scoring logo found in Image array, check direct properties
+    if (parsedClearLogo == null || parsedClearLogo.isEmpty) {
+      parsedClearLogo = json['clearLogo']?.toString() ??
+          json['grandparentClearLogo']?.toString() ??
+          json['parentClearLogo']?.toString();
+    }
+
+    // Check grandparent images if still not found
+    if (parsedClearLogo == null || parsedClearLogo.isEmpty) {
+      final gpImages = json['grandparentImages'] ?? json['grandparentImage'];
+      parsedClearLogo = bestLogoFromImages(gpImages);
+    }
+
     final rawAncestors = json['AncestorIds'] ?? json['ancestorIds'];
     final List<String> parsedAncestors = [];
     if (rawAncestors is List) {
@@ -1007,7 +1060,7 @@ class PlexMediaItem {
           ? (json['viewOffset'] as num).toInt()
           : int.tryParse(json['viewOffset']?.toString() ?? ''),
       thumb: json['thumb'] as String?,
-      art: json['art'] as String?,
+      art: (json['art'] as String?) ?? (json['grandparentArt'] as String?),
       theme: (json['theme'] as String?) ?? (json['grandparentTheme'] as String?),
       grandparentTitle: json['grandparentTitle'] as String?,
       parentTitle: json['parentTitle'] as String?,
@@ -1075,6 +1128,7 @@ class PlexMediaItem {
       librarySectionId: parsedLibrarySectionId,
       librarySectionTitle: parsedLibrarySectionTitle,
       ancestorIds: parsedAncestors,
+      clearLogo: parsedClearLogo,
     );
   }
 
@@ -1146,6 +1200,7 @@ class PlexMediaItem {
     String? librarySectionId,
     String? librarySectionTitle,
     List<String>? ancestorIds,
+    String? clearLogo,
   }) {
     return PlexMediaItem(
       ratingKey: ratingKey ?? this.ratingKey,
@@ -1216,6 +1271,7 @@ class PlexMediaItem {
       librarySectionId: librarySectionId ?? this.librarySectionId,
       librarySectionTitle: librarySectionTitle ?? this.librarySectionTitle,
       ancestorIds: ancestorIds ?? this.ancestorIds,
+      clearLogo: clearLogo ?? this.clearLogo,
     );
   }
 }

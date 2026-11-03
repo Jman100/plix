@@ -74,8 +74,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.6.0';
-  static int _currentVersionCode = 39;
+  static String _currentVersion = '1.7.0';
+  static int _currentVersionCode = 40;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -321,9 +321,45 @@ class UpdateService {
       onProgress(1.0);
       bool opened = false;
       if (isArch) {
-        if (File('/usr/bin/pamac-installer').existsSync()) {
+        // Run pacman -U with pkexec (native Polkit GUI authentication)
+        if (File('/usr/bin/pkexec').existsSync()) {
+          try {
+            await Process.start('pkexec', ['pacman', '-U', '--noconfirm', targetFile.path], mode: ProcessStartMode.detached);
+            opened = true;
+          } catch (_) {}
+        }
+        if (!opened && File('/usr/bin/pamac-installer').existsSync()) {
           try {
             await Process.start('pamac-installer', [targetFile.path], mode: ProcessStartMode.detached);
+            opened = true;
+          } catch (_) {}
+        }
+        if (!opened) {
+          // Fallback to running in a graphical terminal with sudo pacman -U
+          final terminals = [
+            ['konsole', '-e', 'sudo pacman -U "${targetFile.path}"'],
+            ['gnome-terminal', '--', 'sudo', 'pacman', '-U', targetFile.path],
+            ['xfce4-terminal', '-e', 'sudo pacman -U "${targetFile.path}"'],
+            ['alacritty', '-e', 'sudo', 'pacman', '-U', targetFile.path],
+            ['kitty', 'sudo', 'pacman', '-U', targetFile.path],
+            ['xterm', '-e', 'sudo pacman -U "${targetFile.path}"'],
+          ];
+          for (final term in terminals) {
+            final exe = term.first;
+            if (File('/usr/bin/$exe').existsSync() || File('/usr/local/bin/$exe').existsSync()) {
+              try {
+                await Process.start(exe, term.sublist(1), mode: ProcessStartMode.detached);
+                opened = true;
+                break;
+              } catch (_) {}
+            }
+          }
+        }
+      }
+      if (!opened) {
+        if (!isArch && File('/usr/bin/pkexec').existsSync() && File('/usr/bin/dpkg').existsSync()) {
+          try {
+            await Process.start('pkexec', ['dpkg', '-i', targetFile.path], mode: ProcessStartMode.detached);
             opened = true;
           } catch (_) {}
         }

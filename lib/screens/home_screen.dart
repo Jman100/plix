@@ -73,8 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _errorMessage;
 
   final ScrollController _scrollController = ScrollController();
-  final FocusNode _heroPlayFocusNode = FocusNode();
-  final FocusNode _heroDetailsFocusNode = FocusNode();
+// Hero action buttons removed to make room for Title Art
   final FocusNode _sidebarHomeFocusNode = FocusNode();
   final FocusNode _sidebarSettingsFocusNode = FocusNode();
   final FocusNode _sidebarSwitchServerFocusNode = FocusNode();
@@ -88,13 +87,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   String? _heroViewMoreTitle;
 
-  bool get _showHeroButtons {
-    if (_heroViewMoreTitle != null) return false;
-    if (_heroPlayFocusNode.hasFocus || _heroDetailsFocusNode.hasFocus) return true;
-    if (_lastFocusedRowId == 'continue_watching') return true;
-    if (_lastFocusedRowId == null && _continueWatching.isNotEmpty) return true;
-    return false;
-  }
+
   bool _isSidebarFocused = false;
   Timer? _heroMetadataDebounceTimer;
   Timer? _heroHoverTimer;
@@ -168,7 +161,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _heroMetadataDebounceTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
-        final full = await heroService.getItemMetadata(fetchKey);
+        var full = await heroService.getItemMetadata(fetchKey);
+        // For episodes, resolve grandparent show logo and backdrop art if missing
+        if ((full.isEpisode || currentHeroItem.isEpisode) &&
+            (full.clearLogo == null || full.clearLogo!.isEmpty)) {
+          final showKey = full.grandparentRatingKey ?? currentHeroItem.grandparentRatingKey;
+          if (showKey != null && showKey.isNotEmpty) {
+            try {
+              final show = await heroService.getItemMetadata(showKey);
+              if (show.clearLogo != null && show.clearLogo!.isNotEmpty) {
+                full = full.copyWith(
+                  clearLogo: show.clearLogo,
+                  art: full.art ?? show.art,
+                );
+              }
+            } catch (_) {}
+          }
+        }
         if (mounted && (_heroItem?.ratingKey == currentHeroItem.ratingKey || _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey)) {
           setState(() {
             if (isSeasonTarget) {
@@ -236,8 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _mediaService = PlexMediaService(server: widget.server);
     _allServers = [widget.server];
-    _heroPlayFocusNode.addListener(_onHeroFocusChanged);
-    _heroDetailsFocusNode.addListener(_onHeroFocusChanged);
+
     _initData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForAutoUpdate();
@@ -298,7 +306,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && ModalRoute.of(context)?.isCurrent == true) {
               if (_continueWatching.isNotEmpty) {
-                _heroPlayFocusNode.requestFocus();
+                if (_rowSectionKeys['continue_watching']?.currentState != null) {
+                  _rowSectionKeys['continue_watching']!.currentState!.focusAt(0);
+                } else if (_firstContinueWatchingFocusNode.canRequestFocus) {
+                  _firstContinueWatchingFocusNode.requestFocus();
+                }
               } else if (_activeRowIds.isNotEmpty) {
                 _rowSectionKeys[_activeRowIds.first]?.currentState?.focusAt(0);
               }
@@ -339,7 +351,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && ModalRoute.of(context)?.isCurrent == true) {
                 if (_continueWatching.isNotEmpty) {
-                  _heroPlayFocusNode.requestFocus();
+                  if (_rowSectionKeys['continue_watching']?.currentState != null) {
+                    _rowSectionKeys['continue_watching']!.currentState!.focusAt(0);
+                  } else if (_firstContinueWatchingFocusNode.canRequestFocus) {
+                    _firstContinueWatchingFocusNode.requestFocus();
+                  }
                 } else if (_activeRowIds.isNotEmpty) {
                   _rowSectionKeys[_activeRowIds.first]?.currentState?.focusAt(0);
                 }
@@ -351,20 +367,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  void _onHeroFocusChanged() {
-    if (_heroPlayFocusNode.hasFocus || _heroDetailsFocusNode.hasFocus) {
-      _lastFocusedRowId = 'continue_watching';
-      _lastFocusedContentNode = _heroPlayFocusNode.hasFocus ? _heroPlayFocusNode : _heroDetailsFocusNode;
-      if (mounted) setState(() {});
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    }
-  }
+
 
   @override
   void dispose() {
@@ -372,10 +375,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _mobileHeroTimer?.cancel();
     _heroMetadataDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _heroPlayFocusNode.removeListener(_onHeroFocusChanged);
-    _heroDetailsFocusNode.removeListener(_onHeroFocusChanged);
-    _heroPlayFocusNode.dispose();
-    _heroDetailsFocusNode.dispose();
+
     _sidebarHomeFocusNode.dispose();
     _sidebarSettingsFocusNode.dispose();
     _sidebarSwitchServerFocusNode.dispose();
@@ -490,6 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (cached.isNotEmpty) {
           _continueWatching = List.from(cached);
           _heroItem = _continueWatching.first;
+          _precacheAllHomeLogos();
         }
       }
       if (_cachedRecentlyAdded.isNotEmpty && _recentlyAddedByLibrary.isEmpty) {
@@ -613,6 +614,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               setState(() {
                 _heroItem ??= items.first;
               });
+              _precacheAllHomeLogos();
             }
           }
         } catch (_) {}
@@ -628,6 +630,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       filteredContinueWatching.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
       _continueWatching = filteredContinueWatching;
       _cachedContinueWatching = List.from(filteredContinueWatching);
+      _precacheAllHomeLogos();
 
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
@@ -662,7 +665,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           if (hasActiveFocus) return;
 
           if (_continueWatching.isNotEmpty) {
-            _heroPlayFocusNode.requestFocus();
+            if (_rowSectionKeys['continue_watching']?.currentState != null) {
+              _rowSectionKeys['continue_watching']!.currentState!.focusAt(0);
+            } else if (_firstContinueWatchingFocusNode.canRequestFocus) {
+              _firstContinueWatchingFocusNode.requestFocus();
+            }
           } else {
             final rowIds = _activeRowIds;
             if (rowIds.isNotEmpty) {
@@ -710,9 +717,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final targetIdx = currentIdx + delta;
     if (delta < 0 && targetIdx < 0) {
-      if (_showHeroButtons && _heroDetailsFocusNode.canRequestFocus) {
-        _heroDetailsFocusNode.requestFocus();
-      }
       return;
     }
 
@@ -740,18 +744,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _navigateFromHeroDown() {
-    if (_continueWatching.isNotEmpty) {
-      final targetIdx = _rowLastFocusedIndices['continue_watching'] ?? 0;
-      _rowSectionKeys['continue_watching']?.currentState?.focusAt(targetIdx);
-    } else {
-      final rowIds = _activeRowIds;
-      if (rowIds.isNotEmpty) {
-        final targetIdx = _rowLastFocusedIndices[rowIds.first] ?? 0;
-        _rowSectionKeys[rowIds.first]?.currentState?.focusAt(targetIdx);
-      }
-    }
-  }
+
 
   void _onViewMoreCardFocused(BuildContext rowContext, String rowId, FocusNode node, String title) {
     _lastFocusedContentNode = node;
@@ -1012,6 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() {
           _recentlyAddedByLibrary.addAll(recentlyAddedMap);
         });
+        _precacheAllHomeLogos();
       }
     } catch (_) {}
   }
@@ -1199,7 +1193,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const SizedBox(width: 8),
           const PlixWordmark(fontSize: 20),
           const Spacer(),
-          // Server switcher pill
+          // Customize servers button
           InkWell(
             onTap: _switchServer,
             borderRadius: BorderRadius.circular(20),
@@ -1209,33 +1203,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: PlixTheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: widget.server.isJellyfin ? const Color(0xFF8E51DC) : const Color(0xFFE5A00D),
-                  width: 1.2,
+                  color: PlixTheme.cardBorder,
+                  width: 1.0,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.server.isJellyfin)
-                    const JellyfinLogo(size: 14, color: Color(0xFF8E51DC))
-                  else
-                    const PlexLogo(size: 14, color: Color(0xFFE5A00D)),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 110),
-                    child: Text(
-                      widget.server.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Icon(Icons.tune_rounded, size: 14, color: PlixTheme.plexGold),
+                  SizedBox(width: 6),
+                  Text(
+                    'Customize Servers',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.swap_horiz_rounded, size: 14, color: Colors.white70),
                 ],
               ),
             ),
@@ -1543,15 +1527,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          padding: const EdgeInsets.only(top: 26, bottom: 2),
           child: SizedBox(
-            height: 120,
+            height: 166,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 20),
-                const SizedBox(height: 2),
+                const SizedBox(height: 36),
                 SizedBox(
                   height: 36,
                   child: Text(
@@ -1565,6 +1548,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Browse all items in this library',
+                  style: TextStyle(
+                    color: PlixTheme.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1572,65 +1563,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     }
     if (_heroItem == null) return const SizedBox.shrink();
-    final showButtons = _showHeroButtons;
-    final resumeLabel = _heroItem!.isInProgress
-        ? (_heroItem!.formattedResumeTime.isNotEmpty
-            ? 'Resume from ${_heroItem!.formattedResumeTime}'
-            : 'Resume')
-        : 'Watch Now';
+
+    final item = _heroItem!;
+    final heroService = item.server != null ? PlexMediaService(server: item.server!) : _mediaService;
+    final isEpisode = item.isEpisode || item.targetType == 'episode';
+    final hasLogo = item.clearLogo != null && item.clearLogo!.isNotEmpty;
+    final logoUrl = hasLogo ? heroService.buildLogoUrl(item.clearLogo!) : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 4),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topLeft,
+        padding: const EdgeInsets.only(top: 26, bottom: 2),
+        child: SizedBox(
+          height: 166,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 20,
-                child: Visibility(
-                  visible: _heroItem!.heroTopTitle != null && _heroItem!.heroTopTitle!.isNotEmpty,
-                  maintainSize: true,
-                  maintainAnimation: true,
-                  maintainState: true,
-                  child: Text(
-                    _heroItem!.heroTopTitle ?? '',
-                    style: TextStyle(
-                      color: PlixTheme.plexGold,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
+                height: 90,
+                child: isEpisode
+                    ? (hasLogo ? _buildEpisodeTitleWithLogo(item, logoUrl) : _buildEpisodeFallbackTitle(item))
+                    : (hasLogo ? _buildMovieTitleWithLogo(item, logoUrl) : _buildMovieFallbackTitle(item)),
               ),
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 36,
-                child: Text(
-                  _heroItem!.heroMainTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: PlixTheme.textPrimary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               SizedBox(
                 height: 20,
                 child: Row(
                   children: [
-                    if (_heroItem!.year != null) ...[
+                    if (item.year != null) ...[
                       Text(
-                        _heroItem!.year.toString(),
+                        item.year.toString(),
                         style: const TextStyle(
                           color: PlixTheme.textSecondary,
                           fontSize: 13,
@@ -1639,12 +1602,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(width: 12),
                     ],
-                    if (!_heroItem!.isShow &&
-                        !_heroItem!.isSeason &&
-                        _heroItem!.targetType != 'season' &&
-                        _heroItem!.formattedDuration.isNotEmpty) ...[
+                    if (!item.isShow &&
+                        !item.isSeason &&
+                        item.targetType != 'season' &&
+                        item.formattedDuration.isNotEmpty) ...[
                       Text(
-                        _heroItem!.formattedDuration,
+                        item.formattedDuration,
                         style: const TextStyle(
                           color: PlixTheme.textSecondary,
                           fontSize: 13,
@@ -1653,7 +1616,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(width: 12),
                     ],
-                    if (_heroItem!.contentRating != null) ...[
+                    if (item.contentRating != null) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -1664,7 +1627,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
-                          _heroItem!.contentRating!,
+                          item.contentRating!,
                           style: const TextStyle(
                             color: PlixTheme.textSecondary,
                             fontSize: 11,
@@ -1673,7 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(width: 12),
                     ],
-                    if (_heroItem!.formattedResolution.isNotEmpty)
+                    if (item.formattedResolution.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -1684,7 +1647,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
-                          _heroItem!.formattedResolution,
+                          item.formattedResolution,
                           style: TextStyle(
                             color: PlixTheme.plexGold,
                             fontSize: 11,
@@ -1692,7 +1655,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                    if (_heroItem!.isHdr) ...[
+                    if (item.isHdr) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1708,7 +1671,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                         child: Text(
-                          _heroItem!.hdrBadge.isNotEmpty ? _heroItem!.hdrBadge : 'HDR10',
+                          item.hdrBadge.isNotEmpty ? item.hdrBadge : 'HDR10',
                           style: TextStyle(
                             color: PlixTheme.plexGold,
                             fontSize: 11,
@@ -1720,13 +1683,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
+                constraints: const BoxConstraints(maxWidth: 640),
                 child: SizedBox(
-                  height: 32,
+                  height: 40,
                   child: Text(
-                    _heroItem!.summary,
+                    item.summary,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1737,45 +1700,189 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              if (showButtons) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 38,
-                  child: Row(
-                    children: [
-                      PlixButton(
-                        focusNode: _heroPlayFocusNode,
-                        autofocus: _continueWatching.isNotEmpty,
-                        isPrimary: false,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                        label: resumeLabel,
-                        blockUp: true,
-                        onUp: () {},
-                        onLeft: () => _sidebarHomeFocusNode.requestFocus(),
-                        onRight: () => _heroDetailsFocusNode.requestFocus(),
-                        onDown: _navigateFromHeroDown,
-                        onPressed: () => _quickPlay(_heroItem!),
-                      ),
-                      const SizedBox(width: 12),
-                      PlixButton(
-                        focusNode: _heroDetailsFocusNode,
-                        isPrimary: false,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        icon: const Icon(Icons.info_outline_rounded, size: 18),
-                        label: 'Details',
-                        blockUp: true,
-                        onUp: () {},
-                        onLeft: () => _heroPlayFocusNode.requestFocus(),
-                        onDown: _navigateFromHeroDown,
-                        onPressed: () => _openDetails(_heroItem!),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  final Set<String> _precachedLogoUrls = {};
+
+  void _precacheAllHomeLogos() {
+    if (!mounted) return;
+
+    final allItems = <PlexMediaItem>[
+      ..._continueWatching,
+      for (final list in _recentlyAddedByLibrary.values) ...list,
+    ];
+
+    if (allItems.isEmpty) return;
+
+    final urlsToPrecache = <String>[];
+    for (final it in allItems) {
+      if (it.clearLogo != null && it.clearLogo!.isNotEmpty) {
+        final serverToUse = it.server ?? widget.server;
+        final service = PlexMediaService(server: serverToUse);
+        final url = service.buildLogoUrl(it.clearLogo!);
+        if (url.isNotEmpty && _precachedLogoUrls.add(url)) {
+          urlsToPrecache.add(url);
+        }
+      }
+    }
+
+    if (urlsToPrecache.isEmpty) return;
+
+    // Immediately precache first 12 (covers hero and visible row items)
+    final immediate = urlsToPrecache.take(12).toList();
+    for (final url in immediate) {
+      precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+    }
+
+    // Precache the rest smoothly in batches to keep UI at 60fps
+    final remaining = urlsToPrecache.skip(12).toList();
+    if (remaining.isNotEmpty) {
+      Future.microtask(() async {
+        const batchSize = 6;
+        for (var i = 0; i < remaining.length; i += batchSize) {
+          if (!mounted) break;
+          final batch = remaining.skip(i).take(batchSize);
+          for (final url in batch) {
+            precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+          }
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      });
+    }
+  }
+
+  Widget _buildEpisodeTitleWithLogo(PlexMediaItem item, String logoUrl) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 58,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: CachedNetworkImage(
+              key: ValueKey(logoUrl),
+              imageUrl: logoUrl,
+              memCacheWidth: 600,
+              memCacheHeight: 200,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (context, url) => const SizedBox.shrink(),
+              imageBuilder: (context, imageProvider) => Align(
+                alignment: Alignment.centerLeft,
+                child: Image(
+                  image: imageProvider,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+              errorWidget: (context, url, error) => _buildEpisodeFallbackTitle(item),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 26,
+          child: Text(
+            item.heroMainTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEpisodeFallbackTitle(PlexMediaItem item) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 22,
+          child: Text(
+            item.heroTopTitle ?? item.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 36,
+          child: Text(
+            item.heroMainTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMovieTitleWithLogo(PlexMediaItem item, String logoUrl) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: CachedNetworkImage(
+          key: ValueKey(logoUrl),
+          imageUrl: logoUrl,
+          memCacheWidth: 600,
+          memCacheHeight: 200,
+          fit: BoxFit.contain,
+          alignment: Alignment.centerLeft,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          placeholder: (context, url) => const SizedBox.shrink(),
+          imageBuilder: (context, imageProvider) => Align(
+            alignment: Alignment.centerLeft,
+            child: Image(
+              image: imageProvider,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+            ),
+          ),
+          errorWidget: (context, url, error) => _buildMovieFallbackTitle(item),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMovieFallbackTitle(PlexMediaItem item) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        item.heroMainTitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: PlixTheme.textPrimary,
+          fontSize: 32,
+          fontWeight: FontWeight.w900,
+          height: 1.15,
         ),
       ),
     );
@@ -1818,13 +1925,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         children: [
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 400),
-                            child: CachedNetworkImage(
-                              key: ValueKey(heroBackdropUrl),
-                              imageUrl: heroBackdropUrl,
-                              fit: BoxFit.cover,
+                            layoutBuilder: (currentChild, previousChildren) => Stack(
+                              fit: StackFit.expand,
                               alignment: Alignment.topCenter,
-                              memCacheWidth: heroDecodeWidth,
-                              memCacheHeight: heroDecodeHeight,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
+                            ),
+                            child: SizedBox.expand(
+                              key: ValueKey(heroBackdropUrl),
+                              child: CachedNetworkImage(
+                                imageUrl: heroBackdropUrl,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                                width: double.infinity,
+                                height: double.infinity,
+                                memCacheWidth: heroDecodeWidth,
+                                memCacheHeight: heroDecodeHeight,
+                              ),
                             ),
                           ),
                           Container(
@@ -1910,7 +2029,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           _buildTvHero(),
                           Container(
                             height: 1,
-                            margin: const EdgeInsets.only(left: 40, right: 40, top: 14, bottom: 4),
+                            margin: const EdgeInsets.only(left: 40, right: 40, top: 8, bottom: 4),
                             color: Colors.white.withOpacity(0.08),
                           ),
                           const SizedBox(height: 4),
@@ -2031,12 +2150,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         _lastFocusedContentNode!.requestFocus();
                         return;
                       }
-                      if (_heroPlayFocusNode.canRequestFocus &&
-                          _heroPlayFocusNode.context != null &&
-                          _heroPlayFocusNode.context!.mounted) {
-                        _heroPlayFocusNode.requestFocus();
-                        return;
-                      }
+
                       if (_continueWatching.isNotEmpty) {
                         _rowSectionKeys['continue_watching']?.currentState?.focusAt(0);
                         return;
@@ -2079,7 +2193,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             isFirstRow: true,
             firstItemFocusNode: _firstContinueWatchingFocusNode,
             onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
-            onRowUp: () => _heroPlayFocusNode.requestFocus(),
+            onRowUp: () {},
             onRowDown: () => _navigateRowVertical('continue_watching', 1),
             onItemFocused: _onRowItemFocused,
             onItemSelected: _openDetails,

@@ -56,6 +56,8 @@ class JellyfinMediaService {
     );
   }
 
+  PlexMediaItem parseItem(Map<String, dynamic> json) => _parseItem(json);
+
   PlexMediaItem _parseItem(Map<String, dynamic> json) {
     final id = json['Id']?.toString() ?? '';
     final name = json['Name']?.toString() ?? '';
@@ -228,6 +230,18 @@ class JellyfinMediaService {
 
     final seriesId = json['SeriesId']?.toString() ?? (type == 'season' ? json['ParentId']?.toString() : null);
     final seasonId = json['SeasonId']?.toString() ?? (type == 'episode' ? json['ParentId']?.toString() : null);
+
+    String? itemClearLogo;
+    final imgTags = json['ImageTags'];
+    if (imgTags is Map && imgTags.containsKey('Logo')) {
+      itemClearLogo = '/Items/$id/Images/Logo';
+    } else {
+      final parentLogoId = json['ParentLogoItemId']?.toString() ?? seriesId;
+      final parentLogoTag = json['ParentLogoImageTag']?.toString();
+      if (parentLogoId != null && parentLogoId.isNotEmpty && (parentLogoTag != null || seriesId != null)) {
+        itemClearLogo = '/Items/$parentLogoId/Images/Logo';
+      }
+    }
     final showPoster = seriesId != null ? '/Items/$seriesId/Images/Primary' : null;
     final seasonPoster = seasonId != null ? '/Items/$seasonId/Images/Primary' : null;
     final itemThumb = '/Items/$id/Images/Primary';
@@ -306,6 +320,7 @@ class JellyfinMediaService {
       serverId: server.clientIdentifier,
       librarySectionId: parsedAncestors.firstOrNull,
       ancestorIds: parsedAncestors,
+      clearLogo: itemClearLogo,
     );
   }
 
@@ -509,7 +524,35 @@ class JellyfinMediaService {
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return _parseItem(data);
+    var parsed = _parseItem(data);
+
+    // Prefer English clear logo if multiple logo variants exist in Jellyfin
+    try {
+      final targetLogoId = parsed.isEpisode
+          ? (data['ParentLogoItemId']?.toString() ?? data['SeriesId']?.toString() ?? itemId)
+          : itemId;
+      final imagesUrl = Uri.parse('/Items//Images');
+      final imgRes = await http.get(imagesUrl, headers: _headers);
+      if (imgRes.statusCode == 200) {
+        final imgList = jsonDecode(imgRes.body);
+        if (imgList is List) {
+          for (final img in imgList) {
+            if (img is Map && img['ImageType']?.toString() == 'Logo') {
+              final lang = (img['Language'] ?? img['language'])?.toString().toLowerCase();
+              if (lang != null && lang.startsWith('en')) {
+                final idx = img['ImageIndex'] ?? 0;
+                final tag = img['ImageTag']?.toString();
+                final enLogo = '/Items//Images/Logo/';
+                parsed = parsed.copyWith(clearLogo: enLogo);
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return parsed;
   }
 
   Future<List<PlexMediaItem>> getShowSeasons(String showId) async {
@@ -809,6 +852,20 @@ class JellyfinMediaService {
     query.add('api_key=$token');
 
     return '$baseUrl$path$sep${query.join('&')}';
+  }
+
+  String buildLogoUrl(String pathOrId, {int width = 440, int height = 160}) {
+    if (pathOrId.isEmpty) return '';
+    if (pathOrId.startsWith('http://') || pathOrId.startsWith('https://')) {
+      return pathOrId;
+    }
+    String path = pathOrId;
+    if (!path.startsWith('/')) {
+      path = '/Items/$path/Images/Logo';
+    }
+    final sep = path.contains('?') ? '&' : '?';
+    // Lower quality (75) and smaller bounding box (440x160) speeds up generation and download
+    return '$baseUrl$path${sep}maxWidth=$width&maxHeight=$height&quality=75&api_key=$token';
   }
 
   String _extractCleanItemId(String raw) {

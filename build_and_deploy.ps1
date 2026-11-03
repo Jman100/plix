@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.6.0"
-$versionCode = 39
+$version = "1.7.0"
+$versionCode = 40
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,13 +45,17 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Unified Multi-Server & Favorite Libraries: Blend libraries and Continue Watching across multiple connected Plex and Jellyfin servers simultaneously; customizable Favorite Libraries manager with smart ownership defaulting and minimum library selection protection
-- First-Time Install Welcome Tour: Introduced a streamlined, platform-tailored welcome walkthrough on TV, mobile, and desktop; TV edition features a 2x2 grid displaying all key features on screen at once with full remote cursor lock
-- Four New Atmosphere Themes: Added Solar Flare, Neon Cyberpunk, Nordic Frost, and Emerald Forest to the visual styling collection (16 total presets plus custom themes)
-- Crystal Liquid Glass Redesign: Overhauled the Liquid Glass atmosphere theme with transparent frosted glass surfaces, high-contrast borders, and clean button states
-- Remote Navigation & TV Polish: Fixed playback overlay directional remote navigation, eliminated TV settings appearance header cutoff, refined TV reorder libraries button states, and optimized vertical row spacing
-- Redesigned Sign Out Confirmation: Rebalanced modal with equal button weighting, increased vertical spacing, and default focus on cancel
-- App Version Bump: v1.6.0 (versionCode 39)
+- Title Art & Clear Logos: Replicated official Plex title art branding across the home hero section, movie, show, and episode detail pages with English logo prioritization and styled typographic fallbacks
+- Home Title Art Pre-Caching & Transcode Acceleration: Background pre-caching engine warms up title art across Continue Watching and active library rows; size-bounded Plex photo transcoding delivers lightweight, transparent PNGs (~15-30 KB) with zero perceived lag
+- Zero-Shift Detail Pages: Pre-positioned reserved bounding boxes for title artwork on movies, shows, and episodes eliminate vertical layout jumping when media metadata and assets load
+- Plex Watchlist Seasons & Episodes Fix: Seamless fallback to Plex Discover cloud metadata provider (metadata.provider.plex.tv) and cross-server library resolution ensures watchlist shows load full seasons and episodes reliably
+- Mobile Portrait Art & Navigation Polish: Movie detail pages in mobile portrait feature prominent centered title art over top-aligned, full-width backdrops; centered episode and show headers; and a scrollable favorite libraries sheet with a 5th-item peek indicator
+- Desktop Volume Controls & Autoplay Fix: Added in-player desktop volume slider with hover controls, mute toggle, and mouse wheel support; fixed unfocused background window autoplay interruptions
+- Windows Per-App Display HDR: Automatic detection and dynamic switching of display HDR for HDR10 media playback on Windows, cleanly restoring SDR upon stop
+- Arch Linux Self-Updater: Package auto-updater on Arch Linux now installs updates directly via pacman -U with graphical elevation
+- Detail Header SX:EX Notation: Streamlined episode detail subtitle line to clean SX:EX format, eliminating show title redundancy
+- Multi-Server Settings Accuracy: Correctly enumerates and displays all connected Plex and Jellyfin servers in settings
+- App Version Bump: v1.7.0 (versionCode 40)
 "@
 
     $manifest = [ordered]@{

@@ -7,6 +7,7 @@ import '../app_theme.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/plex_auth_service.dart';
+import '../services/plex_server_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/plix_image_cache.dart';
 import '../services/theme_music_service.dart';
@@ -302,34 +303,49 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       }
     } catch (_) {}
 
-    // If item does not have a partKey (e.g. opened from Plex Watchlist), search local server for match
+    // If item does not have a partKey (e.g. opened from Plex Watchlist), search servers for match
     if (_item.partKey == null || _item.partKey!.isEmpty) {
       try {
-        final searchResults = await _mediaService.search(_item.title);
-        for (final r in searchResults) {
-          final isSameType = (_item.isMovie && r.isMovie) || (_item.isShow && r.isShow);
-          if (!isSameType) continue;
+        final serverService = PlexServerService(authService: PlexAuthService());
+        final savedToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
+        final allServers = await serverService.fetchServers(savedToken);
+        final serversToSearch = [
+          widget.server,
+          ...allServers.where((s) => s.clientIdentifier != widget.server.clientIdentifier),
+        ];
 
-          bool isMatch = false;
-          if (_item.guid != null && r.guid != null && _item.guid!.isNotEmpty && r.guid!.isNotEmpty) {
-            final cleanW = _item.guid!.trim().toLowerCase().split('?').first;
-            final cleanR = r.guid!.trim().toLowerCase().split('?').first;
-            if (cleanW == cleanR) isMatch = true;
-          }
-          if (!isMatch && _item.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
-            if (_item.year == null || r.year == null || _item.year == r.year) {
-              isMatch = true;
-            }
-          }
+        bool matched = false;
+        for (final srv in serversToSearch) {
+          if (matched) break;
+          final srvService = PlexMediaService(server: srv);
+          final searchResults = await srvService.search(_item.title);
+          for (final r in searchResults) {
+            final isSameType = (_item.isMovie && r.isMovie) || (_item.isShow && r.isShow);
+            if (!isSameType) continue;
 
-          if (isMatch) {
-            final localFull = await _mediaService.getItemMetadata(r.ratingKey);
-            if (mounted) {
-              setState(() {
-                _item = localFull;
-              });
+            bool isMatch = false;
+            if (_item.guid != null && r.guid != null && _item.guid!.isNotEmpty && r.guid!.isNotEmpty) {
+              final cleanW = _item.guid!.trim().toLowerCase().split('?').first;
+              final cleanR = r.guid!.trim().toLowerCase().split('?').first;
+              if (cleanW == cleanR) isMatch = true;
             }
-            break;
+            if (!isMatch && _item.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
+              if (_item.year == null || r.year == null || _item.year == r.year) {
+                isMatch = true;
+              }
+            }
+
+            if (isMatch) {
+              final localFull = await srvService.getItemMetadata(r.ratingKey);
+              if (mounted) {
+                setState(() {
+                  _item = localFull.copyWith(server: srv, serverId: srv.clientIdentifier);
+                  _mediaService = srvService;
+                });
+              }
+              matched = true;
+              break;
+            }
           }
         }
       } catch (_) {}
@@ -1044,24 +1060,19 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   bool get _isLandscapeArtwork => _item.isEpisode;
 
   String get _showTitleLine {
-    final show = _item.grandparentTitle ?? '';
-    if (!_item.isEpisode) return show;
-
-    final season = _item.parentIndex;
-    final episode = _item.index;
-    String se = '';
-    if (season != null && episode != null) {
-      se = 'S$season:E$episode';
-    } else if (season != null) {
-      se = 'S$season';
-    } else if (episode != null) {
-      se = 'E$episode';
+    if (_item.isEpisode) {
+      final season = _item.parentIndex;
+      final episode = _item.index;
+      if (season != null && episode != null) {
+        return 'S$season:E$episode';
+      } else if (season != null) {
+        return 'S$season';
+      } else if (episode != null) {
+        return 'E$episode';
+      }
+      return '';
     }
-
-    if (show.isNotEmpty && se.isNotEmpty) {
-      return '$show - $se';
-    }
-    return show.isNotEmpty ? show : se;
+    return _item.grandparentTitle ?? '';
   }
 
   bool get _isEpisode4by3 {
@@ -1144,49 +1155,37 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final displayWidth = availableWidth > 0 && availableWidth < artworkWidth ? availableWidth : artworkWidth;
     final displayHeight = displayWidth / _artworkAspectRatio;
 
+    final isMovie = _item.isMovie;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Center Artwork
-        Center(
-          child: _buildArtwork(
-            posterUrl: posterUrl,
-            width: displayWidth,
-            height: displayHeight,
-            decodeWidth: artworkDecodeWidth,
-            decodeHeight: artworkDecodeHeight,
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
-        // Title
-        Text(
-          _item.title,
-          style: const TextStyle(
-            color: PlixTheme.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            height: 1.2,
-          ),
-        ),
-
-        if (_showTitleLine.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            _showTitleLine,
-            style: TextStyle(
-              color: PlixTheme.plexGold,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+        if (!isMovie) ...[
+          // Shows and Episodes: Center artwork
+          Center(
+            child: _buildArtwork(
+              posterUrl: posterUrl,
+              width: displayWidth,
+              height: displayHeight,
+              decodeWidth: artworkDecodeWidth,
+              decodeHeight: artworkDecodeHeight,
             ),
           ),
+          const SizedBox(height: 18),
+        ] else ...[
+          // Movies: Remove poster, background fanart provides visual flair
+          const SizedBox(height: 48),
         ],
 
-        const SizedBox(height: 10),
+        // Center title image and info prominently
+        Center(
+          child: _buildDetailTitleWidget(isCompact: true),
+        ),
 
-        // Metadata Badges
+        const SizedBox(height: 12),
+
+        // Metadata Badges (centered)
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -1210,10 +1209,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           ],
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
-        // Action buttons
+        // Action buttons (centered)
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 8,
           children: [
@@ -1362,6 +1362,149 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     );
   }
 
+  Widget _buildDetailTitleWidget({required bool isCompact}) {
+    final hasLogo = _item.clearLogo != null && _item.clearLogo!.isNotEmpty;
+    if (!hasLogo) {
+      return _buildFallbackTitleText(isCompact: isCompact);
+    }
+
+    final logoUrl = _mediaService.buildLogoUrl(_item.clearLogo!);
+
+    if (_item.isEpisode) {
+      // Episode: TV Show title art logo on top, episode title below
+      return Column(
+        crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: isCompact ? 50 : 65,
+            width: isCompact ? 280 : 450,
+            child: Align(
+              alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              child: CachedNetworkImage(
+                key: ValueKey(logoUrl),
+                imageUrl: logoUrl,
+                memCacheWidth: 600,
+                memCacheHeight: 200,
+                fit: BoxFit.contain,
+                alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholder: (context, url) => SizedBox(height: isCompact ? 50 : 65),
+                imageBuilder: (context, imageProvider) => Image(
+                  image: imageProvider,
+                  fit: BoxFit.contain,
+                  alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+                ),
+                errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _item.title,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: isCompact ? 18 : 24,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
+          ),
+          if (_showTitleLine.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _showTitleLine,
+              textAlign: isCompact ? TextAlign.center : TextAlign.start,
+              style: TextStyle(
+                color: PlixTheme.plexGold,
+                fontSize: isCompact ? 14 : 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    // Movies and Shows: Title art logo directly in place of title text
+    final movieMaxHeight = isCompact ? (_item.isMovie ? 115.0 : 65.0) : 85.0;
+    final movieMaxWidth = isCompact ? (_item.isMovie ? 340.0 : 300.0) : 500.0;
+    return Column(
+      crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: movieMaxHeight,
+          width: movieMaxWidth,
+          child: Align(
+            alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+            child: CachedNetworkImage(
+              key: ValueKey(logoUrl),
+              imageUrl: logoUrl,
+              memCacheWidth: 600,
+              memCacheHeight: 200,
+              fit: BoxFit.contain,
+              alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (context, url) => SizedBox(height: movieMaxHeight),
+              imageBuilder: (context, imageProvider) => Image(
+                image: imageProvider,
+                fit: BoxFit.contain,
+                alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              ),
+              errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
+            ),
+          ),
+        ),
+        if (_showTitleLine.isNotEmpty && !_item.isShow) ...[
+          const SizedBox(height: 4),
+          Text(
+            _showTitleLine,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFallbackTitleText({required bool isCompact}) {
+    return Column(
+      crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _item.title,
+          textAlign: isCompact ? TextAlign.center : TextAlign.start,
+          style: TextStyle(
+            color: PlixTheme.textPrimary,
+            fontSize: isCompact ? 22 : 32,
+            fontWeight: FontWeight.bold,
+            height: 1.2,
+          ),
+        ),
+        if (_showTitleLine.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            _showTitleLine,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isTv = PlixDeviceHelper.isTelevision;
@@ -1436,7 +1579,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   children: [
                     CachedNetworkImage(
                       imageUrl: backdropUrl,
-                      fit: BoxFit.cover,
+                      fit: (isCompact && _item.isMovie) ? BoxFit.fitWidth : BoxFit.cover,
                       alignment: Alignment.topCenter,
                       memCacheWidth: backdropDecodeWidth,
                       memCacheHeight: backdropDecodeHeight,
@@ -1446,29 +1589,36 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            PlixTheme.background.withOpacity(0.3),
-                            PlixTheme.background.withOpacity(0.8),
-                            PlixTheme.background,
-                          ],
+                          colors: (isCompact && _item.isMovie)
+                              ? [
+                                  PlixTheme.background.withOpacity(0.15),
+                                  PlixTheme.background.withOpacity(0.75),
+                                  PlixTheme.background,
+                                ]
+                              : [
+                                  PlixTheme.background.withOpacity(0.3),
+                                  PlixTheme.background.withOpacity(0.8),
+                                  PlixTheme.background,
+                                ],
                           stops: const [0.0, 0.6, 1.0],
                         ),
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            PlixTheme.background.withOpacity(0.95),
-                            PlixTheme.background.withOpacity(0.5),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.4, 0.8],
+                    if (!isCompact || !_item.isMovie)
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              PlixTheme.background.withOpacity(0.95),
+                              PlixTheme.background.withOpacity(0.5),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.4, 0.8],
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -1553,26 +1703,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      _item.title,
-                                      style: const TextStyle(
-                                        color: PlixTheme.textPrimary,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-
-                                    if (_showTitleLine.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _showTitleLine,
-                                        style: TextStyle(
-                                          color: PlixTheme.plexGold,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
+                                    // Title (Title art logo if available, or fallback text)
+                                    _buildDetailTitleWidget(isCompact: false),
 
                                     const SizedBox(height: 12),
 
@@ -2268,6 +2400,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     final ep = widget.episode;
@@ -2602,6 +2735,7 @@ class _Badge extends StatelessWidget {
     required this.label,
     this.isHighlight = false,
   });
+
 
   @override
   Widget build(BuildContext context) {
