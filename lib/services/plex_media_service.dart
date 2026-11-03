@@ -5,6 +5,7 @@ import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import 'jellyfin_media_service.dart';
 import 'plix_device_helper.dart';
+import 'plex_auth_service.dart';
 import 'update_service.dart';
 
 class PlexMediaService {
@@ -786,13 +787,37 @@ class PlexMediaService {
         return detailed;
       }
     }
-    final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeStreams=1&includeMarkers=1');
-    final response = await http.get(url, headers: _headers);
+    final isDiscoverKey = int.tryParse(ratingKey) == null;
+    http.Response? response;
+    if (!isDiscoverKey) {
+      try {
+        final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeStreams=1&includeMarkers=1');
+        response = await http.get(url, headers: _headers);
+      } catch (_) {}
+    }
 
-    if (response.statusCode != 200) {
+    if (response == null || response.statusCode != 200) {
+      // Discover / cloud metadata endpoint fallback
+      try {
+        final savedToken = await PlexAuthService().getSavedToken();
+        final effectiveToken = (savedToken != null && savedToken.isNotEmpty) ? savedToken : server.accessToken;
+        if (effectiveToken.isNotEmpty) {
+          final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$ratingKey?includeStreams=1&includeExternalMedia=1&X-Plex-Token=$effectiveToken');
+          final cloudRes = await http.get(cloudUrl, headers: {
+            'Accept': 'application/json',
+            'X-Plex-Token': effectiveToken,
+          });
+          if (cloudRes.statusCode == 200) {
+            response = cloudRes;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (response == null || response.statusCode != 200) {
       final fallback = _metadataCache[ratingKey];
       if (fallback != null) return fallback;
-      throw Exception('Failed to load item metadata: ${response.statusCode}');
+      throw Exception('Failed to load item metadata: ${response?.statusCode}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;

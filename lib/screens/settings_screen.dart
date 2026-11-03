@@ -72,11 +72,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     PlixTheme.themeRevision.addListener(_onThemeChanged);
     _loadSettings();
+    _loadConnectedServers();
 
     // Default focus to the appearance tile for immediate accessibility
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _appearanceTileFocusNode.requestFocus();
     });
+  }
+
+  List<PlexServer> _allConnectedServers = [];
+
+  Future<void> _loadConnectedServers() async {
+    try {
+      final authService = PlexAuthService();
+      final serverService = PlexServerService(authService: authService);
+      final token = await authService.getSavedToken() ?? '';
+      final servers = await serverService.fetchServers(token);
+      if (mounted) {
+        setState(() {
+          _allConnectedServers = servers;
+        });
+      }
+    } catch (_) {}
+  }
+
+  String get _connectedServerTitle {
+    if (_allConnectedServers.length > 1) {
+      return 'Connected Servers (${_allConnectedServers.length})';
+    }
+    return 'Connected Server';
+  }
+
+  String get _connectedServerSubtitle {
+    if (_allConnectedServers.isEmpty) {
+      return widget.server?.name ?? 'Connected';
+    }
+    return _allConnectedServers.map((s) {
+      final type = s.isJellyfin ? 'Jellyfin' : 'Plex';
+      return '${s.name} ($type)';
+    }).join(', ');
+  }
+
+  String? get _connectedServerTrailing {
+    if (_allConnectedServers.isEmpty) {
+      return widget.server?.activeConnectionUri ??
+          (widget.server?.connections.isNotEmpty == true
+              ? widget.server!.connections.first.address
+              : 'Connected');
+    }
+    final plexCount = _allConnectedServers.where((s) => !s.isJellyfin).length;
+    final jfCount = _allConnectedServers.where((s) => s.isJellyfin).length;
+
+    if (plexCount > 0 && jfCount > 0) {
+      return 'Plex & Jellyfin';
+    } else if (jfCount > 0) {
+      return '$jfCount Jellyfin server${jfCount > 1 ? 's' : ''}';
+    } else if (plexCount > 0) {
+      return '$plexCount Plex server${plexCount > 1 ? 's' : ''}';
+    }
+    return widget.server?.activeConnectionUri;
   }
 
   void _onThemeChanged() {
@@ -603,17 +657,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  if (widget.server != null) ...[
+                  if (widget.server != null || _allConnectedServers.isNotEmpty) ...[
                     _SettingsActionTile(
                       focusNode: _aboutServerFocusNode,
                       onUp: () => _checkUpdateBtnFocusNode.requestFocus(),
                       onDown: () => _manageLibrariesFocusNode.requestFocus(),
-                      title: 'Connected Server',
-                      subtitle: widget.server!.name,
-                      trailing: widget.server!.activeConnectionUri ??
-                          (widget.server!.connections.isNotEmpty
-                              ? widget.server!.connections.first.address
-                              : 'Connected'),
+                      title: _connectedServerTitle,
+                      subtitle: _connectedServerSubtitle,
+                      trailing: _connectedServerTrailing,
                       trailingWidget: PlixButton(
                         isPrimary: false,
                         fontSize: 11.5,

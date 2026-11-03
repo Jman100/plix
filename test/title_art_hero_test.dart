@@ -139,5 +139,35 @@ void main() {
       final item = PlexMediaItem.fromJson(json);
       expect(item.art, '/library/metadata/500/art/backdrop123');
     });
+
+    test('Connected Server display format summarizes both Plex and Jellyfin', () {
+      final plex = PlexServer(
+        name: 'My Plex',
+        clientIdentifier: 'plex-1',
+        accessToken: 'token',
+        owned: true,
+        connections: [],
+      );
+      final jf = PlexServer(
+        name: 'My Jellyfin',
+        clientIdentifier: 'jf-1',
+        accessToken: 'token',
+        owned: true,
+        connections: [],
+        serverType: 'jellyfin',
+      );
+      final servers = [plex, jf];
+      final plexCount = servers.where((s) => !s.isJellyfin).length;
+      final jfCount = servers.where((s) => s.isJellyfin).length;
+
+      expect(plexCount, 1);
+      expect(jfCount, 1);
+      final trailing = (plexCount > 0 && jfCount > 0) ? 'Plex & Jellyfin' : '';
+      expect(trailing, 'Plex & Jellyfin');
+      final title = servers.length > 1 ? 'Connected Servers (${servers.length})' : 'Connected Server';
+      expect(title, 'Connected Servers (2)');
+      final subtitle = servers.map((s) => '${s.name} (${s.isJellyfin ? 'Jellyfin' : 'Plex'})').join(', ');
+      expect(subtitle, 'My Plex (Plex), My Jellyfin (Jellyfin)');
+    });
   });
 }

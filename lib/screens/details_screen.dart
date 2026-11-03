@@ -292,18 +292,15 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
   Future<void> _loadFullDetails({bool restoreFocus = false, bool refresh = false}) async {
     setState(() => _isLoadingDetails = true);
-    final isDiscoverKey = !_mediaService.server.isJellyfin && int.tryParse(_item.ratingKey) == null;
-    if (!isDiscoverKey) {
-      try {
-        final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
-        if (mounted) {
-          setState(() {
-            _item = full;
-          });
-          _resolveThumbnailAspectRatio();
-        }
-      } catch (_) {}
-    }
+    try {
+      final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
+      if (mounted) {
+        setState(() {
+          _item = full;
+        });
+        _resolveThumbnailAspectRatio();
+      }
+    } catch (_) {}
 
     // If item does not have a partKey (e.g. opened from Plex Watchlist), search local server for match
     if (_item.partKey == null || _item.partKey!.isEmpty) {
@@ -1147,29 +1144,37 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     final displayWidth = availableWidth > 0 && availableWidth < artworkWidth ? availableWidth : artworkWidth;
     final displayHeight = displayWidth / _artworkAspectRatio;
 
+    final isMovie = _item.isMovie;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Center Artwork
-        Center(
-          child: _buildArtwork(
-            posterUrl: posterUrl,
-            width: displayWidth,
-            height: displayHeight,
-            decodeWidth: artworkDecodeWidth,
-            decodeHeight: artworkDecodeHeight,
+        if (!isMovie) ...[
+          // Shows and Episodes: Center artwork
+          Center(
+            child: _buildArtwork(
+              posterUrl: posterUrl,
+              width: displayWidth,
+              height: displayHeight,
+              decodeWidth: artworkDecodeWidth,
+              decodeHeight: artworkDecodeHeight,
+            ),
           ),
+          const SizedBox(height: 18),
+        ] else ...[
+          // Movies: Remove poster, background fanart provides visual flair
+          const SizedBox(height: 48),
+        ],
+
+        // Center title image and info prominently
+        Center(
+          child: _buildDetailTitleWidget(isCompact: true),
         ),
 
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
 
-        // Title (Title art logo if available, or fallback text)
-        _buildDetailTitleWidget(isCompact: true),
-
-        const SizedBox(height: 10),
-
-        // Metadata Badges
+        // Metadata Badges (centered)
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -1193,10 +1198,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           ],
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
-        // Action buttons
+        // Action buttons (centered)
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 8,
           children: [
@@ -1411,14 +1417,16 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     }
 
     // Movies and Shows: Title art logo directly in place of title text
+    final movieMaxHeight = isCompact ? (_item.isMovie ? 115.0 : 65.0) : 85.0;
+    final movieMaxWidth = isCompact ? (_item.isMovie ? 340.0 : 300.0) : 500.0;
     return Column(
       crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: isCompact ? 60 : 85,
-            maxWidth: isCompact ? 300 : 500,
+            maxHeight: movieMaxHeight,
+            maxWidth: movieMaxWidth,
           ),
           child: CachedNetworkImage(
             key: ValueKey(logoUrl),

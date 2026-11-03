@@ -222,28 +222,74 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
   Future<void> _loadLibraries() async {
     setState(() => _isLoading = true);
     try {
-      final mediaService = PlexMediaService(server: widget.server);
-      final fetched = await mediaService.getLibraries();
+      final sService = widget.serverService ?? PlexServerService(authService: widget.authService);
+      final token = await widget.authService.getSavedToken() ?? '';
+      final servers = await sService.fetchServers(token);
+      final favoriteIds = await sService.getFavoriteLibraryIds();
+
+      // Resolve connections across servers concurrently
+      await Future.wait(servers.map((s) async {
+        try {
+          await sService.testAndResolveBestConnection(s);
+        } catch (_) {}
+      }));
+
+      // Gather libraries across active servers concurrently
+      final allLibrariesLists = await Future.wait(servers.map((server) async {
+        final isOnline = server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty;
+        if (isOnline) {
+          try {
+            final libs = await PlexMediaService(server: server).getLibraries().timeout(const Duration(seconds: 5));
+            await sService.cacheServerLibraries(server.clientIdentifier, libs);
+            return libs;
+          } catch (_) {
+            return await sService.getCachedServerLibraries(server.clientIdentifier, server);
+          }
+        } else {
+          return await sService.getCachedServerLibraries(server.clientIdentifier, server);
+        }
+      }));
+
+      final List<PlexLibrary> allLibraries = [];
+      for (final list in allLibrariesLists) {
+        allLibraries.addAll(list);
+      }
+
+      List<PlexLibrary> userLibraries;
+      if (favoriteIds != null && favoriteIds.isNotEmpty) {
+        userLibraries = allLibraries.where((l) {
+          return favoriteIds.contains(l.compositeId) ||
+              favoriteIds.contains('${l.serverId}_${l.key}') ||
+              favoriteIds.contains('${l.serverId}:${l.key}');
+        }).toList();
+        if (userLibraries.isEmpty && allLibraries.isNotEmpty) {
+          userLibraries = allLibraries;
+        }
+      } else {
+        userLibraries = allLibraries;
+      }
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        final savedOrder = prefs.getStringList('plix_multi_server_library_order') ??
-            prefs.getStringList('library_order_${widget.server.clientIdentifier}');
+        final savedOrder = prefs.getStringList('plix_multi_server_library_order');
         if (savedOrder != null && savedOrder.isNotEmpty) {
           final Map<String, int> orderMap = {
             for (int i = 0; i < savedOrder.length; i++) savedOrder[i]: i,
           };
-          fetched.sort((a, b) {
-            final aOrder = orderMap[a.compositeId] ?? orderMap[a.key] ?? 999;
-            final bOrder = orderMap[b.compositeId] ?? orderMap[b.key] ?? 999;
-            return aOrder.compareTo(bOrder);
+          userLibraries.sort((a, b) {
+            final aOrder = orderMap[a.compositeId] ?? 999999;
+            final bOrder = orderMap[b.compositeId] ?? 999999;
+            if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+            final sA = (a.serverName ?? '').toLowerCase();
+            final sB = (b.serverName ?? '').toLowerCase();
+            return sA.compareTo(sB);
           });
         }
       } catch (_) {}
 
       if (mounted) {
         setState(() {
-          _libs = fetched;
+          _libs = userLibraries;
           _isLoading = false;
         });
       }
@@ -251,7 +297,6 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   Future<void> _saveOrder(List<PlexLibrary> reordered) async {
     setState(() {
       _libs = List.from(reordered);
@@ -352,7 +397,8 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                 ),
               )
             else
-              Flexible(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 288.0),
                 child: _isReorderMode
                     ? ReorderableListView.builder(
                         shrinkWrap: true,
@@ -373,56 +419,76 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                           if (lib.type == 'show') icon = Icons.tv_rounded;
                           if (lib.type == 'artist') icon = Icons.music_note_rounded;
 
-                          return ListTile(
-                            key: ValueKey('reorder_${lib.compositeId}'),
-                            leading: Icon(icon, color: PlixTheme.plexGold),
-                            title: Text(
-                              lib.title,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: _libs.map((l) => l.serverId).toSet().length > 1
-                                ? Text(
-                                    lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
-                                    style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
-                                  )
-                                : null,
-                            trailing: ReorderableDragStartListener(
-                              index: i,
-                              child: const Icon(Icons.drag_handle_rounded, color: Colors.white70),
+                          return Container(
+                            key: ValueKey('reorder_'),
+                            height: 64.0,
+                            alignment: Alignment.center,
+                            child: ListTile(
+                              dense: true,
+                              leading: Icon(icon, color: PlixTheme.plexGold),
+                              title: Text(
+                                lib.title,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: _libs.map((l) => l.serverId).toSet().length > 1
+                                  ? Text(
+                                      lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
+                                      style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : null,
+                              trailing: ReorderableDragStartListener(
+                                index: i,
+                                child: const Icon(Icons.drag_handle_rounded, color: Colors.white70),
+                              ),
                             ),
                           );
                         },
                       )
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        itemCount: _libs.length,
-                        separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
-                        itemBuilder: (ctx, i) {
-                          final lib = _libs[i];
-                          IconData icon = Icons.folder_rounded;
-                          if (lib.type == 'movie') icon = Icons.movie_outlined;
-                          if (lib.type == 'show') icon = Icons.tv_rounded;
-                          if (lib.type == 'artist') icon = Icons.music_note_rounded;
+                    : Scrollbar(
+                        thumbVisibility: _libs.length > 4,
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: _libs.length,
+                          separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1.0, thickness: 1.0),
+                          itemBuilder: (ctx, i) {
+                            final lib = _libs[i];
+                            IconData icon = Icons.folder_rounded;
+                            if (lib.type == 'movie') icon = Icons.movie_outlined;
+                            if (lib.type == 'show') icon = Icons.tv_rounded;
+                            if (lib.type == 'artist') icon = Icons.music_note_rounded;
 
-                          return ListTile(
-                            leading: Icon(icon, color: PlixTheme.plexGold),
-                            title: Text(
-                              lib.title,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: _libs.map((l) => l.serverId).toSet().length > 1
-                                ? Text(
-                                    lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
-                                    style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
-                                  )
-                                : null,
-                            trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-                            onTap: () => _openLibrary(lib),
-                          );
-                        },
+                            return SizedBox(
+                              height: 63.0,
+                              child: ListTile(
+                                dense: true,
+                                leading: Icon(icon, color: PlixTheme.plexGold),
+                                title: Text(
+                                  lib.title,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: _libs.map((l) => l.serverId).toSet().length > 1
+                                    ? Text(
+                                        lib.serverName ?? (lib.isJellyfin ? 'Jellyfin' : 'Plex'),
+                                        style: const TextStyle(color: PlixTheme.textMuted, fontSize: 11),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                    : null,
+                                trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+                                onTap: () => _openLibrary(lib),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-              ),
+              )
           ],
         ),
       ),

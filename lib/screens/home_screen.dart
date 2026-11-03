@@ -1189,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const SizedBox(width: 8),
           const PlixWordmark(fontSize: 20),
           const Spacer(),
-          // Server switcher pill
+          // Customize servers button
           InkWell(
             onTap: _switchServer,
             borderRadius: BorderRadius.circular(20),
@@ -1199,33 +1199,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: PlixTheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: widget.server.isJellyfin ? const Color(0xFF8E51DC) : const Color(0xFFE5A00D),
-                  width: 1.2,
+                  color: PlixTheme.cardBorder,
+                  width: 1.0,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.server.isJellyfin)
-                    const JellyfinLogo(size: 14, color: Color(0xFF8E51DC))
-                  else
-                    const PlexLogo(size: 14, color: Color(0xFFE5A00D)),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 110),
-                    child: Text(
-                      widget.server.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Icon(Icons.tune_rounded, size: 14, color: PlixTheme.plexGold),
+                  SizedBox(width: 6),
+                  Text(
+                    'Customize Servers',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.swap_horiz_rounded, size: 14, color: Colors.white70),
                 ],
               ),
             ),
