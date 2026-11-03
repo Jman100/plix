@@ -39,7 +39,6 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   String? _errorMessage;
   bool _isMultiServer = false;
   int? _lastSelectedIndex;
-  int? _openingIndex;
   final Map<int, FocusNode> _focusNodes = {};
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _homeButtonFocusNode = FocusNode();
@@ -276,31 +275,19 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   void _openDetails(PlexMediaItem item, int index) async {
     _lastSelectedIndex = index;
-    setState(() => _openingIndex = index);
     try {
       final targetServer = item.server ?? widget.server;
-      final PlexMediaItem resolvedItem;
-      if (targetServer.isJellyfin) {
-        // Jellyfin watchlist items are already server items from the library
-        resolvedItem = item;
-      } else {
-        resolvedItem = await _resolveServerItem(item);
-      }
-
-      if (!mounted) return;
-
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => DetailsScreen(
-            initialItem: resolvedItem,
-            server: resolvedItem.server ?? targetServer,
+            initialItem: item,
+            server: targetServer,
             clientId: widget.clientId,
           ),
         ),
       );
     } finally {
       if (mounted) {
-        setState(() => _openingIndex = null);
         _loadWatchlist();
       }
     }
@@ -426,47 +413,23 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   final item = _items[index];
                                   return LayoutBuilder(
                                     builder: (context, constraints) {
-                                      final isOpening = _openingIndex == index;
-                                      return Stack(
-                                        children: [
-                                          MediaCard(
-                                            item: item,
-                                            mediaService: (item.server != null && item.server != _mediaService.server)
-                                                ? PlexMediaService(server: item.server!)
-                                                : _mediaService,
-                                            bottomServerName: _isMultiServer
-                                                ? (item.server?.name ?? (item.server?.isJellyfin == true ? 'Jellyfin' : 'Plex'))
-                                                : null,
-                                            focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                                            autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
-                                            enableHighlight: !isCompact,
-                                            width: constraints.maxWidth,
-                                            margin: EdgeInsets.zero,
-                                            onFocusChange: (focused) {
-                                              if (focused) _handleItemFocus(index, isCompact);
-                                            },
-                                            onTap: () => _openDetails(item, index),
-                                          ),
-                                          if (isOpening)
-                                            Positioned.fill(
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black.withOpacity(0.55),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Center(
-                                                  child: SizedBox(
-                                                    width: 30,
-                                                    height: 30,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2.8,
-                                                      valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
+                                      return MediaCard(
+                                        item: item,
+                                        mediaService: (item.server != null && item.server != _mediaService.server)
+                                            ? PlexMediaService(server: item.server!)
+                                            : _mediaService,
+                                        bottomServerName: _isMultiServer
+                                            ? (item.server?.name ?? (item.server?.isJellyfin == true ? 'Jellyfin' : 'Plex'))
+                                            : null,
+                                        focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
+                                        autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
+                                        enableHighlight: !isCompact,
+                                        width: constraints.maxWidth,
+                                        margin: EdgeInsets.zero,
+                                        onFocusChange: (focused) {
+                                          if (focused) _handleItemFocus(index, isCompact);
+                                        },
+                                        onTap: () => _openDetails(item, index),
                                       );
                                     },
                                   );

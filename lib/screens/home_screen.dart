@@ -161,7 +161,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _heroMetadataDebounceTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
-        final full = await heroService.getItemMetadata(fetchKey);
+        var full = await heroService.getItemMetadata(fetchKey);
+        // For episodes, resolve grandparent show logo and backdrop art if missing
+        if ((full.isEpisode || currentHeroItem.isEpisode) &&
+            (full.clearLogo == null || full.clearLogo!.isEmpty)) {
+          final showKey = full.grandparentRatingKey ?? currentHeroItem.grandparentRatingKey;
+          if (showKey != null && showKey.isNotEmpty) {
+            try {
+              final show = await heroService.getItemMetadata(showKey);
+              if (show.clearLogo != null && show.clearLogo!.isNotEmpty) {
+                full = full.copyWith(
+                  clearLogo: show.clearLogo,
+                  art: full.art ?? show.art,
+                );
+              }
+            } catch (_) {}
+          }
+        }
         if (mounted && (_heroItem?.ratingKey == currentHeroItem.ratingKey || _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey)) {
           setState(() {
             if (isSeasonTarget) {
@@ -1517,14 +1533,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          padding: const EdgeInsets.only(top: 26, bottom: 2),
           child: SizedBox(
             height: 166,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
+                const SizedBox(height: 36),
                 SizedBox(
                   height: 36,
                   child: Text(
@@ -1563,7 +1579,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        padding: const EdgeInsets.only(top: 26, bottom: 2),
         child: SizedBox(
           height: 166,
           child: Column(
@@ -1704,14 +1720,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         SizedBox(
           height: 58,
-          child: CachedNetworkImage(
-            key: ValueKey(logoUrl),
-            imageUrl: logoUrl,
-            fit: BoxFit.contain,
+          child: Align(
             alignment: Alignment.centerLeft,
-            errorWidget: (context, url, error) => _buildEpisodeFallbackTitle(item),
-            fadeInDuration: const Duration(milliseconds: 150),
-            fadeOutDuration: const Duration(milliseconds: 150),
+            child: CachedNetworkImage(
+              key: ValueKey(logoUrl),
+              imageUrl: logoUrl,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (context, url) => const SizedBox.shrink(),
+              imageBuilder: (context, imageProvider) => Align(
+                alignment: Alignment.centerLeft,
+                child: Image(
+                  image: imageProvider,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+              errorWidget: (context, url, error) => _buildEpisodeFallbackTitle(item),
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -1779,9 +1807,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           imageUrl: logoUrl,
           fit: BoxFit.contain,
           alignment: Alignment.centerLeft,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          placeholder: (context, url) => const SizedBox.shrink(),
+          imageBuilder: (context, imageProvider) => Align(
+            alignment: Alignment.centerLeft,
+            child: Image(
+              image: imageProvider,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+            ),
+          ),
           errorWidget: (context, url, error) => _buildMovieFallbackTitle(item),
-          fadeInDuration: const Duration(milliseconds: 150),
-          fadeOutDuration: const Duration(milliseconds: 150),
         ),
       ),
     );
@@ -1841,13 +1878,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         children: [
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 400),
-                            child: CachedNetworkImage(
-                              key: ValueKey(heroBackdropUrl),
-                              imageUrl: heroBackdropUrl,
-                              fit: BoxFit.cover,
+                            layoutBuilder: (currentChild, previousChildren) => Stack(
+                              fit: StackFit.expand,
                               alignment: Alignment.topCenter,
-                              memCacheWidth: heroDecodeWidth,
-                              memCacheHeight: heroDecodeHeight,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
+                            ),
+                            child: SizedBox.expand(
+                              key: ValueKey(heroBackdropUrl),
+                              child: CachedNetworkImage(
+                                imageUrl: heroBackdropUrl,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                                width: double.infinity,
+                                height: double.infinity,
+                                memCacheWidth: heroDecodeWidth,
+                                memCacheHeight: heroDecodeHeight,
+                              ),
                             ),
                           ),
                           Container(
@@ -1933,7 +1982,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           _buildTvHero(),
                           Container(
                             height: 1,
-                            margin: const EdgeInsets.only(left: 40, right: 40, top: 14, bottom: 4),
+                            margin: const EdgeInsets.only(left: 40, right: 40, top: 8, bottom: 4),
                             color: Colors.white.withOpacity(0.08),
                           ),
                           const SizedBox(height: 4),

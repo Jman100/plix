@@ -113,5 +113,31 @@ void main() {
       final updatedLogo = item.copyWith(clearLogo: '/logo/2');
       expect(updatedLogo.clearLogo, '/logo/2');
     });
+    test('PlexMediaItem prioritizes English clearLogo over Russian or other language variants', () {
+      final json = {
+        'ratingKey': '404',
+        'key': '/library/metadata/404',
+        'title': 'Phony',
+        'type': 'show',
+        'Image': [
+          {'type': 'clearLogo', 'url': '/library/metadata/404/clearLogo/ru_logo', 'language': 'ru'},
+          {'type': 'clearLogo', 'url': '/library/metadata/404/clearLogo/en_logo', 'language': 'en'},
+        ],
+      };
+      final item = PlexMediaItem.fromJson(json);
+      expect(item.clearLogo, '/library/metadata/404/clearLogo/en_logo');
+    });
+
+    test('PlexMediaItem parses grandparentArt as art when art is missing on episode', () {
+      final json = {
+        'ratingKey': '505',
+        'key': '/library/metadata/505',
+        'title': 'Episode 5',
+        'type': 'episode',
+        'grandparentArt': '/library/metadata/500/art/backdrop123',
+      };
+      final item = PlexMediaItem.fromJson(json);
+      expect(item.art, '/library/metadata/500/art/backdrop123');
+    });
   });
 }

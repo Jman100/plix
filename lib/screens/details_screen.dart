@@ -292,15 +292,18 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
   Future<void> _loadFullDetails({bool restoreFocus = false, bool refresh = false}) async {
     setState(() => _isLoadingDetails = true);
-    try {
-      final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
-      if (mounted) {
-        setState(() {
-          _item = full;
-        });
-        _resolveThumbnailAspectRatio();
-      }
-    } catch (_) {}
+    final isDiscoverKey = !_mediaService.server.isJellyfin && int.tryParse(_item.ratingKey) == null;
+    if (!isDiscoverKey) {
+      try {
+        final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
+        if (mounted) {
+          setState(() {
+            _item = full;
+          });
+          _resolveThumbnailAspectRatio();
+        }
+      } catch (_) {}
+    }
 
     // If item does not have a partKey (e.g. opened from Plex Watchlist), search local server for match
     if (_item.partKey == null || _item.partKey!.isEmpty) {
@@ -1160,28 +1163,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
         const SizedBox(height: 18),
 
-        // Title
-        Text(
-          _item.title,
-          style: const TextStyle(
-            color: PlixTheme.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            height: 1.2,
-          ),
-        ),
-
-        if (_showTitleLine.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            _showTitleLine,
-            style: TextStyle(
-              color: PlixTheme.plexGold,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        // Title (Title art logo if available, or fallback text)
+        _buildDetailTitleWidget(isCompact: true),
 
         const SizedBox(height: 10),
 
@@ -1358,6 +1341,147 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             height: 1.35,
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildDetailTitleWidget({required bool isCompact}) {
+    final hasLogo = _item.clearLogo != null && _item.clearLogo!.isNotEmpty;
+    if (!hasLogo) {
+      return _buildFallbackTitleText(isCompact: isCompact);
+    }
+
+    final logoUrl = _mediaService.buildImageUrl(_item.clearLogo!, width: 600, height: 200);
+
+    if (_item.isEpisode) {
+      // Episode: TV Show title art logo on top, episode title below
+      return Column(
+        crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: isCompact ? 50 : 65,
+              maxWidth: isCompact ? 280 : 450,
+            ),
+            child: CachedNetworkImage(
+              key: ValueKey(logoUrl),
+              imageUrl: logoUrl,
+              fit: BoxFit.contain,
+              alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (context, url) => const SizedBox.shrink(),
+              imageBuilder: (context, imageProvider) => Align(
+                alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+                child: Image(
+                  image: imageProvider,
+                  fit: BoxFit.contain,
+                  alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+                ),
+              ),
+              errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _item.title,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: isCompact ? 18 : 24,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
+          ),
+          if (_showTitleLine.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _showTitleLine,
+              textAlign: isCompact ? TextAlign.center : TextAlign.start,
+              style: TextStyle(
+                color: PlixTheme.plexGold,
+                fontSize: isCompact ? 14 : 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    // Movies and Shows: Title art logo directly in place of title text
+    return Column(
+      crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: isCompact ? 60 : 85,
+            maxWidth: isCompact ? 300 : 500,
+          ),
+          child: CachedNetworkImage(
+            key: ValueKey(logoUrl),
+            imageUrl: logoUrl,
+            fit: BoxFit.contain,
+            alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholder: (context, url) => const SizedBox.shrink(),
+            imageBuilder: (context, imageProvider) => Align(
+              alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              child: Image(
+                image: imageProvider,
+                fit: BoxFit.contain,
+                alignment: isCompact ? Alignment.center : Alignment.centerLeft,
+              ),
+            ),
+            errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
+          ),
+        ),
+        if (_showTitleLine.isNotEmpty && !_item.isShow) ...[
+          const SizedBox(height: 4),
+          Text(
+            _showTitleLine,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFallbackTitleText({required bool isCompact}) {
+    return Column(
+      crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _item.title,
+          textAlign: isCompact ? TextAlign.center : TextAlign.start,
+          style: TextStyle(
+            color: PlixTheme.textPrimary,
+            fontSize: isCompact ? 22 : 32,
+            fontWeight: FontWeight.bold,
+            height: 1.2,
+          ),
+        ),
+        if (_showTitleLine.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            _showTitleLine,
+            textAlign: isCompact ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: PlixTheme.plexGold,
+              fontSize: isCompact ? 15 : 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1553,26 +1677,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      _item.title,
-                                      style: const TextStyle(
-                                        color: PlixTheme.textPrimary,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-
-                                    if (_showTitleLine.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _showTitleLine,
-                                        style: TextStyle(
-                                          color: PlixTheme.plexGold,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
+                                    // Title (Title art logo if available, or fallback text)
+                                    _buildDetailTitleWidget(isCompact: false),
 
                                     const SizedBox(height: 12),
 
@@ -2268,6 +2374,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     final ep = widget.episode;
@@ -2602,6 +2709,7 @@ class _Badge extends StatelessWidget {
     required this.label,
     this.isHighlight = false,
   });
+
 
   @override
   Widget build(BuildContext context) {

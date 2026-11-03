@@ -524,7 +524,35 @@ class JellyfinMediaService {
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return _parseItem(data);
+    var parsed = _parseItem(data);
+
+    // Prefer English clear logo if multiple logo variants exist in Jellyfin
+    try {
+      final targetLogoId = parsed.isEpisode
+          ? (data['ParentLogoItemId']?.toString() ?? data['SeriesId']?.toString() ?? itemId)
+          : itemId;
+      final imagesUrl = Uri.parse('/Items//Images');
+      final imgRes = await http.get(imagesUrl, headers: _headers);
+      if (imgRes.statusCode == 200) {
+        final imgList = jsonDecode(imgRes.body);
+        if (imgList is List) {
+          for (final img in imgList) {
+            if (img is Map && img['ImageType']?.toString() == 'Logo') {
+              final lang = (img['Language'] ?? img['language'])?.toString().toLowerCase();
+              if (lang != null && lang.startsWith('en')) {
+                final idx = img['ImageIndex'] ?? 0;
+                final tag = img['ImageTag']?.toString();
+                final enLogo = '/Items//Images/Logo/';
+                parsed = parsed.copyWith(clearLogo: enLogo);
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return parsed;
   }
 
   Future<List<PlexMediaItem>> getShowSeasons(String showId) async {
