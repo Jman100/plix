@@ -56,6 +56,18 @@ class PlexMediaService {
     return '$baseUrl$path?X-Plex-Token=$token';
   }
 
+  String buildLogoUrl(String? path, {int width = 440, int height = 160}) {
+    if (path == null || path.isEmpty) return '';
+    if (server.isJellyfin) {
+      return _jfService.buildLogoUrl(path, width: width, height: height);
+    }
+    if (path.startsWith('http')) {
+      return _buildExternalImageUrl(path, width: width, height: height);
+    }
+    // Direct static path for local Plex clear logos bypasses heavy server transcoding
+    return '$baseUrl$path?X-Plex-Token=$token';
+  }
+
   /// Resize Plex catalog artwork before downloading it. The public image
   /// transcoder is advertised by the Discover provider as
   /// `https://images.plex.tv/photo`; passing the original URL in `url` makes

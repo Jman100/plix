@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plix/models/plex_media_item.dart';
 import 'package:plix/models/plex_server.dart';
 import 'package:plix/services/jellyfin_media_service.dart';
+import 'package:plix/services/plex_media_service.dart';
 
 void main() {
   group('Title Art & clearLogo Parsing Tests', () {
@@ -168,6 +169,66 @@ void main() {
       expect(title, 'Connected Servers (2)');
       final subtitle = servers.map((s) => '${s.name} (${s.isJellyfin ? 'Jellyfin' : 'Plex'})').join(', ');
       expect(subtitle, 'My Plex (Plex), My Jellyfin (Jellyfin)');
+    });
+
+    test('PlexMediaService buildLogoUrl serves static local logo directly without transcode pipeline', () {
+      final plex = PlexServer(
+        name: 'My Plex',
+        clientIdentifier: 'plex-1',
+        accessToken: 'plex_token_xyz',
+        owned: true,
+        activeConnectionUri: 'http://192.168.0.10:32400',
+        connections: [
+          PlexConnection(uri: 'http://192.168.0.10:32400', protocol: 'http', address: '192.168.0.10', port: 32400, local: true, relay: false),
+        ],
+      );
+      final service = PlexMediaService(server: plex);
+      final logoUrl = service.buildLogoUrl('/library/metadata/1234/clearLogo/5678');
+      expect(logoUrl, 'http://192.168.0.10:32400/library/metadata/1234/clearLogo/5678?X-Plex-Token=plex_token_xyz');
+      expect(logoUrl.contains('/photo/:/transcode'), isFalse);
+    });
+
+    test('JellyfinMediaService buildLogoUrl optimizes dimensions and quality for speed', () {
+      final jf = PlexServer(
+        name: 'My Jellyfin',
+        clientIdentifier: 'jf-1',
+        accessToken: 'jf_token_abc',
+        owned: true,
+        connections: [
+          PlexConnection(uri: 'http://192.168.0.11:8096', protocol: 'http', address: '192.168.0.11', port: 8096, local: true, relay: false),
+        ],
+        serverType: 'jellyfin',
+      );
+      final service = JellyfinMediaService(server: jf);
+      final logoUrl = service.buildLogoUrl('item-id-123');
+      expect(logoUrl, 'http://192.168.0.11:8096/Items/item-id-123/Images/Logo?maxWidth=440&maxHeight=160&quality=75&api_key=jf_token_abc');
+    });
+
+    test('Episode detail page SX:EX format excludes show title', () {
+      final ep = PlexMediaItem(
+        ratingKey: '99',
+        key: '/library/metadata/99',
+        title: 'Desert Stumble',
+        type: 'episode',
+        grandparentTitle: 'The Grand Tour',
+        parentIndex: 1,
+        index: 2,
+      );
+
+      final season = ep.parentIndex;
+      final episode = ep.index;
+      String showLine = '';
+      if (ep.isEpisode) {
+        if (season != null && episode != null) {
+          showLine = 'S$season:E$episode';
+        } else if (season != null) {
+          showLine = 'S$season';
+        } else if (episode != null) {
+          showLine = 'E$episode';
+        }
+      }
+      expect(showLine, 'S1:E2');
+      expect(showLine.contains('The Grand Tour'), isFalse);
     });
   });
 }

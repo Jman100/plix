@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import '../services/windows_hdr_service.dart';
 
 import 'package:intl/intl.dart';
 
@@ -311,6 +313,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   // Preferences
 
   bool _autoplayEnabled = true;
+  bool _continuePlaybackScreenOff = false;
 
   int _quickRewindSeconds = 10;
 
@@ -402,6 +405,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   final FocusNode _seriesBtnFocusNode = FocusNode();
 
   final FocusNode _fullscreenBtnFocusNode = FocusNode();
+  final FocusNode _volumeBtnFocusNode = FocusNode();
 
   final FocusNode _speedBtnFocusNode = FocusNode();
 
@@ -821,6 +825,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       final prefs = await SharedPreferences.getInstance();
 
       final screenOff = prefs.getBool('continue_playback_screen_off') ?? false;
+      _continuePlaybackScreenOff = screenOff;
 
       _nativePlayer.setScreenOffPlayback(screenOff);
 
@@ -1244,14 +1249,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     _autoplayTimer?.cancel();
 
-    if (WidgetsBinding.instance.lifecycleState != null &&
-
-        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-
-      _cancelAutoplay();
-
-      return;
-
+    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    if (!isDesktop && !_continuePlaybackScreenOff) {
+      if (WidgetsBinding.instance.lifecycleState != null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        _cancelAutoplay();
+        return;
+      }
     }
 
     if (_nextEpisodeItem == null) {
@@ -1932,6 +1936,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+      if (_currentItem.isHdr && Platform.isWindows) {
+        WindowsHdrService().enableHdrForContent();
+      }
       await _nativePlayer.play(
 
         url: streamUrl,
@@ -3998,6 +4005,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _autoplayCancelFocusNode.dispose();
 
     _fullscreenBtnFocusNode.dispose();
+    _volumeBtnFocusNode.dispose();
+    if (Platform.isWindows) {
+      WindowsHdrService().restoreHdrState();
+    }
 
     if ((Platform.isWindows || Platform.isLinux) && _isFullScreen) {
 
@@ -7782,11 +7793,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                   onLeft: () => _qualityBtnFocusNode.requestFocus(),
 
-                                                  onRight: (_currentItem.isEpisode && _currentItem.grandparentRatingKey != null)
-
-                                                      ? () => _seriesBtnFocusNode.requestFocus()
-
-                                                      : null,
+                                                  onRight: () => _volumeBtnFocusNode.requestFocus(),
 
                                                   onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
 
@@ -7796,6 +7803,22 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                                 ),
 
+                                              ],
+
+                                              // Volume Control (Desktop clients: Windows / Linux / macOS)
+                                              if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ...[
+                                                const SizedBox(width: 24),
+                                                _DesktopVolumeControl(
+                                                  player: _nativePlayer,
+                                                  focusNode: _volumeBtnFocusNode,
+                                                  onInteract: _scheduleHideControls,
+                                                  onLeft: () => _fullscreenBtnFocusNode.requestFocus(),
+                                                  onRight: (_currentItem.isEpisode && _currentItem.grandparentRatingKey != null)
+                                                      ? () => _seriesBtnFocusNode.requestFocus()
+                                                      : null,
+                                                  onUp: _isTvCastCrewActive ? _handleActionRowUp : () => _scrubberFocusNode.requestFocus(),
+                                                  onDown: _isTvCastCrewActive ? _handleActionRowDown : _hideControlsImmediate,
+                                                ),
                                               ],
 
                                             ],
@@ -7822,9 +7845,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
                                               onLeft: () {
 
-                                                if (Platform.isWindows || Platform.isLinux) {
+                                                if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
 
-                                                  _fullscreenBtnFocusNode.requestFocus();
+                                                  _volumeBtnFocusNode.requestFocus();
 
                                                 } else {
 
@@ -10269,3 +10292,166 @@ class _DuoTabletopButton extends StatelessWidget {
 
 }
 
+
+
+class _DesktopVolumeControl extends StatefulWidget {
+  final NativePlayerService player;
+  final VoidCallback? onInteract;
+  final VoidCallback? onLeft;
+  final VoidCallback? onRight;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+  final FocusNode? focusNode;
+
+  const _DesktopVolumeControl({
+    required this.player,
+    this.onInteract,
+    this.onLeft,
+    this.onRight,
+    this.onUp,
+    this.onDown,
+    this.focusNode,
+  });
+
+  @override
+  State<_DesktopVolumeControl> createState() => _DesktopVolumeControlState();
+}
+
+class _DesktopVolumeControlState extends State<_DesktopVolumeControl> {
+  double _volume = 1.0;
+  double _lastNonZeroVolume = 1.0;
+  bool _isHovered = false;
+  bool _isDragging = false;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
+    _initVolume();
+  }
+
+  Future<void> _initVolume() async {
+    try {
+      final vol = await widget.player.getVolume();
+      if (mounted) {
+        setState(() {
+          _volume = vol.clamp(0.0, 1.0);
+          if (_volume > 0.05) _lastNonZeroVolume = _volume;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _setVolume(double newVol) {
+    final clamped = newVol.clamp(0.0, 1.0);
+    setState(() {
+      _volume = clamped;
+      if (clamped > 0.05) _lastNonZeroVolume = clamped;
+    });
+    widget.player.setVolume(clamped);
+    widget.onInteract?.call();
+  }
+
+  void _toggleMute() {
+    if (_volume > 0.01) {
+      _lastNonZeroVolume = _volume;
+      _setVolume(0.0);
+    } else {
+      _setVolume(_lastNonZeroVolume > 0.05 ? _lastNonZeroVolume : 1.0);
+    }
+  }
+
+  IconData get _icon {
+    if (_volume <= 0.01) return Icons.volume_off_rounded;
+    if (_volume < 0.5) return Icons.volume_down_rounded;
+    return Icons.volume_up_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showSlider = _isHovered || _isDragging || _focusNode.hasFocus;
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() => _isHovered = true);
+        widget.onInteract?.call();
+      },
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
+            final delta = pointerSignal.scrollDelta.dy;
+            if (delta < 0) {
+              _setVolume(_volume + 0.05);
+            } else if (delta > 0) {
+              _setVolume(_volume - 0.05);
+            }
+          }
+        },
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: showSlider ? Colors.black.withOpacity(0.4) : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            border: showSlider ? Border.all(color: Colors.white24, width: 1) : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PlayerIconButton(
+                focusNode: _focusNode,
+                icon: _icon,
+                iconColor: _volume <= 0.01 ? Colors.white54 : PlixTheme.plexGold,
+                tooltip: 'Volume: ${(_volume * 100).round()}%',
+                onPressed: _toggleMute,
+                onLeft: widget.onLeft,
+                onRight: widget.onRight,
+                onUp: () {
+                  _setVolume(_volume + 0.05);
+                  widget.onUp?.call();
+                },
+                onDown: () {
+                  _setVolume(_volume - 0.05);
+                  widget.onDown?.call();
+                },
+                onFocus: widget.onInteract,
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                width: showSlider ? 95 : 0,
+                child: showSlider
+                    ? SliderTheme(
+                        data: SliderThemeData(
+                          trackHeight: 3.5,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                          activeTrackColor: PlixTheme.plexGold,
+                          inactiveTrackColor: Colors.white24,
+                          thumbColor: Colors.white,
+                          overlayColor: PlixTheme.plexGold.withOpacity(0.2),
+                        ),
+                        child: Slider(
+                          value: _volume.clamp(0.0, 1.0),
+                          min: 0.0,
+                          max: 1.0,
+                          onChangeStart: (_) => setState(() => _isDragging = true),
+                          onChangeEnd: (_) {
+                            setState(() => _isDragging = false);
+                            widget.onInteract?.call();
+                          },
+                          onChanged: (val) {
+                            _setVolume(val);
+                          },
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -490,6 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (cached.isNotEmpty) {
           _continueWatching = List.from(cached);
           _heroItem = _continueWatching.first;
+          _precacheUpcomingLogos(_continueWatching);
         }
       }
       if (_cachedRecentlyAdded.isNotEmpty && _recentlyAddedByLibrary.isEmpty) {
@@ -628,6 +629,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       filteredContinueWatching.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
       _continueWatching = filteredContinueWatching;
       _cachedContinueWatching = List.from(filteredContinueWatching);
+      _precacheUpcomingLogos(_continueWatching);
 
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
@@ -1564,7 +1566,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final heroService = item.server != null ? PlexMediaService(server: item.server!) : _mediaService;
     final isEpisode = item.isEpisode || item.targetType == 'episode';
     final hasLogo = item.clearLogo != null && item.clearLogo!.isNotEmpty;
-    final logoUrl = hasLogo ? heroService.buildImageUrl(item.clearLogo!, width: 600, height: 200) : '';
+    final logoUrl = hasLogo ? heroService.buildLogoUrl(item.clearLogo!) : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -1703,6 +1705,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _precacheUpcomingLogos(List<PlexMediaItem> items) {
+    if (!mounted || items.isEmpty) return;
+    for (final it in items.take(12)) {
+      if (it.clearLogo != null && it.clearLogo!.isNotEmpty) {
+        final serverToUse = it.server ?? widget.server;
+        final service = PlexMediaService(server: serverToUse);
+        final url = service.buildLogoUrl(it.clearLogo!);
+        if (url.isNotEmpty) {
+          precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+        }
+      }
+    }
+  }
+
   Widget _buildEpisodeTitleWithLogo(PlexMediaItem item, String logoUrl) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1715,6 +1731,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: CachedNetworkImage(
               key: ValueKey(logoUrl),
               imageUrl: logoUrl,
+              memCacheWidth: 600,
+              memCacheHeight: 200,
               fit: BoxFit.contain,
               alignment: Alignment.centerLeft,
               fadeInDuration: Duration.zero,
@@ -1795,6 +1813,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: CachedNetworkImage(
           key: ValueKey(logoUrl),
           imageUrl: logoUrl,
+          memCacheWidth: 600,
+          memCacheHeight: 200,
           fit: BoxFit.contain,
           alignment: Alignment.centerLeft,
           fadeInDuration: Duration.zero,

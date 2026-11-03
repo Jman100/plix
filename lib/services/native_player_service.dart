@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'windows_hdr_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NativePlayerService {
@@ -74,6 +75,9 @@ class NativePlayerService {
       // Hardware decoding: 'no' (Software) by default on Linux matches the official Plex app,
       // eliminating driver-level VA-API/Mesa slice corruption and grey macroblock artifacts.
       plat.setProperty('hwdec', _hwdecMode);
+
+      // Enable HDR metadata pass-through to DirectX swapchain
+      plat.setProperty('target-colorspace-hint', 'yes');
 
       // Disable HDR peak luminance compute shader on desktop OpenGL (prevents grey grid/tile artifacts on 10-bit/HDR)
       plat.setProperty('hdr-compute-peak', 'no');
@@ -411,6 +415,9 @@ class NativePlayerService {
   }
 
   Future<void> stop() async {
+    if (Platform.isWindows) {
+      WindowsHdrService().restoreHdrState();
+    }
     if (useMediaKit && _mediaKitPlayer != null) {
       try {
         await _mediaKitPlayer!.stop();

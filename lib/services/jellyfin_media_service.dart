@@ -854,6 +854,20 @@ class JellyfinMediaService {
     return '$baseUrl$path$sep${query.join('&')}';
   }
 
+  String buildLogoUrl(String pathOrId, {int width = 440, int height = 160}) {
+    if (pathOrId.isEmpty) return '';
+    if (pathOrId.startsWith('http://') || pathOrId.startsWith('https://')) {
+      return pathOrId;
+    }
+    String path = pathOrId;
+    if (!path.startsWith('/')) {
+      path = '/Items/$path/Images/Logo';
+    }
+    final sep = path.contains('?') ? '&' : '?';
+    // Lower quality (75) and smaller bounding box (440x160) speeds up generation and download
+    return '$baseUrl$path${sep}maxWidth=$width&maxHeight=$height&quality=75&api_key=$token';
+  }
+
   String _extractCleanItemId(String raw) {
     String itemId = raw;
     if (itemId.contains('/Videos/')) {

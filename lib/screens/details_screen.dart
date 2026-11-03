@@ -1044,24 +1044,19 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   bool get _isLandscapeArtwork => _item.isEpisode;
 
   String get _showTitleLine {
-    final show = _item.grandparentTitle ?? '';
-    if (!_item.isEpisode) return show;
-
-    final season = _item.parentIndex;
-    final episode = _item.index;
-    String se = '';
-    if (season != null && episode != null) {
-      se = 'S$season:E$episode';
-    } else if (season != null) {
-      se = 'S$season';
-    } else if (episode != null) {
-      se = 'E$episode';
+    if (_item.isEpisode) {
+      final season = _item.parentIndex;
+      final episode = _item.index;
+      if (season != null && episode != null) {
+        return 'S$season:E$episode';
+      } else if (season != null) {
+        return 'S$season';
+      } else if (episode != null) {
+        return 'E$episode';
+      }
+      return '';
     }
-
-    if (show.isNotEmpty && se.isNotEmpty) {
-      return '$show - $se';
-    }
-    return show.isNotEmpty ? show : se;
+    return _item.grandparentTitle ?? '';
   }
 
   bool get _isEpisode4by3 {
@@ -1357,7 +1352,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       return _buildFallbackTitleText(isCompact: isCompact);
     }
 
-    final logoUrl = _mediaService.buildImageUrl(_item.clearLogo!, width: 600, height: 200);
+    final logoUrl = _mediaService.buildLogoUrl(_item.clearLogo!);
 
     if (_item.isEpisode) {
       // Episode: TV Show title art logo on top, episode title below
@@ -1373,6 +1368,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             child: CachedNetworkImage(
               key: ValueKey(logoUrl),
               imageUrl: logoUrl,
+              memCacheWidth: 600,
+              memCacheHeight: 200,
               fit: BoxFit.contain,
               alignment: isCompact ? Alignment.center : Alignment.centerLeft,
               fadeInDuration: Duration.zero,
@@ -1431,6 +1428,8 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           child: CachedNetworkImage(
             key: ValueKey(logoUrl),
             imageUrl: logoUrl,
+            memCacheWidth: 600,
+            memCacheHeight: 200,
             fit: BoxFit.contain,
             alignment: isCompact ? Alignment.center : Alignment.centerLeft,
             fadeInDuration: Duration.zero,
