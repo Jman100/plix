@@ -490,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (cached.isNotEmpty) {
           _continueWatching = List.from(cached);
           _heroItem = _continueWatching.first;
-          _precacheUpcomingLogos(_continueWatching);
+          _precacheAllHomeLogos();
         }
       }
       if (_cachedRecentlyAdded.isNotEmpty && _recentlyAddedByLibrary.isEmpty) {
@@ -614,6 +614,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               setState(() {
                 _heroItem ??= items.first;
               });
+              _precacheAllHomeLogos();
             }
           }
         } catch (_) {}
@@ -629,7 +630,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       filteredContinueWatching.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
       _continueWatching = filteredContinueWatching;
       _cachedContinueWatching = List.from(filteredContinueWatching);
-      _precacheUpcomingLogos(_continueWatching);
+      _precacheAllHomeLogos();
 
       if (_continueWatching.isNotEmpty) {
         _heroItem = _continueWatching.first;
@@ -1004,6 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() {
           _recentlyAddedByLibrary.addAll(recentlyAddedMap);
         });
+        _precacheAllHomeLogos();
       }
     } catch (_) {}
   }
@@ -1705,17 +1707,52 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _precacheUpcomingLogos(List<PlexMediaItem> items) {
-    if (!mounted || items.isEmpty) return;
-    for (final it in items.take(12)) {
+  final Set<String> _precachedLogoUrls = {};
+
+  void _precacheAllHomeLogos() {
+    if (!mounted) return;
+
+    final allItems = <PlexMediaItem>[
+      ..._continueWatching,
+      for (final list in _recentlyAddedByLibrary.values) ...list,
+    ];
+
+    if (allItems.isEmpty) return;
+
+    final urlsToPrecache = <String>[];
+    for (final it in allItems) {
       if (it.clearLogo != null && it.clearLogo!.isNotEmpty) {
         final serverToUse = it.server ?? widget.server;
         final service = PlexMediaService(server: serverToUse);
         final url = service.buildLogoUrl(it.clearLogo!);
-        if (url.isNotEmpty) {
-          precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+        if (url.isNotEmpty && _precachedLogoUrls.add(url)) {
+          urlsToPrecache.add(url);
         }
       }
+    }
+
+    if (urlsToPrecache.isEmpty) return;
+
+    // Immediately precache first 12 (covers hero and visible row items)
+    final immediate = urlsToPrecache.take(12).toList();
+    for (final url in immediate) {
+      precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+    }
+
+    // Precache the rest smoothly in batches to keep UI at 60fps
+    final remaining = urlsToPrecache.skip(12).toList();
+    if (remaining.isNotEmpty) {
+      Future.microtask(() async {
+        const batchSize = 6;
+        for (var i = 0; i < remaining.length; i += batchSize) {
+          if (!mounted) break;
+          final batch = remaining.skip(i).take(batchSize);
+          for (final url in batch) {
+            precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {});
+          }
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      });
     }
   }
 

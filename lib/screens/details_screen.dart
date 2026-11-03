@@ -7,6 +7,7 @@ import '../app_theme.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import '../services/plex_auth_service.dart';
+import '../services/plex_server_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/plix_image_cache.dart';
 import '../services/theme_music_service.dart';
@@ -302,34 +303,49 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       }
     } catch (_) {}
 
-    // If item does not have a partKey (e.g. opened from Plex Watchlist), search local server for match
+    // If item does not have a partKey (e.g. opened from Plex Watchlist), search servers for match
     if (_item.partKey == null || _item.partKey!.isEmpty) {
       try {
-        final searchResults = await _mediaService.search(_item.title);
-        for (final r in searchResults) {
-          final isSameType = (_item.isMovie && r.isMovie) || (_item.isShow && r.isShow);
-          if (!isSameType) continue;
+        final serverService = PlexServerService(authService: PlexAuthService());
+        final savedToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
+        final allServers = await serverService.fetchServers(savedToken);
+        final serversToSearch = [
+          widget.server,
+          ...allServers.where((s) => s.clientIdentifier != widget.server.clientIdentifier),
+        ];
 
-          bool isMatch = false;
-          if (_item.guid != null && r.guid != null && _item.guid!.isNotEmpty && r.guid!.isNotEmpty) {
-            final cleanW = _item.guid!.trim().toLowerCase().split('?').first;
-            final cleanR = r.guid!.trim().toLowerCase().split('?').first;
-            if (cleanW == cleanR) isMatch = true;
-          }
-          if (!isMatch && _item.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
-            if (_item.year == null || r.year == null || _item.year == r.year) {
-              isMatch = true;
-            }
-          }
+        bool matched = false;
+        for (final srv in serversToSearch) {
+          if (matched) break;
+          final srvService = PlexMediaService(server: srv);
+          final searchResults = await srvService.search(_item.title);
+          for (final r in searchResults) {
+            final isSameType = (_item.isMovie && r.isMovie) || (_item.isShow && r.isShow);
+            if (!isSameType) continue;
 
-          if (isMatch) {
-            final localFull = await _mediaService.getItemMetadata(r.ratingKey);
-            if (mounted) {
-              setState(() {
-                _item = localFull;
-              });
+            bool isMatch = false;
+            if (_item.guid != null && r.guid != null && _item.guid!.isNotEmpty && r.guid!.isNotEmpty) {
+              final cleanW = _item.guid!.trim().toLowerCase().split('?').first;
+              final cleanR = r.guid!.trim().toLowerCase().split('?').first;
+              if (cleanW == cleanR) isMatch = true;
             }
-            break;
+            if (!isMatch && _item.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
+              if (_item.year == null || r.year == null || _item.year == r.year) {
+                isMatch = true;
+              }
+            }
+
+            if (isMatch) {
+              final localFull = await srvService.getItemMetadata(r.ratingKey);
+              if (mounted) {
+                setState(() {
+                  _item = localFull.copyWith(server: srv, serverId: srv.clientIdentifier);
+                  _mediaService = srvService;
+                });
+              }
+              matched = true;
+              break;
+            }
           }
         }
       } catch (_) {}
@@ -1360,30 +1376,28 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: isCompact ? 50 : 65,
-              maxWidth: isCompact ? 280 : 450,
-            ),
-            child: CachedNetworkImage(
-              key: ValueKey(logoUrl),
-              imageUrl: logoUrl,
-              memCacheWidth: 600,
-              memCacheHeight: 200,
-              fit: BoxFit.contain,
+          SizedBox(
+            height: isCompact ? 50 : 65,
+            width: isCompact ? 280 : 450,
+            child: Align(
               alignment: isCompact ? Alignment.center : Alignment.centerLeft,
-              fadeInDuration: Duration.zero,
-              fadeOutDuration: Duration.zero,
-              placeholder: (context, url) => const SizedBox.shrink(),
-              imageBuilder: (context, imageProvider) => Align(
+              child: CachedNetworkImage(
+                key: ValueKey(logoUrl),
+                imageUrl: logoUrl,
+                memCacheWidth: 600,
+                memCacheHeight: 200,
+                fit: BoxFit.contain,
                 alignment: isCompact ? Alignment.center : Alignment.centerLeft,
-                child: Image(
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholder: (context, url) => SizedBox(height: isCompact ? 50 : 65),
+                imageBuilder: (context, imageProvider) => Image(
                   image: imageProvider,
                   fit: BoxFit.contain,
                   alignment: isCompact ? Alignment.center : Alignment.centerLeft,
                 ),
+                errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
               ),
-              errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
             ),
           ),
           const SizedBox(height: 6),
@@ -1420,30 +1434,28 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       crossAxisAlignment: isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: movieMaxHeight,
-            maxWidth: movieMaxWidth,
-          ),
-          child: CachedNetworkImage(
-            key: ValueKey(logoUrl),
-            imageUrl: logoUrl,
-            memCacheWidth: 600,
-            memCacheHeight: 200,
-            fit: BoxFit.contain,
+        SizedBox(
+          height: movieMaxHeight,
+          width: movieMaxWidth,
+          child: Align(
             alignment: isCompact ? Alignment.center : Alignment.centerLeft,
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
-            placeholder: (context, url) => const SizedBox.shrink(),
-            imageBuilder: (context, imageProvider) => Align(
+            child: CachedNetworkImage(
+              key: ValueKey(logoUrl),
+              imageUrl: logoUrl,
+              memCacheWidth: 600,
+              memCacheHeight: 200,
+              fit: BoxFit.contain,
               alignment: isCompact ? Alignment.center : Alignment.centerLeft,
-              child: Image(
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (context, url) => SizedBox(height: movieMaxHeight),
+              imageBuilder: (context, imageProvider) => Image(
                 image: imageProvider,
                 fit: BoxFit.contain,
                 alignment: isCompact ? Alignment.center : Alignment.centerLeft,
               ),
+              errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
             ),
-            errorWidget: (context, url, error) => _buildFallbackTitleText(isCompact: isCompact),
           ),
         ),
         if (_showTitleLine.isNotEmpty && !_item.isShow) ...[
@@ -1567,7 +1579,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   children: [
                     CachedNetworkImage(
                       imageUrl: backdropUrl,
-                      fit: BoxFit.cover,
+                      fit: (isCompact && _item.isMovie) ? BoxFit.fitWidth : BoxFit.cover,
                       alignment: Alignment.topCenter,
                       memCacheWidth: backdropDecodeWidth,
                       memCacheHeight: backdropDecodeHeight,
@@ -1577,29 +1589,36 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            PlixTheme.background.withOpacity(0.3),
-                            PlixTheme.background.withOpacity(0.8),
-                            PlixTheme.background,
-                          ],
+                          colors: (isCompact && _item.isMovie)
+                              ? [
+                                  PlixTheme.background.withOpacity(0.15),
+                                  PlixTheme.background.withOpacity(0.75),
+                                  PlixTheme.background,
+                                ]
+                              : [
+                                  PlixTheme.background.withOpacity(0.3),
+                                  PlixTheme.background.withOpacity(0.8),
+                                  PlixTheme.background,
+                                ],
                           stops: const [0.0, 0.6, 1.0],
                         ),
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            PlixTheme.background.withOpacity(0.95),
-                            PlixTheme.background.withOpacity(0.5),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.4, 0.8],
+                    if (!isCompact || !_item.isMovie)
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              PlixTheme.background.withOpacity(0.95),
+                              PlixTheme.background.withOpacity(0.5),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.4, 0.8],
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),

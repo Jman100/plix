@@ -64,8 +64,10 @@ class PlexMediaService {
     if (path.startsWith('http')) {
       return _buildExternalImageUrl(path, width: width, height: height);
     }
-    // Direct static path for local Plex clear logos bypasses heavy server transcoding
-    return '$baseUrl$path?X-Plex-Token=$token';
+    // Resize local Plex clear logos using Plex's photo transcoder with format=png so it serves
+    // lightweight, compressed thumbnails (~15-30KB) instead of multi-megabyte raw PNG assets.
+    final encoded = Uri.encodeComponent(path);
+    return '$baseUrl/photo/:/transcode?width=$width&height=$height&minSize=1&upscale=1&format=png&url=$encoded&X-Plex-Token=$token';
   }
 
   /// Resize Plex catalog artwork before downloading it. The public image
@@ -893,10 +895,34 @@ class PlexMediaService {
     if (server.isJellyfin) {
       return _jfService.getShowSeasons(showRatingKey);
     }
-    final url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/children');
-    final response = await http.get(url, headers: _headers);
+    http.Response? response;
+    final isDiscoverKey = int.tryParse(showRatingKey) == null;
+    if (!isDiscoverKey) {
+      try {
+        final url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/children');
+        response = await http.get(url, headers: _headers);
+      } catch (_) {}
+    }
 
-    if (response.statusCode != 200) {
+    if (response == null || response.statusCode != 200) {
+      // Fallback to metadata.provider.plex.tv for Discover / cloud watchlist items
+      try {
+        final savedToken = await PlexAuthService().getSavedToken();
+        final effectiveToken = (savedToken != null && savedToken.isNotEmpty) ? savedToken : server.accessToken;
+        if (effectiveToken.isNotEmpty) {
+          final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$showRatingKey/children?includeExternalMedia=1&X-Plex-Token=$effectiveToken');
+          final cloudRes = await http.get(cloudUrl, headers: {
+            'Accept': 'application/json',
+            'X-Plex-Token': effectiveToken,
+          });
+          if (cloudRes.statusCode == 200) {
+            response = cloudRes;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (response == null || response.statusCode != 200) {
       return [];
     }
 
@@ -951,23 +977,53 @@ class PlexMediaService {
     if (server.isJellyfin) {
       return _jfService.getSeasonEpisodes(seasonRatingKey, showId: showRatingKey);
     }
-    Uri url;
-    if (seasonRatingKey.isNotEmpty && seasonRatingKey != '0') {
-      url = Uri.parse('$baseUrl/library/metadata/$seasonRatingKey/children?includeStreams=1&includeGuids=1&includeMarkers=1');
-    } else if (seasonKey != null && seasonKey.isNotEmpty) {
-      final baseStr = seasonKey.startsWith('http') ? seasonKey : '$baseUrl$seasonKey';
-      final sep = baseStr.contains('?') ? '&' : '?';
-      url = Uri.parse('$baseStr${sep}includeStreams=1');
-    } else if (showRatingKey != null && showRatingKey.isNotEmpty) {
-      url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
-    } else {
-      return [];
+    http.Response? response;
+    final isDiscoverKey = int.tryParse(seasonRatingKey) == null &&
+        (seasonKey == null || (!seasonKey.startsWith('/library/metadata/') && !seasonKey.startsWith('http')));
+
+    if (!isDiscoverKey) {
+      Uri? url;
+      if (seasonRatingKey.isNotEmpty && seasonRatingKey != '0' && int.tryParse(seasonRatingKey) != null) {
+        url = Uri.parse('$baseUrl/library/metadata/$seasonRatingKey/children?includeStreams=1&includeGuids=1&includeMarkers=1');
+      } else if (seasonKey != null && seasonKey.isNotEmpty && !seasonKey.startsWith('http') && int.tryParse(seasonRatingKey) != null) {
+        final baseStr = '$baseUrl$seasonKey';
+        final sep = baseStr.contains('?') ? '&' : '?';
+        url = Uri.parse('$baseStr${sep}includeStreams=1');
+      } else if (showRatingKey != null && showRatingKey.isNotEmpty && int.tryParse(showRatingKey) != null) {
+        url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
+      }
+
+      if (url != null) {
+        try {
+          response = await http.get(url, headers: _headers);
+        } catch (_) {}
+      }
     }
 
-    final response = await http.get(url, headers: _headers);
-    if (response.statusCode != 200) {
+    if (response == null || response.statusCode != 200) {
+      // Discover / cloud endpoint fallback
+      try {
+        final savedToken = await PlexAuthService().getSavedToken();
+        final effectiveToken = (savedToken != null && savedToken.isNotEmpty) ? savedToken : server.accessToken;
+        if (effectiveToken.isNotEmpty) {
+          final targetKey = seasonRatingKey.isNotEmpty ? seasonRatingKey : (showRatingKey ?? '');
+          if (targetKey.isNotEmpty) {
+            final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$targetKey/children?includeStreams=1&includeExternalMedia=1&X-Plex-Token=$effectiveToken');
+            final cloudRes = await http.get(cloudUrl, headers: {
+              'Accept': 'application/json',
+              'X-Plex-Token': effectiveToken,
+            });
+            if (cloudRes.statusCode == 200) {
+              response = cloudRes;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (response == null || response.statusCode != 200) {
       // Fallback to allLeaves if specific season children failed
-      if (showRatingKey != null && showRatingKey.isNotEmpty && url.path.contains(seasonRatingKey)) {
+      if (showRatingKey != null && showRatingKey.isNotEmpty && int.tryParse(showRatingKey) != null) {
         return getSeasonEpisodes('', showRatingKey: showRatingKey);
       }
       return [];
@@ -1243,7 +1299,7 @@ class PlexMediaService {
           final hubs = mc['Hub'] as List<dynamic>?;
           if (hubs != null) {
             for (final h in hubs) {
-              final hubMeta = h['Metadata'] as List<dynamic>?;
+              final hubMeta = (h['Metadata'] as List<dynamic>?) ?? (h['Directory'] as List<dynamic>?);
               if (hubMeta != null) {
                 for (final item in hubMeta) {
                   rawItems.add(PlexMediaItem.fromJson(item as Map<String, dynamic>));
@@ -1251,7 +1307,7 @@ class PlexMediaService {
               }
             }
           }
-          final meta = mc['Metadata'] as List<dynamic>?;
+          final meta = (mc['Metadata'] as List<dynamic>?) ?? (mc['Directory'] as List<dynamic>?);
           if (meta != null) {
             for (final item in meta) {
               rawItems.add(PlexMediaItem.fromJson(item as Map<String, dynamic>));

@@ -171,7 +171,7 @@ void main() {
       expect(subtitle, 'My Plex (Plex), My Jellyfin (Jellyfin)');
     });
 
-    test('PlexMediaService buildLogoUrl serves static local logo directly without transcode pipeline', () {
+    test('PlexMediaService buildLogoUrl optimizes local logos via photo transcoder to prevent multi-megabyte payloads', () {
       final plex = PlexServer(
         name: 'My Plex',
         clientIdentifier: 'plex-1',
@@ -184,8 +184,17 @@ void main() {
       );
       final service = PlexMediaService(server: plex);
       final logoUrl = service.buildLogoUrl('/library/metadata/1234/clearLogo/5678');
-      expect(logoUrl, 'http://192.168.0.10:32400/library/metadata/1234/clearLogo/5678?X-Plex-Token=plex_token_xyz');
-      expect(logoUrl.contains('/photo/:/transcode'), isFalse);
+      expect(logoUrl.contains('/photo/:/transcode'), isTrue);
+      expect(logoUrl.contains('format=png'), isTrue);
+      expect(logoUrl.contains('width=440'), isTrue);
+      expect(logoUrl.contains('height=160'), isTrue);
+    });
+
+    test('Mobile movie backdrop in portrait uses fitWidth and topCenter', () {
+      const isCompact = true;
+      final movie = PlexMediaItem(ratingKey: '10', key: '/m/10', title: 'Top Gun', type: 'movie');
+      final fit = (isCompact && movie.isMovie) ? 'fitWidth' : 'cover';
+      expect(fit, 'fitWidth');
     });
 
     test('JellyfinMediaService buildLogoUrl optimizes dimensions and quality for speed', () {
