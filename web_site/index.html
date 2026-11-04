@@ -267,7 +267,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.7.0</span>
+            <span id="winVersionLabel">Version 1.7.1</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -304,7 +304,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.7.0</span>
+            <span id="androidVersionLabel">Version 1.7.1</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -363,7 +363,7 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
-            <span id="linuxVersionLabel">Version 1.7.0</span>
+            <span id="linuxVersionLabel">Version 1.7.1</span>
             <span>DEB • Arch • Portable</span>
           </div>
         </div>
@@ -543,10 +543,10 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.7.0</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.7.1</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
-              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 3, 2026</span></p>
+              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 4, 2026</span></p>
             </div>
           </div>
 
@@ -572,48 +572,48 @@
           <h3 class="text-xs font-bold tracking-wider text-neutral-400 uppercase mb-4">What's New in this Release:</h3>
           <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">Arch Linux Self-Updater Fix:</strong> Resolved package auto-updater opening in archive managers (such as Ark) by introducing an interactive terminal updater script that executes pacman -U with elevated privileges and cleanly relaunches Plix.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">Plex Watchlist Instant Open:</strong> Eliminated 20-second blocking delays when opening Plex watchlist titles by adding fast-path active local server resolution (~100ms) with non-blocking background metadata synchronization.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Title Art &amp; Clear Logos:</strong> Replicated official Plex title art branding across the home hero section, movie, show, and episode detail pages with English logo prioritization and styled typographic fallbacks.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Home Title Art Pre-Caching &amp; Transcode Acceleration:</strong> Background pre-caching engine warms up title art across Continue Watching and active library rows; size-bounded Plex photo transcoding delivers lightweight, transparent PNGs (~15-30 KB) with zero perceived lag.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Zero-Shift Detail Pages:</strong> Pre-positioned reserved bounding boxes for title artwork on movies, shows, and episodes eliminate vertical layout jumping when media metadata and assets load.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
-              <div><strong class="text-white">Plex Watchlist Seasons &amp; Episodes Fix:</strong> Seamless fallback to Plex Discover cloud metadata provider (metadata.provider.plex.tv) and cross-server library resolution ensures watchlist shows load full seasons and episodes reliably.</div>
-            </li>
-            <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Mobile Portrait Art &amp; Navigation Polish:</strong> Movie detail pages in mobile portrait feature prominent centered title art over top-aligned, full-width backdrops; centered episode and show headers; and a scrollable favorite libraries sheet with a 5th-item peek indicator.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Desktop Volume Controls &amp; Autoplay Fix:</strong> Added in-player desktop volume slider with hover controls, mute toggle, and mouse wheel support; fixed unfocused background window autoplay interruptions.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Windows Per-App Display HDR:</strong> Automatic detection and dynamic switching of display HDR for HDR10 media playback on Windows, cleanly restoring SDR upon stop.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
-              <div><strong class="text-white">Arch Linux Self-Updater:</strong> Package auto-updater on Arch Linux now installs updates directly via pacman -U with graphical elevation.</div>
-            </li>
-            <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Detail Header SX:EX Notation:</strong> Streamlined episode detail subtitle line to clean SX:EX format, eliminating show title redundancy.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
               <div><strong class="text-white">Multi-Server Settings Accuracy:</strong> Correctly enumerates and displays all connected Plex and Jellyfin servers in settings.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">?</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.7.0 (versionCode 40).</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.7.1 (versionCode 41).</div>
             </li>
           </ul>
         </div>

@@ -74,8 +74,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.7.0';
-  static int _currentVersionCode = 40;
+  static String _currentVersion = '1.7.1';
+  static int _currentVersionCode = 41;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -109,15 +109,32 @@ class UpdateService {
               content.contains('id_like=arch') ||
               content.contains('id_like="arch"') ||
               content.contains('id=manjaro') ||
+              content.contains('id="manjaro"') ||
               content.contains('id=endeavouros') ||
+              content.contains('id="endeavouros"') ||
               content.contains('id=garuda') ||
+              content.contains('id="garuda"') ||
               content.contains('id=artix') ||
-              content.contains('id=steamos')) {
+              content.contains('id="artix"') ||
+              content.contains('id=cachyos') ||
+              content.contains('id="cachyos"') ||
+              content.contains('id=archcraft') ||
+              content.contains('id="archcraft"') ||
+              content.contains('id=blendos') ||
+              content.contains('id="blendos"') ||
+              content.contains('id=chimeraos') ||
+              content.contains('id="chimeraos"') ||
+              content.contains('id=biglinux') ||
+              content.contains('id="biglinux"') ||
+              content.contains('id=steamos') ||
+              content.contains('id="steamos"')) {
             return true;
           }
         }
       }
-      if (File('/usr/bin/pacman').existsSync() && Directory('/var/lib/pacman').existsSync()) {
+      if (File('/usr/bin/pacman').existsSync() ||
+          File('/bin/pacman').existsSync() ||
+          File('/usr/local/bin/pacman').existsSync()) {
         return true;
       }
     } catch (_) {}
@@ -320,53 +337,179 @@ class UpdateService {
 
       onProgress(1.0);
       bool opened = false;
-      if (isArch) {
-        // Run pacman -U with pkexec (native Polkit GUI authentication)
-        if (File('/usr/bin/pkexec').existsSync()) {
-          try {
-            await Process.start('pkexec', ['pacman', '-U', '--noconfirm', targetFile.path], mode: ProcessStartMode.detached);
-            opened = true;
-          } catch (_) {}
+
+      // Generate a standalone updater shell script that elevates via sudo/doas/pkexec,
+      // runs pacman -U (or dpkg -i / rpm -U), shows progress interactively in a terminal,
+      // restarts Plix on success, and pauses on error.
+      final scriptFile = File('${tempDir.path}/install_update.sh');
+      final scriptContent = '''#!/usr/bin/env bash
+clear
+echo "=========================================="
+echo "          Plix Auto-Updater"
+echo "=========================================="
+echo ""
+echo "Installing package:"
+echo "  ${targetFile.path}"
+echo ""
+
+# Find elevation tool if not already root
+ELEVATE=""
+if [ "\$EUID" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        ELEVATE="sudo"
+    elif command -v doas >/dev/null 2>&1; then
+        ELEVATE="doas"
+    elif command -v pkexec >/dev/null 2>&1; then
+        ELEVATE="pkexec"
+    fi
+fi
+
+INSTALL_SUCCESS=1
+if [[ "${targetFile.path}" == *.pkg.tar* ]] || command -v pacman >/dev/null 2>&1; then
+    echo "Running: \$ELEVATE pacman -U --noconfirm \"${targetFile.path}\""
+    echo ""
+    \$ELEVATE pacman -U --noconfirm "${targetFile.path}"
+    if [ \$? -eq 0 ]; then
+        INSTALL_SUCCESS=0
+    fi
+elif [[ "${targetFile.path}" == *.deb ]] || command -v dpkg >/dev/null 2>&1; then
+    echo "Running: \$ELEVATE dpkg -i \"${targetFile.path}\""
+    echo ""
+    \$ELEVATE dpkg -i "${targetFile.path}"
+    if [ \$? -eq 0 ]; then
+        INSTALL_SUCCESS=0
+    else
+        if command -v apt-get >/dev/null 2>&1; then
+            echo ""
+            echo "Resolving missing dependencies with apt-get..."
+            \$ELEVATE apt-get install -f -y
+            if [ \$? -eq 0 ]; then
+                INSTALL_SUCCESS=0
+            fi
+        fi
+    fi
+elif [[ "${targetFile.path}" == *.rpm ]] || command -v rpm >/dev/null 2>&1; then
+    echo "Running: \$ELEVATE rpm -U \"${targetFile.path}\""
+    echo ""
+    \$ELEVATE rpm -U "${targetFile.path}"
+    if [ \$? -eq 0 ]; then
+        INSTALL_SUCCESS=0
+    fi
+fi
+
+echo ""
+if [ \$INSTALL_SUCCESS -eq 0 ]; then
+    echo "=========================================="
+    echo "  Plix updated successfully!"
+    echo "  Restarting Plix..."
+    echo "=========================================="
+    sleep 1.2
+    if command -v plix >/dev/null 2>&1; then
+        nohup plix >/dev/null 2>&1 &
+    elif [ -f /usr/bin/plix ]; then
+        nohup /usr/bin/plix >/dev/null 2>&1 &
+    elif [ -f /opt/plix/plix ]; then
+        nohup /opt/plix/plix >/dev/null 2>&1 &
+    fi
+    exit 0
+else
+    echo "=========================================="
+    echo "  Installation failed."
+    echo "=========================================="
+    echo "Press Enter to exit..."
+    read -r
+    exit 1
+fi
+''';
+      await scriptFile.writeAsString(scriptContent);
+      try {
+        await Process.run('chmod', ['+x', scriptFile.path]);
+      } catch (_) {}
+
+      // Dedicated graphical package installer (e.g. Pamac on Manjaro / Arch)
+      if (isArch && File('/usr/bin/pamac-installer').existsSync()) {
+        try {
+          await Process.start('pamac-installer', [targetFile.path], mode: ProcessStartMode.detached);
+          opened = true;
+        } catch (_) {}
+      }
+
+      // Launch terminal emulator running our installation script
+      if (!opened) {
+        final scriptPath = scriptFile.path;
+        final terminalCommands = <List<String>>[
+          if (Platform.environment['TERMINAL'] != null && Platform.environment['TERMINAL']!.isNotEmpty)
+            [Platform.environment['TERMINAL']!, '-e', 'bash', scriptPath],
+          ['xdg-terminal-exec', 'bash', scriptPath],
+          ['konsole', '-e', 'bash', scriptPath],
+          ['gnome-terminal', '--', 'bash', scriptPath],
+          ['ptyxis', '--', 'bash', scriptPath],
+          ['kgx', '-e', 'bash', scriptPath],
+          ['xfce4-terminal', '-x', 'bash', scriptPath],
+          ['mate-terminal', '-x', 'bash', scriptPath],
+          ['alacritty', '-e', 'bash', scriptPath],
+          ['kitty', 'bash', scriptPath],
+          ['foot', 'bash', scriptPath],
+          ['wezterm', 'start', '--', 'bash', scriptPath],
+          ['ghostty', '-e', 'bash', scriptPath],
+          ['terminator', '-x', 'bash', scriptPath],
+          ['tilix', '-e', 'bash', scriptPath],
+          ['lxterminal', '-e', 'bash', scriptPath],
+          ['qterminal', '-e', 'bash', scriptPath],
+          ['x-terminal-emulator', '-e', 'bash', scriptPath],
+          ['xterm', '-e', 'bash', scriptPath],
+          ['urxvt', '-e', 'bash', scriptPath],
+          ['rxvt', '-e', 'bash', scriptPath],
+        ];
+
+        // First try checking known binary paths directly
+        for (final cmd in terminalCommands) {
+          final exe = cmd.first;
+          final exists = File('/usr/bin/$exe').existsSync() ||
+              File('/usr/local/bin/$exe').existsSync() ||
+              File('/bin/$exe').existsSync();
+          if (exists) {
+            try {
+              await Process.start(exe, cmd.sublist(1), mode: ProcessStartMode.detached);
+              opened = true;
+              break;
+            } catch (_) {}
+          }
         }
-        if (!opened && File('/usr/bin/pamac-installer').existsSync()) {
-          try {
-            await Process.start('pamac-installer', [targetFile.path], mode: ProcessStartMode.detached);
-            opened = true;
-          } catch (_) {}
-        }
+
+        // If not found in standard paths, try spawning directly through PATH lookup
         if (!opened) {
-          // Fallback to running in a graphical terminal with sudo pacman -U
-          final terminals = [
-            ['konsole', '-e', 'sudo pacman -U "${targetFile.path}"'],
-            ['gnome-terminal', '--', 'sudo', 'pacman', '-U', targetFile.path],
-            ['xfce4-terminal', '-e', 'sudo pacman -U "${targetFile.path}"'],
-            ['alacritty', '-e', 'sudo', 'pacman', '-U', targetFile.path],
-            ['kitty', 'sudo', 'pacman', '-U', targetFile.path],
-            ['xterm', '-e', 'sudo pacman -U "${targetFile.path}"'],
-          ];
-          for (final term in terminals) {
-            final exe = term.first;
-            if (File('/usr/bin/$exe').existsSync() || File('/usr/local/bin/$exe').existsSync()) {
-              try {
-                await Process.start(exe, term.sublist(1), mode: ProcessStartMode.detached);
-                opened = true;
-                break;
-              } catch (_) {}
-            }
+          for (final cmd in terminalCommands) {
+            try {
+              await Process.start(cmd.first, cmd.sublist(1), mode: ProcessStartMode.detached);
+              opened = true;
+              break;
+            } catch (_) {}
           }
         }
       }
+
       if (!opened) {
-        if (!isArch && File('/usr/bin/pkexec').existsSync() && File('/usr/bin/dpkg').existsSync()) {
-          try {
-            await Process.start('pkexec', ['dpkg', '-i', targetFile.path], mode: ProcessStartMode.detached);
-            opened = true;
-          } catch (_) {}
-        }
+        // Never call xdg-open on targetFile.path (.pkg.tar.zst) because desktop environments
+        // associate archive formats with archive managers like Ark!
+        // Instead, copy command to clipboard and inform the user.
+        final installCmd = isArch
+            ? 'sudo pacman -U "${targetFile.path}"'
+            : 'sudo dpkg -i "${targetFile.path}"';
+        try {
+          await Clipboard.setData(ClipboardData(text: installCmd));
+        } catch (_) {}
+        try {
+          await Process.start('xdg-open', [tempDir.path], mode: ProcessStartMode.detached);
+        } catch (_) {}
+        throw Exception(
+          'Could not launch a terminal automatically. '
+          'Please open a terminal and run:\n$installCmd\n'
+          '(Command copied to clipboard)',
+        );
       }
-      if (!opened) {
-        await Process.start('xdg-open', [targetFile.path], mode: ProcessStartMode.detached);
-      }
+
+      await Future.delayed(const Duration(milliseconds: 600));
       exit(0);
     }
 

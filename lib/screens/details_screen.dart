@@ -293,63 +293,36 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
   Future<void> _loadFullDetails({bool restoreFocus = false, bool refresh = false}) async {
     setState(() => _isLoadingDetails = true);
-    try {
-      final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
-      if (mounted) {
-        setState(() {
-          _item = full;
-        });
-        _resolveThumbnailAspectRatio();
-      }
-    } catch (_) {}
 
-    // If item does not have a partKey (e.g. opened from Plex Watchlist), search servers for match
-    if (_item.partKey == null || _item.partKey!.isEmpty) {
+    // If item is a cloud/Discover item, resolve to server item BEFORE fetching metadata
+    final isCloudItem = int.tryParse(_item.ratingKey) == null && !_mediaService.server.isJellyfin;
+    if (isCloudItem || ((_item.isMovie || _item.isEpisode) && (_item.partKey == null || _item.partKey!.isEmpty))) {
       try {
         final serverService = PlexServerService(authService: PlexAuthService());
-        final savedToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
-        final allServers = await serverService.fetchServers(savedToken);
-        final serversToSearch = [
-          widget.server,
-          ...allServers.where((s) => s.clientIdentifier != widget.server.clientIdentifier),
-        ];
-
-        bool matched = false;
-        for (final srv in serversToSearch) {
-          if (matched) break;
-          final srvService = PlexMediaService(server: srv);
-          final searchResults = await srvService.search(_item.title);
-          for (final r in searchResults) {
-            final isSameType = (_item.isMovie && r.isMovie) || (_item.isShow && r.isShow);
-            if (!isSameType) continue;
-
-            bool isMatch = false;
-            if (_item.guid != null && r.guid != null && _item.guid!.isNotEmpty && r.guid!.isNotEmpty) {
-              final cleanW = _item.guid!.trim().toLowerCase().split('?').first;
-              final cleanR = r.guid!.trim().toLowerCase().split('?').first;
-              if (cleanW == cleanR) isMatch = true;
-            }
-            if (!isMatch && _item.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
-              if (_item.year == null || r.year == null || _item.year == r.year) {
-                isMatch = true;
-              }
-            }
-
-            if (isMatch) {
-              final localFull = await srvService.getItemMetadata(r.ratingKey);
-              if (mounted) {
-                setState(() {
-                  _item = localFull.copyWith(server: srv, serverId: srv.clientIdentifier);
-                  _mediaService = srvService;
-                });
-              }
-              matched = true;
-              break;
-            }
+        final authService = PlexAuthService();
+        final resolved = await _mediaService.resolveWatchlistItem(
+          _item,
+          serverService: serverService,
+          authService: authService,
+        );
+        if (resolved.ratingKey != _item.ratingKey) {
+          _item = resolved;
+          if (resolved.server != null && resolved.server!.activeConnectionUri?.isNotEmpty == true) {
+            _mediaService = PlexMediaService(server: resolved.server!);
           }
         }
       } catch (_) {}
     }
+
+    try {
+      final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
+      if (mounted) {
+        setState(() {
+          _item = full.copyWith(server: _mediaService.server, serverId: _mediaService.server.clientIdentifier);
+        });
+        _resolveThumbnailAspectRatio();
+      }
+    } catch (_) {}
 
     // Cast and crew metadata. Episodes often omit their own Role tags, so
     // fall back to the parent show's cast list.
@@ -486,7 +459,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       MaterialPageRoute(
         builder: (_) => DetailsScreen(
           initialItem: episode,
-          server: widget.server,
+          server: episode.server ?? _mediaService.server,
           clientId: widget.clientId,
         ),
       ),
@@ -836,6 +809,18 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   }
 
   void _playMedia({required PlexMediaItem item, int resumeMs = 0}) {
+    if ((item.isMovie || item.isEpisode) && (item.partKey == null || item.partKey!.isEmpty)) {
+      if (int.tryParse(item.ratingKey) == null && !widget.server.isJellyfin) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Media unavailable on connected servers'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: PlixTheme.surface,
+          ),
+        );
+        return;
+      }
+    }
     NativePlayerService().stop();
     _lastPlayedEpisodeKey = item.ratingKey;
     _stopTheme(immediate: true);
@@ -844,7 +829,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
           item: item,
-          server: widget.server,
+          server: item.server ?? _mediaService.server,
           clientId: widget.clientId,
           initialPositionMs: resumeMs,
         ),

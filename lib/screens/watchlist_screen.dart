@@ -35,6 +35,7 @@ class WatchlistScreen extends StatefulWidget {
 class _WatchlistScreenState extends State<WatchlistScreen> {
   late PlexMediaService _mediaService;
   List<PlexMediaItem> _items = [];
+  List<PlexServer> _servers = [];
   bool _isLoading = true;
   String? _errorMessage;
   bool _isMultiServer = false;
@@ -166,6 +167,13 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       if (allServers.isEmpty) {
         allServers = [widget.server];
       }
+      for (final s in allServers) {
+        if (s.clientIdentifier == widget.server.clientIdentifier &&
+            widget.server.activeConnectionUri != null &&
+            widget.server.activeConnectionUri!.isNotEmpty) {
+          s.activeConnectionUri = widget.server.activeConnectionUri;
+        }
+      }
 
       // Find servers that have favorited libraries
       final favIds = await widget.serverService?.getFavoriteLibraryIds();
@@ -184,6 +192,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       if (targetServers.isEmpty) {
         targetServers.add(widget.server);
       }
+      _servers = targetServers;
       _isMultiServer = targetServers.length > 1;
 
       final List<PlexMediaItem> aggregatedItems = [];
@@ -246,42 +255,20 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     }
   }
 
-  Future<PlexMediaItem> _resolveServerItem(PlexMediaItem watchlistItem) async {
-    try {
-      final searchResults = await _mediaService.search(watchlistItem.title);
-      for (final r in searchResults) {
-        final isSameType = (watchlistItem.isMovie && r.isMovie) || (watchlistItem.isShow && r.isShow);
-        if (!isSameType) continue;
-
-        // 1. GUID match
-        if (watchlistItem.guid != null && r.guid != null && watchlistItem.guid!.isNotEmpty && r.guid!.isNotEmpty) {
-          final cleanW = watchlistItem.guid!.trim().toLowerCase().split('?').first;
-          final cleanR = r.guid!.trim().toLowerCase().split('?').first;
-          if (cleanW == cleanR) {
-            return r;
-          }
-        }
-
-        // 2. Title + Year match
-        if (watchlistItem.title.trim().toLowerCase() == r.title.trim().toLowerCase()) {
-          if (watchlistItem.year == null || r.year == null || watchlistItem.year == r.year) {
-            return r;
-          }
-        }
-      }
-    } catch (_) {}
-    return watchlistItem;
-  }
-
   void _openDetails(PlexMediaItem item, int index) async {
     _lastSelectedIndex = index;
+    PlexServer effectiveServer = item.server ?? widget.server;
+    if (effectiveServer.clientIdentifier == widget.server.clientIdentifier &&
+        (effectiveServer.activeConnectionUri == null || effectiveServer.activeConnectionUri!.isEmpty)) {
+      effectiveServer.activeConnectionUri = widget.server.activeConnectionUri;
+    }
+
     try {
-      final targetServer = item.server ?? widget.server;
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => DetailsScreen(
             initialItem: item,
-            server: targetServer,
+            server: effectiveServer,
             clientId: widget.clientId,
           ),
         ),

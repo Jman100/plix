@@ -6,6 +6,7 @@ import '../models/plex_server.dart';
 import 'jellyfin_media_service.dart';
 import 'plix_device_helper.dart';
 import 'plex_auth_service.dart';
+import 'plex_server_service.dart';
 import 'update_service.dart';
 
 class PlexMediaService {
@@ -1744,6 +1745,183 @@ class PlexMediaService {
     }
 
     return [];
+  }
+
+
+  Future<PlexMediaItem> resolveWatchlistItem(
+    PlexMediaItem watchlistItem, {
+    List<PlexServer>? servers,
+    PlexServerService? serverService,
+    PlexAuthService? authService,
+  }) async {
+    // If it is already a local server item with a validated connection URI:
+    final isPlexLocal = int.tryParse(watchlistItem.ratingKey) != null &&
+        watchlistItem.server?.isJellyfin != true &&
+        (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false);
+    final isJellyfinLocal = (watchlistItem.server?.isJellyfin ?? false) &&
+        (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false) &&
+        (watchlistItem.partKey?.isNotEmpty ?? false);
+    if (isPlexLocal || isJellyfinLocal) {
+      return watchlistItem;
+    }
+
+    final candidateServers = <PlexServer>[];
+    final seenIds = <String>{};
+
+    void addServer(PlexServer? s) {
+      if (s != null && seenIds.add(s.clientIdentifier)) {
+        if (s.clientIdentifier == server.clientIdentifier &&
+            server.activeConnectionUri != null &&
+            server.activeConnectionUri!.isNotEmpty) {
+          s.activeConnectionUri = server.activeConnectionUri;
+        }
+        candidateServers.add(s);
+      }
+    }
+
+    addServer(server);
+    addServer(watchlistItem.server);
+    if (servers != null) {
+      for (final s in servers) {
+        addServer(s);
+      }
+    }
+
+    String norm(String str) => str.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    String cleanGuid(String g) => g.trim().toLowerCase().split('?').first;
+
+    final targetTitle = watchlistItem.title.trim();
+    final targetNormTitle = norm(targetTitle);
+    final targetYear = watchlistItem.year;
+    final targetGuids = <String>{
+      if (watchlistItem.guid != null && watchlistItem.guid!.isNotEmpty)
+        cleanGuid(watchlistItem.guid!),
+      for (final g in watchlistItem.guids)
+        if (g.isNotEmpty) cleanGuid(g),
+    };
+
+    Future<PlexMediaItem?> checkServer(PlexServer srv) async {
+      if (srv.activeConnectionUri == null || srv.activeConnectionUri!.isEmpty) return null;
+      try {
+        final srvService = PlexMediaService(server: srv);
+        var searchResults = await srvService.search(targetTitle);
+
+        if (searchResults.isEmpty) {
+          final separators = [':', ' - ', '('];
+          for (final sep in separators) {
+            if (targetTitle.contains(sep)) {
+              final prefix = targetTitle.split(sep).first.trim();
+              if (prefix.isNotEmpty && prefix.length >= 3) {
+                searchResults = await srvService.search(prefix);
+                if (searchResults.isNotEmpty) break;
+              }
+            }
+          }
+        }
+
+        for (final r in searchResults) {
+          final isSameType = (watchlistItem.isMovie && r.isMovie) ||
+              (watchlistItem.isShow && r.isShow);
+          if (!isSameType) continue;
+
+          bool isMatch = false;
+
+          // 1. GUID Match
+          final rGuids = <String>{
+            if (r.guid != null && r.guid!.isNotEmpty) cleanGuid(r.guid!),
+            for (final g in r.guids)
+              if (g.isNotEmpty) cleanGuid(g),
+          };
+
+          if (targetGuids.isNotEmpty && rGuids.isNotEmpty) {
+            if (targetGuids.any((tg) => rGuids.contains(tg))) {
+              isMatch = true;
+            }
+          }
+
+          // 2. Normalized Title + Year Match
+          if (!isMatch) {
+            final rNormTitle = norm(r.title);
+            final rYear = r.year;
+            final isYearClose = targetYear == null ||
+                rYear == null ||
+                (targetYear - rYear).abs() <= 1;
+
+            if (targetNormTitle == rNormTitle && isYearClose) {
+              isMatch = true;
+            } else if (isYearClose && targetYear != null && rYear != null) {
+              if (targetNormTitle.contains(rNormTitle) || rNormTitle.contains(targetNormTitle)) {
+                isMatch = true;
+              } else {
+                Set<String> toTokens(String s) => s
+                    .toLowerCase()
+                    .replaceAll(RegExp(r'[^a-z0-9\\s]'), '')
+                    .split(RegExp(r'\\s+'))
+                    .where((w) => w.length >= 3)
+                    .toSet();
+                final wTokens = toTokens(watchlistItem.title);
+                final rTokens = toTokens(r.title);
+                if (wTokens.isNotEmpty && rTokens.isNotEmpty) {
+                  final common = wTokens.intersection(rTokens);
+                  if (common.length == wTokens.length || common.length == rTokens.length) {
+                    isMatch = true;
+                  }
+                }
+              }
+            }
+          }
+
+          if (isMatch) {
+            try {
+              final localFull = await srvService.getItemMetadata(r.ratingKey);
+              return localFull.copyWith(server: srv, serverId: srv.clientIdentifier);
+            } catch (_) {
+              return r.copyWith(server: srv, serverId: srv.clientIdentifier);
+            }
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    // PHASE 1: Fast path - immediately check already-connected online servers (e.g. active server)
+    for (final srv in candidateServers) {
+      if (srv.activeConnectionUri != null && srv.activeConnectionUri!.isNotEmpty) {
+        final match = await checkServer(srv);
+        if (match != null) {
+          return match;
+        }
+      }
+    }
+
+    // PHASE 2: Only if not found on active server, test unverified candidate servers in parallel
+    if (serverService != null) {
+      final unverified = candidateServers
+          .where((s) => s.activeConnectionUri == null || s.activeConnectionUri!.isEmpty)
+          .toList();
+      if (unverified.isNotEmpty) {
+        await Future.wait(
+          unverified.map((s) async {
+            try {
+              await serverService
+                  .testAndResolveBestConnection(s, fallbackToFirstCandidate: true)
+                  .timeout(const Duration(milliseconds: 1000));
+            } catch (_) {}
+          }),
+        );
+
+        for (final srv in unverified) {
+          if (srv.activeConnectionUri != null && srv.activeConnectionUri!.isNotEmpty) {
+            final match = await checkServer(srv);
+            if (match != null) {
+              return match;
+            }
+          }
+        }
+      }
+    }
+
+    return watchlistItem;
   }
 
   Future<bool> addToWatchlist({

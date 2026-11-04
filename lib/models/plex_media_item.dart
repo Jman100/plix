@@ -234,6 +234,7 @@ class PlexMediaItem {
   final int? videoHeight;
   final List<PlexMarker> markers;
   final String? guid;
+  final List<String> guids;
   final String? grandparentGuid;
   final int? lastViewedAt;
   final String? subtype;
@@ -305,6 +306,7 @@ class PlexMediaItem {
     this.videoHeight,
     this.markers = const [],
     this.guid,
+    this.guids = const [],
     this.grandparentGuid,
     this.lastViewedAt,
     this.subtype,
@@ -1044,6 +1046,23 @@ class PlexMediaItem {
       }
     }
 
+    final List<String> parsedGuids = [];
+    if (parsedGuid != null && parsedGuid.isNotEmpty) {
+      parsedGuids.add(parsedGuid);
+    }
+    final rawGuidList = json['Guid'];
+    final guidListElements = rawGuidList is List ? rawGuidList : (rawGuidList is Map ? [rawGuidList] : null);
+    if (guidListElements != null) {
+      for (final g in guidListElements) {
+        if (g is Map<String, dynamic>) {
+          final id = g['id']?.toString() ?? '';
+          if (id.isNotEmpty && !parsedGuids.contains(id)) {
+            parsedGuids.add(id);
+          }
+        }
+      }
+    }
+
     return PlexMediaItem(
       ratingKey: parsedRatingKey,
       key: parsedKey,
@@ -1114,6 +1133,7 @@ class PlexMediaItem {
       videoHeight: vHeight,
       markers: markers,
       guid: parsedGuid,
+      guids: parsedGuids,
       grandparentGuid: json['grandparentGuid']?.toString(),
       subtype: json['subtype']?.toString(),
       extraType: json['extraType']?.toString(),
@@ -1187,6 +1207,7 @@ class PlexMediaItem {
     int? videoHeight,
     List<PlexMarker>? markers,
     String? guid,
+    List<String>? guids,
     String? grandparentGuid,
     int? lastViewedAt,
     String? subtype,
@@ -1258,6 +1279,7 @@ class PlexMediaItem {
       targetType: targetType ?? this.targetType,
       targetSeasonKey: targetSeasonKey ?? this.targetSeasonKey,
       guid: guid ?? this.guid,
+      guids: guids ?? this.guids,
       grandparentGuid: grandparentGuid ?? this.grandparentGuid,
       lastViewedAt: lastViewedAt ?? this.lastViewedAt,
       subtype: subtype ?? this.subtype,
