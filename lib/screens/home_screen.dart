@@ -178,7 +178,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             } catch (_) {}
           }
         }
-        if (mounted && (_heroItem?.ratingKey == currentHeroItem.ratingKey || _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey)) {
+        final isStillCurrent = _heroItem?.ratingKey == currentHeroItem.ratingKey ||
+            (_heroItem?.targetRatingKey != null &&
+             currentHeroItem.targetRatingKey != null &&
+             _heroItem?.targetRatingKey == currentHeroItem.targetRatingKey);
+        if (mounted && isStillCurrent) {
           setState(() {
             if (isSeasonTarget) {
               _heroItem = full.copyWith(
@@ -1054,6 +1058,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _signOut() async {
+    _cachedContinueWatching.clear();
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,

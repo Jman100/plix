@@ -313,11 +313,14 @@ class PlexMediaService {
         final episodes = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
         if (episodes.isNotEmpty) {
           for (final ep in episodes) {
+            // Skip Season 0 (Specials) so Next Up recommends S01E01 instead of Specials
+            if (ep.parentIndex == 0) continue;
             if (ep.isInProgress || !ep.isWatched) {
               return ep;
             }
           }
-          return episodes.first;
+          // If no main season episode was found, fallback to first non-special or first episode
+          return episodes.firstWhere((e) => e.parentIndex != 0, orElse: () => episodes.first);
         }
       }
     } catch (_) {}
@@ -1859,8 +1862,8 @@ class PlexMediaService {
               } else {
                 Set<String> toTokens(String s) => s
                     .toLowerCase()
-                    .replaceAll(RegExp(r'[^a-z0-9\\s]'), '')
-                    .split(RegExp(r'\\s+'))
+                    .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+                    .split(RegExp(r'\s+'))
                     .where((w) => w.length >= 3)
                     .toSet();
                 final wTokens = toTokens(watchlistItem.title);

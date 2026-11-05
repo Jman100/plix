@@ -531,7 +531,7 @@ class JellyfinMediaService {
       final targetLogoId = parsed.isEpisode
           ? (data['ParentLogoItemId']?.toString() ?? data['SeriesId']?.toString() ?? itemId)
           : itemId;
-      final imagesUrl = Uri.parse('/Items//Images');
+      final imagesUrl = Uri.parse('$baseUrl/Items/$targetLogoId/Images');
       final imgRes = await http.get(imagesUrl, headers: _headers);
       if (imgRes.statusCode == 200) {
         final imgList = jsonDecode(imgRes.body);
@@ -541,8 +541,8 @@ class JellyfinMediaService {
               final lang = (img['Language'] ?? img['language'])?.toString().toLowerCase();
               if (lang != null && lang.startsWith('en')) {
                 final idx = img['ImageIndex'] ?? 0;
-                final tag = img['ImageTag']?.toString();
-                final enLogo = '/Items//Images/Logo/';
+                final tag = img['ImageTag'] != null ? '?tag=${img['ImageTag']}' : '';
+                final enLogo = '/Items/$targetLogoId/Images/Logo/$idx$tag';
                 parsed = parsed.copyWith(clearLogo: enLogo);
                 break;
               }
