@@ -49,6 +49,7 @@ dependencies:
   media_kit_libs_linux: ^1.2.1
   window_manager: 0.3.9
   package_info_plus: ^8.2.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

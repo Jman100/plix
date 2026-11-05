@@ -27,6 +27,10 @@ void main() {
         'linuxArchUrl': 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst',
         'releaseNotes': 'Arch Linux self updater fix',
         'releaseDate': '2026-11-04',
+        'windowsSha256': 'a1b2c3d4e5',
+        'apkSha256': 'f6g7h8i9j0',
+        'linuxSha256': '1234567890',
+        'linuxArchSha256': '0987654321',
       };
 
       final info = UpdateInfo.fromJson(
@@ -40,6 +44,26 @@ void main() {
       expect(info.hasUpdate, isTrue);
       expect(info.linuxArchUrl, contains('plix_linux_arch.pkg.tar.zst'));
       expect(info.releaseNotes, contains('Arch Linux'));
+      expect(info.getExpectedSha256ForTarget('plix_windows.exe'), equals('a1b2c3d4e5'));
+      expect(info.getExpectedSha256ForTarget('plix_android.apk'), equals('f6g7h8i9j0'));
+      expect(info.getExpectedSha256ForTarget('plix_linux.deb'), equals('1234567890'));
+      expect(info.getExpectedSha256ForTarget('plix_linux_arch.pkg.tar.zst'), equals('0987654321'));
+    });
+
+    test('isTrustedUpdateUri strictly validates schemes and hosts', () {
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe')), isTrue);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://objects.githubusercontent.com/github-production-release-asset-2e65be/plix_windows.exe')), isTrue);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://plix.jman100.com/plix_windows.exe')), isTrue);
+
+      // Insecure plain HTTP must be rejected
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('http://github.com/Jman100/plix/releases/latest/download/plix_windows.exe')), isFalse);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('http://plix.jman100.com/plix.json')), isFalse);
+
+      // Spoofed or lookalike domains must be rejected
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://plix.jman100.com.evil.net/plix_windows.exe')), isFalse);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://10.evil.com/plix_windows.exe')), isFalse);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://192.168.1.100/plix_windows.exe')), isFalse);
+      expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://evilgithub.com/download/plix_windows.exe')), isFalse);
     });
   });
 }

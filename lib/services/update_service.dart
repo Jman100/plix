@@ -2,11 +2,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_theme.dart';
 import '../widgets/plix_button.dart';
+
+class SecurityException implements Exception {
+  final String message;
+  const SecurityException(this.message);
+  @override
+  String toString() => message;
+}
 
 class UpdateInfo {
   final String version;
@@ -18,6 +26,11 @@ class UpdateInfo {
   final String releaseNotes;
   final String releaseDate;
   final bool hasUpdate;
+  final String sha256;
+  final String apkSha256;
+  final String windowsSha256;
+  final String linuxSha256;
+  final String linuxArchSha256;
 
   const UpdateInfo({
     required this.version,
@@ -29,7 +42,29 @@ class UpdateInfo {
     this.releaseNotes = '',
     this.releaseDate = '',
     required this.hasUpdate,
+    this.sha256 = '',
+    this.apkSha256 = '',
+    this.windowsSha256 = '',
+    this.linuxSha256 = '',
+    this.linuxArchSha256 = '',
   });
+
+  String getExpectedSha256ForTarget(String targetFileName) {
+    final lower = targetFileName.toLowerCase();
+    if (lower.endsWith('.apk')) {
+      return apkSha256.isNotEmpty ? apkSha256 : sha256;
+    }
+    if (lower.endsWith('.exe')) {
+      return windowsSha256.isNotEmpty ? windowsSha256 : sha256;
+    }
+    if (lower.contains('.pkg.tar')) {
+      return linuxArchSha256.isNotEmpty ? linuxArchSha256 : sha256;
+    }
+    if (lower.endsWith('.deb')) {
+      return linuxSha256.isNotEmpty ? linuxSha256 : sha256;
+    }
+    return sha256;
+  }
 
   factory UpdateInfo.fromJson(Map<String, dynamic> json, {required String currentVersion, required int currentVersionCode}) {
     final v = json['version']?.toString() ?? '1.0.0';
@@ -53,6 +88,12 @@ class UpdateInfo {
     final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 
+    final sha = json['sha256']?.toString() ?? '';
+    final apkSha = json['apkSha256']?.toString() ?? '';
+    final winSha = json['windowsSha256']?.toString() ?? '';
+    final linuxSha = json['linuxSha256']?.toString() ?? '';
+    final linuxArchSha = json['linuxArchSha256']?.toString() ?? '';
+
     final hasUpdate = UpdateService.isVersionNewer(v, currentVersion) || (vc > currentVersionCode);
 
     return UpdateInfo(
@@ -65,6 +106,11 @@ class UpdateInfo {
       releaseNotes: notes,
       releaseDate: date,
       hasUpdate: hasUpdate,
+      sha256: sha,
+      apkSha256: apkSha,
+      windowsSha256: winSha,
+      linuxSha256: linuxSha,
+      linuxArchSha256: linuxArchSha,
     );
   }
 }
@@ -167,17 +213,33 @@ class UpdateService {
     await prefs.setBool(_prefAutoCheckKey, enabled);
   }
 
+  static const Set<String> _trustedDownloadHosts = {
+    'github.com',
+    'api.github.com',
+    'raw.githubusercontent.com',
+    'objects.githubusercontent.com',
+    'plix.jman100.com',
+  };
+
+  static bool isTrustedUpdateUri(Uri uri) {
+    if (uri.scheme != 'https') {
+      return false;
+    }
+    final host = uri.host.toLowerCase();
+    if (_trustedDownloadHosts.contains(host)) {
+      return true;
+    }
+    if (host.endsWith('.github.com') || host.endsWith('.githubusercontent.com')) {
+      return true;
+    }
+    return false;
+  }
+
   static HttpClient _createHttpClient() {
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 6);
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      if (host.contains('plix.jman100.com') ||
-          host.contains('local.jman100.com') ||
-          RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)').hasMatch(host)) {
-        return true;
-      }
-      return false;
-    };
+    client.connectionTimeout = const Duration(seconds: 8);
+    // Strict TLS verification: standard OS trusted root CAs are enforced.
+    // Self-signed certificates or host wildcards are completely disallowed for updates.
     return client;
   }
 
@@ -267,11 +329,92 @@ class UpdateService {
     return null;
   }
 
+  static Future<void> _downloadFileWithVerification({
+    required Uri downloadUri,
+    required File targetFile,
+    required String? expectedSha256,
+    required void Function(double progress) onProgress,
+  }) async {
+    if (!isTrustedUpdateUri(downloadUri)) {
+      throw SecurityException(
+        'Refusing to download update from untrusted or non-HTTPS source: $downloadUri',
+      );
+    }
+
+    if (await targetFile.exists()) {
+      try {
+        await targetFile.delete();
+      } catch (_) {}
+    }
+
+    final isGithub = downloadUri.host.contains('github.com') || downloadUri.host.contains('githubusercontent.com');
+    final effectiveUri = (isGithub || downloadUri.queryParameters.containsKey('v') || downloadUri.queryParameters.containsKey('t'))
+        ? downloadUri
+        : downloadUri.replace(queryParameters: {...downloadUri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
+
+    final client = _createHttpClient();
+    final request = await client.getUrl(effectiveUri);
+    request.followRedirects = true;
+    request.maxRedirects = 5;
+    request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    request.headers.set('Pragma', 'no-cache');
+    final response = await request.close();
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to download update: HTTP ${response.statusCode}');
+    }
+
+    final totalBytes = response.contentLength;
+    int receivedBytes = 0;
+    final sink = targetFile.openWrite();
+    Digest? computedDigest;
+    final digestSink = ChunkedConversionSink<Digest>.withCallback((digests) {
+      if (digests.isNotEmpty) {
+        computedDigest = digests.first;
+      }
+    });
+    final byteConversionSink = sha256.startChunkedConversion(digestSink);
+
+    try {
+      await for (final chunk in response) {
+        sink.add(chunk);
+        byteConversionSink.add(chunk);
+        receivedBytes += chunk.length;
+        if (totalBytes > 0) {
+          onProgress(receivedBytes / totalBytes);
+        }
+      }
+      await sink.flush();
+    } finally {
+      byteConversionSink.close();
+      await sink.close();
+    }
+
+    onProgress(1.0);
+
+    final computedHash = (computedDigest?.toString() ?? '').toLowerCase();
+    if (expectedSha256 != null && expectedSha256.trim().isNotEmpty) {
+      if (computedHash != expectedSha256.toLowerCase().trim()) {
+        try {
+          await targetFile.delete();
+        } catch (_) {}
+        throw SecurityException(
+          'Security error: Update package checksum mismatch!\n'
+          'Expected: $expectedSha256\n'
+          'Actual:   $computedHash\n'
+          'The downloaded file has been deleted for your safety.',
+        );
+      }
+    }
+  }
+
   static Future<void> downloadAndInstall({
     required String apkUrl,
     String? windowsUrl,
     String? linuxUrl,
     String? linuxArchUrl,
+    String? expectedSha256,
+    UpdateInfo? updateInfo,
     required void Function(double progress) onProgress,
   }) async {
     if (Platform.isLinux) {
@@ -294,48 +437,14 @@ class UpdateService {
       final tempDir = Directory.systemTemp.createTempSync('plix_update_');
       final targetFile = File('${tempDir.path}/$fileName');
 
-      if (await targetFile.exists()) {
-        try {
-          await targetFile.delete();
-        } catch (_) {}
-      }
+      final shaToVerify = expectedSha256 ?? updateInfo?.getExpectedSha256ForTarget(fileName);
+      await _downloadFileWithVerification(
+        downloadUri: Uri.parse(downloadUrl),
+        targetFile: targetFile,
+        expectedSha256: shaToVerify,
+        onProgress: onProgress,
+      );
 
-      final uri = Uri.parse(downloadUrl);
-      final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
-      final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
-          ? uri
-          : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
-
-      final client = _createHttpClient();
-      final request = await client.getUrl(downloadUri);
-      request.followRedirects = true;
-      request.maxRedirects = 5;
-      request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      request.headers.set('Pragma', 'no-cache');
-      final response = await request.close();
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download update: HTTP ${response.statusCode}');
-      }
-
-      final totalBytes = response.contentLength;
-      int receivedBytes = 0;
-      final sink = targetFile.openWrite();
-
-      try {
-        await for (final chunk in response) {
-          sink.add(chunk);
-          receivedBytes += chunk.length;
-          if (totalBytes > 0) {
-            onProgress(receivedBytes / totalBytes);
-          }
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
-
-      onProgress(1.0);
       bool opened = false;
 
       // Generate a standalone updater shell script that elevates via sudo/doas/pkexec,
@@ -520,48 +629,13 @@ fi
       final tempDir = Directory.systemTemp.createTempSync('plix_update_');
       final targetFile = File('${tempDir.path}\\plix_setup.exe');
 
-      if (await targetFile.exists()) {
-        try {
-          await targetFile.delete();
-        } catch (_) {}
-      }
-
-      final uri = Uri.parse(downloadUrl);
-      final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
-      final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
-          ? uri
-          : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
-
-      final client = _createHttpClient();
-      final request = await client.getUrl(downloadUri);
-      request.followRedirects = true;
-      request.maxRedirects = 5;
-      request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      request.headers.set('Pragma', 'no-cache');
-      final response = await request.close();
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download update: HTTP ${response.statusCode}');
-      }
-
-      final totalBytes = response.contentLength;
-      int receivedBytes = 0;
-      final sink = targetFile.openWrite();
-
-      try {
-        await for (final chunk in response) {
-          sink.add(chunk);
-          receivedBytes += chunk.length;
-          if (totalBytes > 0) {
-            onProgress(receivedBytes / totalBytes);
-          }
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
-
-      onProgress(1.0);
+      final shaToVerify = expectedSha256 ?? updateInfo?.getExpectedSha256ForTarget('plix_windows.exe');
+      await _downloadFileWithVerification(
+        downloadUri: Uri.parse(downloadUrl),
+        targetFile: targetFile,
+        expectedSha256: shaToVerify,
+        onProgress: onProgress,
+      );
 
       // Launch the silent Inno Setup installer which will replace the files in
       // %LOCALAPPDATA%\Programs\Plix and restart Plix
@@ -577,48 +651,13 @@ fi
     final filePath = '$cacheDirPath/plix_update.apk';
     final targetFile = File(filePath);
 
-    if (await targetFile.exists()) {
-      try {
-        await targetFile.delete();
-      } catch (_) {}
-    }
-
-    final uri = Uri.parse(apkUrl);
-    final isGithub = uri.host.contains('github.com') || uri.host.contains('githubusercontent.com');
-    final downloadUri = (isGithub || uri.queryParameters.containsKey('v') || uri.queryParameters.containsKey('t'))
-        ? uri
-        : uri.replace(queryParameters: {...uri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
-
-    final client = _createHttpClient();
-    final request = await client.getUrl(downloadUri);
-    request.followRedirects = true;
-    request.maxRedirects = 5;
-    request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    request.headers.set('Pragma', 'no-cache');
-    final response = await request.close();
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to download update: HTTP ${response.statusCode}');
-    }
-
-    final totalBytes = response.contentLength;
-    int receivedBytes = 0;
-    final sink = targetFile.openWrite();
-
-    try {
-      await for (final chunk in response) {
-        sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (totalBytes > 0) {
-          onProgress(receivedBytes / totalBytes);
-        }
-      }
-      await sink.flush();
-    } finally {
-      await sink.close();
-    }
-
-    onProgress(1.0);
+    final shaToVerify = expectedSha256 ?? updateInfo?.getExpectedSha256ForTarget('plix_android.apk');
+    await _downloadFileWithVerification(
+      downloadUri: Uri.parse(apkUrl),
+      targetFile: targetFile,
+      expectedSha256: shaToVerify,
+      onProgress: onProgress,
+    );
     await _channel.invokeMethod('installApk', {'filePath': targetFile.path});
   }
 
@@ -724,6 +763,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         windowsUrl: widget.updateInfo.windowsUrl,
         linuxUrl: widget.updateInfo.linuxUrl,
         linuxArchUrl: widget.updateInfo.linuxArchUrl,
+        updateInfo: widget.updateInfo,
         onProgress: (p) {
           if (mounted) {
             setState(() {

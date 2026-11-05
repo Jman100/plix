@@ -17,6 +17,13 @@ migrate_working_dir/
 .discord_webhook*
 .discord_last_message_id
 discord_config.json
+key.properties
+*.keystore
+*.jks
+
+# Build outputs
+*.apk
+/dist/
 
 # IntelliJ related
 *.iml

@@ -59,12 +59,21 @@ if (Test-Path $innoCompiler) {
 - App Version Bump: v1.7.1 (versionCode 41)
 "@
 
+    $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()
+    $winHash = ""
+    $installerSource = "build\installer\plix_windows.exe"
+    if (Test-Path $installerSource) {
+        $winHash = (Get-FileHash -Path $installerSource -Algorithm SHA256).Hash.ToLower()
+    }
+
     $manifest = [ordered]@{
         version = $version
         versionCode = $versionCode
         apkUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk"
+        apkSha256 = $apkHash
         windowsUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         windowsArm64Url = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
+        windowsSha256 = $winHash
         linuxUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb"
         linuxArchUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst"
         linuxTarballUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz"
