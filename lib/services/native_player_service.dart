@@ -8,6 +8,10 @@ import 'windows_hdr_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NativePlayerService {
+  static final NativePlayerService _instance = NativePlayerService._internal();
+  factory NativePlayerService() => _instance;
+  static NativePlayerService get instance => _instance;
+
   static const MethodChannel _channel = MethodChannel('com.plix.plix/native_player');
 
   int? _pendingAudioTrackIndex;
@@ -109,7 +113,7 @@ class NativePlayerService {
   VideoController? get videoController => _mediaKitVideoController;
   VideoController? get windowsVideoController => _mediaKitVideoController;
 
-  NativePlayerService() {
+  NativePlayerService._internal() {
     _channel.setMethodCallHandler(_handleNativeCall);
     if (useMediaKit) {
       _initMediaKitPlayer();
@@ -155,13 +159,14 @@ class NativePlayerService {
       }));
 
       _mediaKitSubscriptions.add(p.stream.tracks.listen((tracks) {
+        final actualAudio = tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
         if (_pendingAudioTrackIndex != null &&
             _pendingAudioTrackIndex! >= 0 &&
-            _pendingAudioTrackIndex! < tracks.audio.length) {
-          p.setAudioTrack(tracks.audio[_pendingAudioTrackIndex!]);
+            _pendingAudioTrackIndex! < actualAudio.length) {
+          p.setAudioTrack(actualAudio[_pendingAudioTrackIndex!]);
           _pendingAudioTrackIndex = null;
-        } else if (_pendingAudioLanguage != null && tracks.audio.isNotEmpty) {
-          final match = tracks.audio.firstWhere(
+        } else if (_pendingAudioLanguage != null && actualAudio.isNotEmpty) {
+          final match = actualAudio.firstWhere(
             (t) => (t.language ?? '').toLowerCase().startsWith(_pendingAudioLanguage!.toLowerCase()),
             orElse: () => AudioTrack.auto(),
           );
@@ -169,8 +174,8 @@ class NativePlayerService {
             p.setAudioTrack(match);
             _pendingAudioLanguage = null;
           }
-        } else if (_pendingAudioLabel != null && tracks.audio.isNotEmpty) {
-          final match = tracks.audio.firstWhere(
+        } else if (_pendingAudioLabel != null && actualAudio.isNotEmpty) {
+          final match = actualAudio.firstWhere(
             (t) => (t.title ?? '').toLowerCase().contains(_pendingAudioLabel!.toLowerCase()),
             orElse: () => AudioTrack.auto(),
           );
@@ -188,9 +193,7 @@ class NativePlayerService {
             errStr.contains('tcp:') ||
             errStr.contains('demux') ||
             errStr.contains('seeking') ||
-            errStr.contains('buffering') ||
-            errStr.contains('protocol') ||
-            errStr.contains('http:')) {
+            errStr.contains('buffering')) {
           return;
         }
         if (!p.state.playing) {
@@ -353,6 +356,9 @@ class NativePlayerService {
     Map<String, String>? headers,
     int positionMs = 0,
   }) async {
+    _pendingAudioTrackIndex = null;
+    _pendingAudioLanguage = null;
+    _pendingAudioLabel = null;
     if (useMediaKit && _mediaKitPlayer != null) {
       try {
         _applyMpvOptimizations(_mediaKitPlayer!);
@@ -414,7 +420,12 @@ class NativePlayerService {
     } catch (_) {}
   }
 
+  static Future<void> stopPlayback() => _instance.stop();
+
   Future<void> stop() async {
+    _pendingAudioTrackIndex = null;
+    _pendingAudioLanguage = null;
+    _pendingAudioLabel = null;
     if (Platform.isWindows) {
       WindowsHdrService().restoreHdrState();
     }
@@ -495,15 +506,19 @@ class NativePlayerService {
         } else if (url != null && url.isNotEmpty) {
           await _mediaKitPlayer!.setSubtitleTrack(SubtitleTrack.uri(url, title: label, language: language));
         } else {
-          final tracks = _mediaKitPlayer!.state.tracks.subtitle;
-          if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
-            await _mediaKitPlayer!.setSubtitleTrack(tracks[trackIndex]);
+          final actualTracks = _mediaKitPlayer!.state.tracks.subtitle
+              .where((t) => t.id != 'auto' && t.id != 'no')
+              .toList();
+          if (trackIndex != null && trackIndex >= 0 && trackIndex < actualTracks.length) {
+            await _mediaKitPlayer!.setSubtitleTrack(actualTracks[trackIndex]);
           } else if (language != null) {
-            final match = tracks.firstWhere(
+            final match = actualTracks.firstWhere(
               (t) => (t.language ?? '').toLowerCase().startsWith(language.toLowerCase()),
               orElse: () => SubtitleTrack.auto(),
             );
-            await _mediaKitPlayer!.setSubtitleTrack(match);
+            if (match != SubtitleTrack.auto()) {
+              await _mediaKitPlayer!.setSubtitleTrack(match);
+            }
           }
         }
       } catch (_) {}
@@ -529,15 +544,19 @@ class NativePlayerService {
       _pendingAudioLanguage = language;
       _pendingAudioLabel = label;
       try {
-        final tracks = _mediaKitPlayer!.state.tracks.audio;
-        if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
-          await _mediaKitPlayer!.setAudioTrack(tracks[trackIndex]);
+        final actualTracks = _mediaKitPlayer!.state.tracks.audio
+            .where((t) => t.id != 'auto' && t.id != 'no')
+            .toList();
+        if (trackIndex != null && trackIndex >= 0 && trackIndex < actualTracks.length) {
+          await _mediaKitPlayer!.setAudioTrack(actualTracks[trackIndex]);
         } else if (language != null) {
-          final match = tracks.firstWhere(
+          final match = actualTracks.firstWhere(
             (t) => (t.language ?? '').toLowerCase().startsWith(language.toLowerCase()),
             orElse: () => AudioTrack.auto(),
           );
-          await _mediaKitPlayer!.setAudioTrack(match);
+          if (match != AudioTrack.auto()) {
+            await _mediaKitPlayer!.setAudioTrack(match);
+          }
         }
       } catch (_) {}
       return;
@@ -560,13 +579,19 @@ class NativePlayerService {
     } catch (_) {}
   }
 
-  void dispose() {
+  Future<void> dispose() async {
+    await stop();
+  }
+
+  void release() {
     resetBrightness();
     for (final s in _mediaKitSubscriptions) {
       s.cancel();
     }
     _mediaKitSubscriptions.clear();
     _mediaKitPlayer?.dispose();
+    _mediaKitPlayer = null;
+    _mediaKitVideoController = null;
     _positionController.close();
     _durationController.close();
     _isPlayingController.close();
@@ -575,6 +600,7 @@ class NativePlayerService {
     _subtitleCueController.close();
     _subtitleBitmapCueController.close();
     _pipModeController.close();
+    _physicalOrientationController.close();
     _bufferingController.close();
   }
 }

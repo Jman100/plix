@@ -223,6 +223,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   late PlexMediaItem _currentItem;
+  bool _isSwitchingStreams = false;
+  int _initGeneration = 0;
 
   StreamSubscription<MediaKeyAction>? _mediaKeySub;
 
@@ -567,9 +569,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
             _isPlaying = playing;
 
             if (playing) {
-
               _isPaused = false;
-
+              _isSwitchingStreams = false;
             }
 
           });
@@ -1273,9 +1274,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   void _onPositionUpdate(int pos) {
-
     if (!mounted || !_isInitialized) return;
-
+    if (_isSwitchingStreams) {
+      if (pos <= 2000) {
+        _isSwitchingStreams = false;
+      } else {
+        return;
+      }
+    }
     final actualPos = _selectedQuality.isDirectPlay ? pos : (_streamOffsetMs + pos);
 
     final clampedPos = (_durationMs > 0 && actualPos > _durationMs) ? _durationMs : actualPos;
@@ -1682,20 +1688,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         return;
 
-      } else if (!needsTranscode && !_selectedQuality.isDirectPlay) {
-
+      } else if (!needsTranscode && !_selectedQuality.isDirectPlay && !_audioNeedsTranscode) {
         _forceAudioForSpeed = false;
-
-        // Back to 1x — restore direct play. The new ExoPlayer instance starts
-
-        // with the previous native speed, so reset it explicitly.
-
+        // Back to 1x — restore direct play only if audio does not need transcode.
         await _changeQuality(VideoQualityOption.directPlay, force: true);
-
         await _nativePlayer.setPlaybackSpeed(1.0);
-
         return;
-
       }
 
     }
@@ -1785,18 +1783,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   Future<void> _initPlayer() async {
-
+    final generation = ++_initGeneration;
     try {
-
       // Fetch full metadata (ensures latest user-selected audio track, full streams, bitrate, HDR flags, air date)
-
       try {
-
         final fullItem = await _mediaService.getItemMetadata(_currentItem.ratingKey);
-
+        if (!mounted || generation != _initGeneration) return;
         _currentItem = fullItem;
-
       } catch (_) {}
+      if (!mounted || generation != _initGeneration) return;
 
 
 
@@ -1936,6 +1931,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+      if (!mounted || generation != _initGeneration) return;
       if (_currentItem.isHdr && Platform.isWindows) {
         WindowsHdrService().enableHdrForContent();
       }
@@ -2648,33 +2644,20 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     } else {
 
       _currentPositionMs = clampedTarget;
-
       _streamOffsetMs = clampedTarget;
-
+      _isSwitchingStreams = true;
       if (mounted) setState(() {});
 
-
-
       final streamUrl = _mediaService.buildTranscodeUrl(
-
         ratingKey: _currentItem.ratingKey,
-
         maxBitrateKbps: _selectedQuality.bitrateKbps,
-
         resolution: _selectedQuality.resolution,
-
         offsetSeconds: clampedTarget ~/ 1000,
-
         clientId: widget.clientId,
-
         directStreamVideo: _selectedQuality.resolution.isEmpty,
-
-        burnSubtitles: _selectedSubtitle != null,
-
+        burnSubtitles: !NativePlayerService.useMediaKit && (_selectedSubtitle?.isBitmapSubtitle ?? false),
         subtitleStreamId: _selectedSubtitle?.id,
-
         forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
-
       );
 
 
@@ -3762,76 +3745,61 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
     final currentPosition = _currentPositionMs;
-
-
+    final wasPlaying = _isPlaying;
+    _isSwitchingStreams = true;
 
     try {
-
       final String streamUrl;
-
       final int startPos;
-
       if (quality.isDirectPlay) {
-
         _streamOffsetMs = 0;
-
         startPos = currentPosition;
-
         final partKey = _currentItem.partKey;
-
         if (partKey == null || partKey.isEmpty) {
-
           throw Exception('Direct Play stream URL unavailable.');
-
         }
-
         streamUrl = _mediaService.buildDirectPlayUrl(partKey);
-
       } else {
-
         _streamOffsetMs = currentPosition;
-
         startPos = 0;
-
         streamUrl = _mediaService.buildTranscodeUrl(
-
           ratingKey: _currentItem.ratingKey,
-
           maxBitrateKbps: quality.bitrateKbps,
-
           resolution: quality.resolution,
-
           offsetSeconds: currentPosition ~/ 1000,
-
           clientId: widget.clientId,
-
           directStreamVideo: quality.resolution.isEmpty,
-
-          burnSubtitles: _selectedSubtitle != null,
-
+          burnSubtitles: !NativePlayerService.useMediaKit && (_selectedSubtitle?.isBitmapSubtitle ?? false),
           subtitleStreamId: _selectedSubtitle?.id,
-
           forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
-
         );
-
       }
 
-
-
       await _nativePlayer.play(
-
         url: streamUrl,
-
         headers: _playHeaders,
-
         positionMs: startPos,
-
       );
 
+      if (_selectedAudio != null) {
+        final streamIndex = _selectedAudio!.streamIndex >= 0
+            ? _selectedAudio!.streamIndex
+            : _currentItem.audioStreams.indexOf(_selectedAudio!);
+        await _nativePlayer.setAudioTrack(
+          trackIndex: streamIndex >= 0 ? streamIndex : null,
+          language: _selectedAudio!.languageCode.isNotEmpty
+              ? _selectedAudio!.languageCode
+              : _selectedAudio!.language,
+          label: _selectedAudio!.displayTitle,
+        );
+      }
 
-
-      _timelineService.resume(currentPosition);
+      if (wasPlaying) {
+        _timelineService.resume(currentPosition);
+      } else {
+        await _nativePlayer.pause();
+        _timelineService.pause(currentPosition);
+      }
 
 
 
@@ -3968,11 +3936,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     _timelineService.dispose();
 
+    _initGeneration++;
     _serverStopSubscription?.cancel();
-
     _nativePlayer.stop();
-
-    _nativePlayer.dispose();
 
 
 

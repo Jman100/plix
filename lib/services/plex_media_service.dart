@@ -269,23 +269,20 @@ class PlexMediaService {
   String _cacheKey(String ratingKey) => '${server.clientIdentifier}_$ratingKey';
 
   PlexMediaItem? getCachedMetadata(String ratingKey) =>
-      _metadataCache[_cacheKey(ratingKey)] ?? _metadataCache[ratingKey];
+      _metadataCache[_cacheKey(ratingKey)];
   PlexMediaItem? getDetailedCachedMetadata(String ratingKey) =>
-      _detailedMetadataCache[_cacheKey(ratingKey)] ?? _detailedMetadataCache[ratingKey];
+      _detailedMetadataCache[_cacheKey(ratingKey)];
 
   void cacheMetadata(PlexMediaItem item) {
     if (item.ratingKey.isNotEmpty) {
       _metadataCache[_cacheKey(item.ratingKey)] = item;
-      _metadataCache[item.ratingKey] = item;
     }
   }
 
   void invalidateCache([String? ratingKey]) {
     if (ratingKey != null) {
       _metadataCache.remove(_cacheKey(ratingKey));
-      _metadataCache.remove(ratingKey);
       _detailedMetadataCache.remove(_cacheKey(ratingKey));
-      _detailedMetadataCache.remove(ratingKey);
     } else {
       _metadataCache.clear();
       _detailedMetadataCache.clear();
@@ -343,7 +340,7 @@ class PlexMediaService {
           final metadata = hub.first['Metadata'] as List<dynamic>? ?? [];
           final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
           for (final it in items) {
-            if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+            cacheMetadata(it);
           }
           rawList.addAll(items);
         } else {
@@ -351,7 +348,7 @@ class PlexMediaService {
           if (metadata.isNotEmpty) {
             final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
             for (final it in items) {
-              if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+              cacheMetadata(it);
             }
             rawList.addAll(items);
           }
@@ -370,7 +367,7 @@ class PlexMediaService {
           final metadata = container['Metadata'] as List<dynamic>? ?? [];
           final items = metadata.map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>)).toList();
           for (final it in items) {
-            if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+            cacheMetadata(it);
           }
           rawList.addAll(items);
         }
@@ -414,7 +411,7 @@ class PlexMediaService {
           .map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>))
           .toList();
       for (final it in page) {
-        if (it.ratingKey.isNotEmpty) _metadataCache[it.ratingKey] = it;
+        cacheMetadata(it);
       }
       rawItems.addAll(page);
 
@@ -463,7 +460,7 @@ class PlexMediaService {
           final existingKeys = merged.map((e) => e.ratingKey).toSet();
           for (final raw in allMetadata) {
             final show = PlexMediaItem.fromJson(raw as Map<String, dynamic>);
-            if (show.ratingKey.isNotEmpty) _metadataCache[show.ratingKey] = show;
+            cacheMetadata(show);
             if (existingKeys.add(show.ratingKey)) {
               merged.add(show.copyWith(
                 title: show.title,
@@ -620,7 +617,7 @@ class PlexMediaService {
               videoWidth: ep.videoWidth,
               videoHeight: ep.videoHeight,
             );
-            if (ep.ratingKey.isNotEmpty) _metadataCache[ep.ratingKey] = ep;
+            cacheMetadata(ep);
             result.add(showItem);
             continue;
           } else {
@@ -793,11 +790,9 @@ class PlexMediaService {
     }
     if (refresh) {
       _metadataCache.remove(_cacheKey(ratingKey));
-      _metadataCache.remove(ratingKey);
       _detailedMetadataCache.remove(_cacheKey(ratingKey));
-      _detailedMetadataCache.remove(ratingKey);
     } else {
-      final detailed = _detailedMetadataCache[_cacheKey(ratingKey)] ?? _detailedMetadataCache[ratingKey];
+      final detailed = _detailedMetadataCache[_cacheKey(ratingKey)];
       if (detailed != null) {
         return detailed;
       }
@@ -830,7 +825,7 @@ class PlexMediaService {
     }
 
     if (response == null || response.statusCode != 200) {
-      final fallback = _metadataCache[ratingKey];
+      final fallback = _metadataCache[_cacheKey(ratingKey)];
       if (fallback != null) return fallback;
       throw Exception('Failed to load item metadata: ${response?.statusCode}');
     }
@@ -841,16 +836,14 @@ class PlexMediaService {
         (container['Directory'] as List<dynamic>?) ??
         [];
     if (metadata.isEmpty) {
-      final fallback = _metadataCache[ratingKey];
+      final fallback = _metadataCache[_cacheKey(ratingKey)];
       if (fallback != null) return fallback;
       throw Exception('Metadata not found for $ratingKey');
     }
 
     final parsed = PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
     _metadataCache[_cacheKey(ratingKey)] = parsed;
-    _metadataCache[ratingKey] = parsed;
     _detailedMetadataCache[_cacheKey(ratingKey)] = parsed;
-    _detailedMetadataCache[ratingKey] = parsed;
     return parsed;
   }
 
@@ -979,24 +972,39 @@ class PlexMediaService {
       return _jfService.getSeasonEpisodes(seasonRatingKey, showId: showRatingKey);
     }
     http.Response? response;
-    final isDiscoverKey = int.tryParse(seasonRatingKey) == null &&
+    final isLocalSeason = seasonRatingKey.isNotEmpty && int.tryParse(seasonRatingKey) != null;
+    final isLocalShow = showRatingKey != null && showRatingKey.isNotEmpty && int.tryParse(showRatingKey) != null;
+    final isDiscoverKey = !isLocalSeason && !isLocalShow &&
         (seasonKey == null || (!seasonKey.startsWith('/library/metadata/') && !seasonKey.startsWith('http')));
 
     if (!isDiscoverKey) {
       Uri? url;
-      if (seasonRatingKey.isNotEmpty && seasonRatingKey != '0' && int.tryParse(seasonRatingKey) != null) {
+      if (isLocalSeason && seasonRatingKey != '0') {
         url = Uri.parse('$baseUrl/library/metadata/$seasonRatingKey/children?includeStreams=1&includeGuids=1&includeMarkers=1');
-      } else if (seasonKey != null && seasonKey.isNotEmpty && !seasonKey.startsWith('http') && int.tryParse(seasonRatingKey) != null) {
+      } else if (seasonKey != null && seasonKey.isNotEmpty && !seasonKey.startsWith('http')) {
         final baseStr = '$baseUrl$seasonKey';
         final sep = baseStr.contains('?') ? '&' : '?';
         url = Uri.parse('$baseStr${sep}includeStreams=1');
-      } else if (showRatingKey != null && showRatingKey.isNotEmpty && int.tryParse(showRatingKey) != null) {
+      } else if (isLocalShow) {
         url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
       }
 
       if (url != null) {
         try {
           response = await http.get(url, headers: _headers);
+        } catch (_) {}
+      }
+    }
+
+    if (response == null || response.statusCode != 200) {
+      // If specific season children failed on a local server, try allLeaves directly
+      if (isLocalShow) {
+        try {
+          final allLeavesUrl = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
+          final allLeavesRes = await http.get(allLeavesUrl, headers: _headers);
+          if (allLeavesRes.statusCode == 200) {
+            response = allLeavesRes;
+          }
         } catch (_) {}
       }
     }
@@ -1023,10 +1031,6 @@ class PlexMediaService {
     }
 
     if (response == null || response.statusCode != 200) {
-      // Fallback to allLeaves if specific season children failed
-      if (showRatingKey != null && showRatingKey.isNotEmpty && int.tryParse(showRatingKey) != null) {
-        return getSeasonEpisodes('', showRatingKey: showRatingKey);
-      }
       return [];
     }
 
