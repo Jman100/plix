@@ -223,6 +223,7 @@ class PlexMediaItem {
   final String? videoDisplayTitle;
   final String? videoExtendedDisplayTitle;
   final String? originallyAvailableAt; // e.g. "2021-10-12"
+  final int? addedAt;
   final List<PlexSubtitleStream> subtitleStreams;
   final List<PlexAudioStream> audioStreams;
   final String? targetRatingKey;
@@ -295,6 +296,7 @@ class PlexMediaItem {
     this.doviTitle,
     this.hasDynamicMetadata = false,
     this.originallyAvailableAt,
+    this.addedAt,
     this.subtitleStreams = const [],
     this.audioStreams = const [],
     this.targetRatingKey,
@@ -1125,6 +1127,11 @@ class PlexMediaItem {
       doviTitle: dovTitle,
       hasDynamicMetadata: hasDynamic,
       originallyAvailableAt: json['originallyAvailableAt'] as String?,
+      addedAt: (json['addedAt'] is num)
+          ? (json['addedAt'] as num).toInt()
+          : (json['DateCreated'] != null
+              ? DateTime.tryParse(json['DateCreated'].toString())?.millisecondsSinceEpoch
+              : int.tryParse(json['addedAt']?.toString() ?? '')),
       subtitleStreams: subs,
       audioStreams: audios,
       hdrType: hType,
@@ -1192,6 +1199,7 @@ class PlexMediaItem {
     String? doviTitle,
     bool? hasDynamicMetadata,
     String? originallyAvailableAt,
+    int? addedAt,
     List<PlexSubtitleStream>? subtitleStreams,
     List<PlexAudioStream>? audioStreams,
     String? targetRatingKey,
@@ -1268,6 +1276,7 @@ class PlexMediaItem {
       doviTitle: doviTitle ?? this.doviTitle,
       hasDynamicMetadata: hasDynamicMetadata ?? this.hasDynamicMetadata,
       originallyAvailableAt: originallyAvailableAt ?? this.originallyAvailableAt,
+      addedAt: addedAt ?? this.addedAt,
       hdrType: hdrType ?? this.hdrType,
       aspectRatio: aspectRatio ?? this.aspectRatio,
       videoWidth: videoWidth ?? this.videoWidth,

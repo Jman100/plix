@@ -1469,10 +1469,6 @@ class _CustomThemeRowTileState extends State<_CustomThemeRowTile> {
 /// - Hex input field with enter-to-apply and right-arrow to reach Apply button
 /// - Wider, modern aesthetic design
 Future<Color?> _pickColorDialog(BuildContext context, String title, Color initialColor) {
-  final textController = TextEditingController(
-    text: initialColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase(),
-  );
-
   const customPalette = [
     Color(0xFF000000), Color(0xFF070312), Color(0xFF080D18), Color(0xFF030C07),
     Color(0xFF0A1118), Color(0xFF0E0608), Color(0xFF0F0818), Color(0xFF14151B),
@@ -1488,7 +1484,6 @@ Future<Color?> _pickColorDialog(BuildContext context, String title, Color initia
         title: title,
         initialColor: initialColor,
         customPalette: customPalette,
-        textController: textController,
       );
     },
   );
@@ -1498,13 +1493,11 @@ class _PalettePickerDialog extends StatefulWidget {
   final String title;
   final Color initialColor;
   final List<Color> customPalette;
-  final TextEditingController textController;
 
   const _PalettePickerDialog({
     required this.title,
     required this.initialColor,
     required this.customPalette,
-    required this.textController,
   });
 
   @override
@@ -1516,10 +1509,14 @@ class _PalettePickerDialogState extends State<_PalettePickerDialog> {
   late final FocusNode _hexInputFocusNode;
   late final FocusNode _applyBtnFocusNode;
   late final FocusNode _cancelBtnFocusNode;
+  late final TextEditingController _textController;
 
   @override
   void initState() {
     super.initState();
+    _textController = TextEditingController(
+      text: widget.initialColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase(),
+    );
     for (int i = 0; i < widget.customPalette.length; i++) {
       _swatchFocusNodes.add(FocusNode());
     }
@@ -1599,6 +1596,7 @@ class _PalettePickerDialogState extends State<_PalettePickerDialog> {
 
   @override
   void dispose() {
+    _textController.dispose();
     for (final node in _swatchFocusNodes) {
       node.dispose();
     }
@@ -1609,7 +1607,7 @@ class _PalettePickerDialogState extends State<_PalettePickerDialog> {
   }
 
   void _applyHex() {
-    var hex = widget.textController.text.trim().replaceAll('#', '');
+    var hex = _textController.text.trim().replaceAll('#', '');
     if (hex.length == 3) {
       hex = '${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}';
     }
@@ -1709,7 +1707,7 @@ class _PalettePickerDialogState extends State<_PalettePickerDialog> {
                 Expanded(
                   child: TextField(
                     focusNode: _hexInputFocusNode,
-                    controller: widget.textController,
+                    controller: _textController,
                     maxLength: 6,
                     onSubmitted: (_) => _applyHex(),
                     style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontWeight: FontWeight.bold),

@@ -36,6 +36,9 @@ class PlexMediaService {
   /// full-size images from metadata-static.plex.tv, which ignore width and
   /// height, so they have to be routed through Plex's image transcoder.
   String? _imageToken;
+  static List<PlexMediaItem>? _cachedWatchlist;
+  static DateTime? _cachedWatchlistTime;
+  static String? _resolvedWatchlistEndpoint;
 
   String buildImageUrl(String? path, {int? width, int? height}) {
     width = width?.clamp(1, _maxImageRequestWidth).toInt();
@@ -1631,6 +1634,11 @@ class PlexMediaService {
     required String userToken,
     required String clientId,
   }) async {
+    if (_cachedWatchlist != null &&
+        _cachedWatchlistTime != null &&
+        DateTime.now().difference(_cachedWatchlistTime!).inSeconds < 60) {
+      return _cachedWatchlist!;
+    }
     if (server.isJellyfin) {
       final items = await _jfService.getWatchlist();
       return items
@@ -1655,7 +1663,7 @@ class PlexMediaService {
         if (clientId.isNotEmpty) 'X-Plex-Client-Identifier': clientId,
       };
 
-      final candidateUrls = [
+      final defaultUrls = [
         'https://discover.provider.plex.tv/library/sections/watchlist/all?includeCollections=1&includeExternalMedia=1&sort=watchlistedAt:desc&X-Plex-Token=$tokenParam',
         'https://discover.provider.plex.tv/library/sections/watchlist/all?includeCollections=1&includeExternalMedia=1&X-Plex-Token=$tokenParam',
         'https://discover.provider.plex.tv/library/sections/watchlist/all?X-Plex-Token=$tokenParam',
@@ -1664,6 +1672,9 @@ class PlexMediaService {
         'https://metadata.provider.plex.tv/library/sections/watchlist/all?X-Plex-Token=$tokenParam',
         '$baseUrl/library/sections/watchlist/all?X-Plex-Token=$tokenParam',
       ];
+      final candidateUrls = _resolvedWatchlistEndpoint != null
+          ? [_resolvedWatchlistEndpoint!.replaceFirst(RegExp(r'X-Plex-Token=[^&]+'), 'X-Plex-Token=$tokenParam')]
+          : defaultUrls;
 
       for (final urlBase in candidateUrls) {
         try {
@@ -1733,20 +1744,24 @@ class PlexMediaService {
               } catch (_) {}
             }
 
-            // Stop if this page returned fewer items than requested (last page)
-            // or if we've reached/exceeded the known total
-            if (rawList.length < pageSize) break;
+            // Stop if page was empty, or if we've reached/exceeded known total
+            if (rawList.isEmpty) break;
             if (totalSize != null && allParsed.length >= totalSize) break;
+            if (totalSize == null && rawList.length < pageSize) break;
 
-            start += pageSize;
+            start += rawList.length;
           }
 
+          _resolvedWatchlistEndpoint = urlBase;
+          final result = allParsed
+              .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
+              .toList();
+          _cachedWatchlist = result;
+          _cachedWatchlistTime = DateTime.now();
           if (allParsed.isNotEmpty) {
             _imageToken = t;
-            return allParsed
-                .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
-                .toList();
           }
+          return result;
         } catch (_) {}
       }
     }
@@ -1947,6 +1962,7 @@ class PlexMediaService {
         : item;
 
     if (server.isJellyfin) {
+      _cachedWatchlist = null;
       return _jfService.addToWatchlist(targetItem.ratingKey);
     }
     final discoverKey = await resolveDiscoverRatingKey(targetItem, userToken);
@@ -1989,6 +2005,7 @@ class PlexMediaService {
         : item;
 
     if (server.isJellyfin) {
+      _cachedWatchlist = null;
       return _jfService.removeFromWatchlist(targetItem.ratingKey);
     }
     final discoverKey = await resolveDiscoverRatingKey(targetItem, userToken);

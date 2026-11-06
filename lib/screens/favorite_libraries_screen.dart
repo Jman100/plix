@@ -41,6 +41,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   final Map<String, List<PlexLibrary>> _serverLibraries = {};
   final Set<String> _selectedCompositeIds = {};
   bool _hasInitialFocusRequested = false;
+  bool _isSaving = false;
 
   final ScrollController _scrollController = ScrollController();
   final FocusNode _saveBtnFocusNode = FocusNode();
@@ -219,50 +220,56 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   }
 
   Future<void> _saveChanges() async {
+    if (_isSaving) return;
     if (_selectedCompositeIds.isEmpty) {
       _showToast('You must pick at least one favorite library.');
       return;
     }
 
-    await widget.serverService.saveFavoriteLibraryIds(_selectedCompositeIds.toList());
+    _isSaving = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('plix_v160_favorites_prompted', true);
-    } catch (_) {}
+      await widget.serverService.saveFavoriteLibraryIds(_selectedCompositeIds.toList());
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('plix_v160_favorites_prompted', true);
+      } catch (_) {}
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (widget.isInitialSetup) {
-      // Resolve a primary server to launch HomeScreen
-      PlexServer? targetServer = widget.primaryServer;
-      if (targetServer == null && _servers.isNotEmpty) {
-        final activeId = await widget.serverService.getActiveServerId();
-        targetServer = _servers.firstWhere(
-          (s) => s.clientIdentifier == activeId,
-          orElse: () => _servers.first,
-        );
-      }
+      if (widget.isInitialSetup) {
+        // Resolve a primary server to launch HomeScreen
+        PlexServer? targetServer = widget.primaryServer;
+        if (targetServer == null && _servers.isNotEmpty) {
+          final activeId = await widget.serverService.getActiveServerId();
+          targetServer = _servers.firstWhere(
+            (s) => s.clientIdentifier == activeId,
+            orElse: () => _servers.first,
+          );
+        }
 
-      if (targetServer != null) {
-        await widget.serverService.testAndResolveBestConnection(targetServer);
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              server: targetServer!,
-              authService: widget.authService,
-              serverService: widget.serverService,
+        if (targetServer != null) {
+          await widget.serverService.testAndResolveBestConnection(targetServer);
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(
+                server: targetServer!,
+                authService: widget.authService,
+                serverService: widget.serverService,
+              ),
             ),
-          ),
-          (route) => false,
-        );
-        return;
+            (route) => false,
+          );
+          return;
+        }
       }
-    }
 
-    // Return to previous screen (Customize Servers)
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
+      // Return to previous screen (Customize Servers)
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } finally {
+      _isSaving = false;
+    }
   }
 
   @override

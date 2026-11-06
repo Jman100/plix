@@ -188,17 +188,13 @@ class NativePlayerService {
 
       _mediaKitSubscriptions.add(p.stream.error.listen((err) {
         final errStr = err.toString().toLowerCase();
-        // Ignore non-fatal network or demuxer warnings (e.g. tcp: ffurl_read returned 0xdfb9b0bb) that do not interrupt playback
+        // Ignore non-fatal background warnings that do not interrupt playback
         if (errStr.contains('ffurl_read') ||
-            errStr.contains('tcp:') ||
-            errStr.contains('demux') ||
             errStr.contains('seeking') ||
             errStr.contains('buffering')) {
           return;
         }
-        if (!p.state.playing) {
-          _errorController.add(err.toString());
-        }
+        _errorController.add(err.toString());
       }));
     } catch (e) {
       _errorController.add('MediaKit player init error: $e');

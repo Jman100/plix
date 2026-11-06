@@ -33,6 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Timer? _pollTimer;
+  bool _isCheckingAuth = false;
+  DateTime? _pinExpiresAt;
 
   @override
   void initState() {
@@ -54,6 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _currentPin = pin;
         _isLoading = false;
       });
+      _pinExpiresAt = DateTime.now().add(Duration(seconds: pin.expiresIn > 0 ? pin.expiresIn : 900));
       _startPolling(pin);
     } catch (e) {
       if (!mounted) return;
@@ -66,13 +69,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _startPolling(PlexPin pin) {
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (_isCheckingAuth) return;
+      if (_pinExpiresAt != null && DateTime.now().isAfter(_pinExpiresAt!)) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'The PIN has expired. Please request a new code to sign in.';
+          });
+        }
+        return;
+      }
+      _isCheckingAuth = true;
       try {
         final updatedPin = await widget.authService.checkPin(pin.id, pin.code);
         if (updatedPin.isLinked) {
           timer.cancel();
-          _onAuthSuccess(updatedPin.authToken!);
+          await _onAuthSuccess(updatedPin.authToken!);
         }
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        _isCheckingAuth = false;
+      }
     });
   }
 

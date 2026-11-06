@@ -16,6 +16,7 @@ class PlexTimelineService {
   bool _isPlaying = false;
   bool _scrobbled = false;
   int _missingSessionCount = 0;
+  int _wsConnectGeneration = 0;
   WebSocket? _ws;
   StreamSubscription? _wsSub;
 
@@ -50,9 +51,11 @@ class PlexTimelineService {
         'MediaSourceId': itemId,
         'PositionTicks': ticks,
       });
-      try {
-        http.post(Uri.parse(endpoint), headers: headers, body: body);
-      } catch (_) {}
+      () async {
+        try {
+          await http.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
+        } catch (_) {}
+      }();
     }
 
     _connectWebSocket();
@@ -72,12 +75,17 @@ class PlexTimelineService {
 
   void _connectWebSocket() async {
     _closeWebSocket();
+    final currentGen = ++_wsConnectGeneration;
     if (server.isJellyfin) {
       try {
         final serverUri = Uri.parse(baseUrl);
         final wsScheme = serverUri.scheme == 'https' ? 'wss' : 'ws';
         final wsUrl = '$wsScheme://${serverUri.host}:${serverUri.port}/socket?api_key=$token&deviceId=$clientId';
         final ws = await WebSocket.connect(wsUrl).timeout(const Duration(seconds: 4));
+        if (!_isPlaying || currentGen != _wsConnectGeneration) {
+          try { ws.close(); } catch (_) {}
+          return;
+        }
         _ws = ws;
         _wsSub = ws.listen(
           (data) {
@@ -96,6 +104,10 @@ class PlexTimelineService {
       final wsScheme = serverUri.scheme == 'https' ? 'wss' : 'ws';
       final wsUrl = '$wsScheme://${serverUri.host}:${serverUri.port}/:/websockets/notifications?X-Plex-Token=$token';
       final ws = await WebSocket.connect(wsUrl).timeout(const Duration(seconds: 4));
+      if (!_isPlaying || currentGen != _wsConnectGeneration) {
+        try { ws.close(); } catch (_) {}
+        return;
+      }
       _ws = ws;
       _wsSub = ws.listen(
         (data) {
@@ -110,6 +122,7 @@ class PlexTimelineService {
   }
 
   void _closeWebSocket() {
+    _wsConnectGeneration++;
     _wsSub?.cancel();
     _wsSub = null;
     try {
@@ -309,8 +322,8 @@ class PlexTimelineService {
       final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 4));
 
       // Handle server stopping playback / terminating session
-      if (response.statusCode >= 400) {
-        // Any 4xx (404, 400, 401, 403, 410) or 5xx indicates session rejected/terminated
+      if (response.statusCode == 410 || response.statusCode == 403) {
+        // Session explicitly terminated / forbidden by server
         final reason = _extractReasonFromBodyOrHeaders(response.body, response.headers);
         _triggerServerStop(reason);
       } else if (response.statusCode == 200) {

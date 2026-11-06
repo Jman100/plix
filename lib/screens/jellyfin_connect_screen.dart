@@ -50,6 +50,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   String _quickConnectCode = '';
   String _quickConnectSecret = '';
   Timer? _pollTimer;
+  bool _isCheckingAuth = false;
 
   @override
   void initState() {
@@ -147,6 +148,8 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   void _startQuickConnectPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (_isCheckingAuth) return;
+      _isCheckingAuth = true;
       try {
         final authorized = await _jellyfinAuthService.checkQuickConnect(
           _targetServerUrl,
@@ -155,9 +158,12 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
 
         if (authorized) {
           timer.cancel();
-          _onQuickConnectAuthorized();
+          await _onQuickConnectAuthorized();
         }
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        _isCheckingAuth = false;
+      }
     });
   }
 
@@ -574,6 +580,29 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        if (_errorMessage != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         Container(
           width: 56,
           height: 56,

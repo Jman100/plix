@@ -130,7 +130,9 @@ class JellyfinMediaService {
       final isForced = streamMap['IsForced'] == true;
 
       if (sType == 'subtitle') {
+        final isExternal = streamMap['IsExternal'] == true;
         final deliveryUrl = streamMap['DeliveryUrl']?.toString() ?? '';
+        final thisStreamIndex = isExternal ? -1 : subIndex++;
         subStreams.add(
           PlexSubtitleStream(
             id: sIndex.toString(),
@@ -141,7 +143,7 @@ class JellyfinMediaService {
             displayTitle: title,
             isSelected: isDefault,
             isForced: isForced,
-            streamIndex: subIndex++,
+            streamIndex: thisStreamIndex,
           ),
         );
       } else if (sType == 'audio') {
@@ -571,16 +573,20 @@ class JellyfinMediaService {
     String seasonId, {
     String? showId,
   }) async {
-    final sId = showId != null && showId.isNotEmpty ? showId : '';
-    final url = Uri.parse(
-      '$baseUrl/Shows/$sId/Episodes?seasonId=$seasonId&userId=$userId&Fields=$_itemFields',
-    );
-    final response = await http.get(url, headers: _headers);
-    if (response.statusCode != 200) return [];
+    try {
+      final String endpoint = (showId != null && showId.isNotEmpty)
+          ? '$baseUrl/Shows/$showId/Episodes?seasonId=$seasonId&userId=$userId&Fields=$_itemFields'
+          : '$baseUrl/Shows/Episodes?seasonId=$seasonId&userId=$userId&Fields=$_itemFields';
+      final url = Uri.parse(endpoint);
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return [];
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final items = data['Items'] as List<dynamic>? ?? [];
-    return items.map((m) => _parseItem(m as Map<String, dynamic>)).toList();
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['Items'] as List<dynamic>? ?? [];
+      return items.map((m) => _parseItem(m as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<PlexMediaItem?> getNextEpisode(PlexMediaItem current) async {
@@ -948,8 +954,7 @@ class JellyfinMediaService {
     if (streamKey != null && streamKey.isNotEmpty) {
       try {
         final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
-        final delim = path.contains('?') ? '&' : '?';
-        final url = Uri.parse('$baseUrl$path${delim}api_key=$token');
+        final url = Uri.parse('$baseUrl$path');
         final response = await http.get(url, headers: _headers);
         if (response.statusCode == 200 && response.body.isNotEmpty) {
           return response.body;
@@ -958,7 +963,7 @@ class JellyfinMediaService {
     }
 
     try {
-      final url = Uri.parse('$baseUrl/Videos/$cleanId/$cleanId/Subtitles/$subtitleIndex/Stream.vtt?api_key=$token');
+      final url = Uri.parse('$baseUrl/Videos/$cleanId/$cleanId/Subtitles/$subtitleIndex/Stream.vtt');
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         return response.body;
@@ -966,7 +971,7 @@ class JellyfinMediaService {
     } catch (_) {}
 
     try {
-      final url = Uri.parse('$baseUrl/Videos/$cleanId/Subtitles/$subtitleIndex/Stream.vtt?api_key=$token');
+      final url = Uri.parse('$baseUrl/Videos/$cleanId/Subtitles/$subtitleIndex/Stream.vtt');
       final response = await http.get(url, headers: _headers);
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         return response.body;

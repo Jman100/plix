@@ -55,9 +55,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final jfServers = await widget.serverService.getSavedJellyfinServers();
     final hasSavedToken = token != null && token.isNotEmpty;
     final hasSavedJf = jfServers.isNotEmpty;
-    final hasSavedActiveServer = prefs.containsKey('active_server_id');
-    final hasSavedFavorites = prefs.containsKey('favorite_libraries');
-    final hasSavedThemes = prefs.containsKey('plix_theme');
+    final hasSavedActiveServer = prefs.containsKey('plix_active_server_id') || prefs.containsKey('active_server_id');
+    final hasSavedFavorites = prefs.containsKey('plix_favorite_library_composite_ids') || prefs.containsKey('favorite_libraries');
+    final hasSavedThemes = prefs.containsKey('plix_theme_custom_accent') || prefs.containsKey('plix_theme');
     final hasExistingInstallData = hasSavedToken ||
         hasSavedJf ||
         hasSavedActiveServer ||

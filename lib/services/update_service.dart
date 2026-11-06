@@ -1,3 +1,4 @@
+import 'plix_device_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -94,7 +95,8 @@ class UpdateInfo {
     final linuxSha = json['linuxSha256']?.toString() ?? '';
     final linuxArchSha = json['linuxArchSha256']?.toString() ?? '';
 
-    final hasUpdate = UpdateService.isVersionNewer(v, currentVersion) || (vc > currentVersionCode);
+    final cmp = UpdateService.compareSemVer(v, currentVersion);
+    final hasUpdate = cmp > 0 || (cmp == 0 && vc > currentVersionCode);
 
     return UpdateInfo(
       version: v,
@@ -141,6 +143,15 @@ class UpdateService {
 
   static const String _prefAutoCheckKey = 'auto_check_updates';
   static const MethodChannel _channel = MethodChannel('com.plix.plix/updater');
+  static bool _isDownloadCancelled = false;
+  static HttpClient? _activeDownloadClient;
+
+  static void cancelDownload() {
+    _isDownloadCancelled = true;
+    try {
+      _activeDownloadClient?.close(force: true);
+    } catch (_) {}
+  }
 
   static bool isArchLinux() {
     if (!Platform.isLinux) return false;
@@ -187,20 +198,35 @@ class UpdateService {
     return false;
   }
 
-  static bool isVersionNewer(String remote, String current) {
-    try {
-      final remoteParts = remote.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-      final currentParts = current.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+  static int compareSemVer(String v1, String v2) {
+    final clean1 = v1.trim().replaceFirst(RegExp(r'^v'), '');
+    final clean2 = v2.trim().replaceFirst(RegExp(r'^v'), '');
 
-      final maxLen = remoteParts.length > currentParts.length ? remoteParts.length : currentParts.length;
-      for (int i = 0; i < maxLen; i++) {
-        final r = i < remoteParts.length ? remoteParts[i] : 0;
-        final c = i < currentParts.length ? currentParts[i] : 0;
-        if (r > c) return true;
-        if (r < c) return false;
-      }
-    } catch (_) {}
-    return false;
+    final parts1 = clean1.split('-');
+    final parts2 = clean2.split('-');
+
+    final nums1 = parts1[0].split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final nums2 = parts2[0].split('.').map((p) => int.tryParse(p) ?? 0).toList();
+
+    for (int i = 0; i < 3; i++) {
+      final n1 = i < nums1.length ? nums1[i] : 0;
+      final n2 = i < nums2.length ? nums2[i] : 0;
+      if (n1 > n2) return 1;
+      if (n1 < n2) return -1;
+    }
+
+    final hasPre1 = parts1.length > 1;
+    final hasPre2 = parts2.length > 1;
+    if (hasPre1 && !hasPre2) return -1; // 1.8.0-beta < 1.8.0
+    if (!hasPre1 && hasPre2) return 1;  // 1.8.0 > 1.8.0-beta
+    if (hasPre1 && hasPre2) {
+      return parts1[1].compareTo(parts2[1]);
+    }
+    return 0;
+  }
+
+  static bool isVersionNewer(String remote, String current) {
+    return compareSemVer(remote, current) > 0;
   }
 
   static Future<bool> isAutoCheckEnabled() async {
@@ -251,8 +277,8 @@ class UpdateService {
     ];
 
     for (final url in candidateUrls) {
+      final client = _createHttpClient();
       try {
-        final client = _createHttpClient();
         final uri = Uri.parse(url);
         final isGithubRelease = uri.host.contains('github.com') && uri.path.contains('releases');
         final manifestUri = isGithubRelease ? uri : Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
@@ -274,13 +300,16 @@ class UpdateService {
             currentVersionCode: currentVersionCode,
           );
         }
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        try { client.close(force: true); } catch (_) {}
+      }
     }
 
     // Direct fallback to GitHub Releases API
+    final ghClient = _createHttpClient();
     try {
-      final client = _createHttpClient();
-      final request = await client.getUrl(Uri.parse(githubApiReleaseUrl));
+      final request = await ghClient.getUrl(Uri.parse(githubApiReleaseUrl));
       request.headers.set('Accept', 'application/vnd.github+json');
       request.headers.set('User-Agent', 'Plix-App');
       final response = await request.close().timeout(const Duration(seconds: 6));
@@ -293,13 +322,23 @@ class UpdateService {
         String windowsUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe';
         String linuxUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb';
         String linuxArchUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst';
+        final isTv = PlixDeviceHelper.isTelevision;
         for (final a in assets) {
           final name = a['name']?.toString() ?? '';
           final dUrl = a['browser_download_url']?.toString();
           if (dUrl != null) {
-            if (name == 'plix_android.apk' || name == 'plix_android_tv.apk') {
-              apkUrl = dUrl;
-            } else if (name == 'plix_windows.exe') {
+            if (isTv) {
+              if (name == 'plix_android_tv.apk') {
+                apkUrl = dUrl;
+              } else if (name == 'plix_android.apk' && !apkUrl.contains('_tv')) {
+                apkUrl = dUrl;
+              }
+            } else {
+              if (name == 'plix_android.apk') {
+                apkUrl = dUrl;
+              }
+            }
+            if (name == 'plix_windows.exe') {
               windowsUrl = dUrl;
             } else if (name == 'plix_linux.deb') {
               linuxUrl = dUrl;
@@ -324,7 +363,10 @@ class UpdateService {
           hasUpdate: hasUpdate,
         );
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      try { ghClient.close(force: true); } catch (_) {}
+    }
 
     return null;
   }
@@ -352,59 +394,70 @@ class UpdateService {
         ? downloadUri
         : downloadUri.replace(queryParameters: {...downloadUri.queryParameters, 't': '${DateTime.now().millisecondsSinceEpoch}'});
 
+    _isDownloadCancelled = false;
     final client = _createHttpClient();
-    final request = await client.getUrl(effectiveUri);
-    request.followRedirects = true;
-    request.maxRedirects = 5;
-    request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    request.headers.set('Pragma', 'no-cache');
-    final response = await request.close();
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to download update: HTTP ${response.statusCode}');
-    }
-
-    final totalBytes = response.contentLength;
-    int receivedBytes = 0;
-    final sink = targetFile.openWrite();
-    Digest? computedDigest;
-    final digestSink = ChunkedConversionSink<Digest>.withCallback((digests) {
-      if (digests.isNotEmpty) {
-        computedDigest = digests.first;
-      }
-    });
-    final byteConversionSink = sha256.startChunkedConversion(digestSink);
+    _activeDownloadClient = client;
 
     try {
-      await for (final chunk in response) {
-        sink.add(chunk);
-        byteConversionSink.add(chunk);
-        receivedBytes += chunk.length;
-        if (totalBytes > 0) {
-          onProgress(receivedBytes / totalBytes);
+      final request = await client.getUrl(effectiveUri);
+      request.followRedirects = true;
+      request.maxRedirects = 5;
+      request.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      request.headers.set('Pragma', 'no-cache');
+      final response = await request.close().timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download update: HTTP ${response.statusCode}');
+      }
+
+      final totalBytes = response.contentLength;
+      int receivedBytes = 0;
+      final sink = targetFile.openWrite();
+      Digest? computedDigest;
+      final digestSink = ChunkedConversionSink<Digest>.withCallback((digests) {
+        if (digests.isNotEmpty) {
+          computedDigest = digests.first;
+        }
+      });
+      final byteConversionSink = sha256.startChunkedConversion(digestSink);
+
+      try {
+        await for (final chunk in response.timeout(const Duration(seconds: 30))) {
+          if (_isDownloadCancelled) {
+            throw Exception('Download was cancelled by user.');
+          }
+          sink.add(chunk);
+          byteConversionSink.add(chunk);
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            onProgress(receivedBytes / totalBytes);
+          }
+        }
+        await sink.flush();
+      } finally {
+        byteConversionSink.close();
+        await sink.close();
+      }
+
+      onProgress(1.0);
+
+      final computedHash = (computedDigest?.toString() ?? '').toLowerCase();
+      if (expectedSha256 != null && expectedSha256.trim().isNotEmpty) {
+        if (computedHash != expectedSha256.toLowerCase().trim()) {
+          try {
+            await targetFile.delete();
+          } catch (_) {}
+          throw SecurityException(
+            'Security error: Update package checksum mismatch!\n'
+            'Expected: $expectedSha256\n'
+            'Actual:   $computedHash\n'
+            'The downloaded file has been deleted for your safety.',
+          );
         }
       }
-      await sink.flush();
     } finally {
-      byteConversionSink.close();
-      await sink.close();
-    }
-
-    onProgress(1.0);
-
-    final computedHash = (computedDigest?.toString() ?? '').toLowerCase();
-    if (expectedSha256 != null && expectedSha256.trim().isNotEmpty) {
-      if (computedHash != expectedSha256.toLowerCase().trim()) {
-        try {
-          await targetFile.delete();
-        } catch (_) {}
-        throw SecurityException(
-          'Security error: Update package checksum mismatch!\n'
-          'Expected: $expectedSha256\n'
-          'Actual:   $computedHash\n'
-          'The downloaded file has been deleted for your safety.',
-        );
-      }
+      _activeDownloadClient = null;
+      try { client.close(force: true); } catch (_) {}
     }
   }
 
@@ -1041,9 +1094,27 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'The system installer will open automatically once download finishes.',
-                    style: TextStyle(color: PlixTheme.textSecondary, fontSize: 11),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'The system installer will open automatically once download finishes.',
+                          style: TextStyle(color: PlixTheme.textSecondary, fontSize: 11),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          UpdateService.cancelDownload();
+                          setState(() {
+                            _isDownloading = false;
+                            _errorMessage = 'Download was cancelled.';
+                          });
+                        },
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      ),
+                    ],
                   ),
                 ],
               ),

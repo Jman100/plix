@@ -236,10 +236,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _openWebsite(String url) async {
     try {
-      Clipboard.setData(ClipboardData(text: url));
+      await Clipboard.setData(ClipboardData(text: url));
+      if (Platform.isAndroid) {
+        const channel = MethodChannel('com.plix.plix/updater');
+        await channel.invokeMethod('openUrl', {'url': url});
+      } else if (Platform.isWindows) {
+        await Process.run('cmd', ['/c', 'start', '', url]);
+      } else if (Platform.isLinux) {
+        await Process.run('xdg-open', [url]);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', [url]);
+      }
       _showToast('Opening $url');
     } catch (_) {
-      _showToast(url);
+      _showToast('URL copied to clipboard: $url');
     }
   }
 

@@ -117,6 +117,30 @@ class PlexServerService {
     return servers;
   }
 
+  static Future<T?> _firstSuccess<T>(List<Future<T?>> futures) {
+    if (futures.isEmpty) return Future.value(null);
+    final completer = Completer<T?>();
+    int remaining = futures.length;
+    for (final f in futures) {
+      f.then((val) {
+        if (val != null && !completer.isCompleted) {
+          completer.complete(val);
+        } else {
+          remaining--;
+          if (remaining == 0 && !completer.isCompleted) {
+            completer.complete(null);
+          }
+        }
+      }).catchError((_) {
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      });
+    }
+    return completer.future;
+  }
+
   Future<String?> testAndResolveBestConnection(PlexServer server, {bool fallbackToFirstCandidate = false}) async {
     if (server.isJellyfin) {
       final candidates = <String>[];
@@ -152,8 +176,7 @@ class PlexServerService {
         return null;
       });
 
-      final results = await Future.wait(futures);
-      final working = results.firstWhere((u) => u != null, orElse: () => null);
+      final working = await _firstSuccess(futures.toList());
       if (working != null) {
         server.activeConnectionUri = working;
         return working;
@@ -207,8 +230,7 @@ class PlexServerService {
         } catch (_) {}
         return null;
       });
-      final localResults = await Future.wait(localFutures);
-      final workingLocal = localResults.firstWhere((u) => u != null, orElse: () => null);
+      final workingLocal = await _firstSuccess(localFutures.toList());
       if (workingLocal != null) {
         server.activeConnectionUri = workingLocal;
         return workingLocal;
@@ -228,8 +250,7 @@ class PlexServerService {
         } catch (_) {}
         return null;
       });
-      final remoteResults = await Future.wait(remoteFutures);
-      final workingRemote = remoteResults.firstWhere((u) => u != null, orElse: () => null);
+      final workingRemote = await _firstSuccess(remoteFutures.toList());
       if (workingRemote != null) {
         server.activeConnectionUri = workingRemote;
         return workingRemote;

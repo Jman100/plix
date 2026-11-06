@@ -29,6 +29,7 @@ class ServerSelectScreen extends StatefulWidget {
 }
 
 class _ServerSelectScreenState extends State<ServerSelectScreen> {
+  bool _isNavigating = false;
   late List<PlexServer> _servers;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _favBtnFocusNode = FocusNode();
@@ -111,7 +112,10 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
   }
 
   void _openJellyfinSignIn() async {
-    await Navigator.of(context).push(
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => JellyfinConnectScreen(
           authService: widget.authService,
@@ -120,18 +124,27 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
       ),
     );
     if (mounted) _refreshServers();
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   void _openPlexSignIn() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LoginScreen(
-          authService: widget.authService,
-          serverService: widget.serverService,
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            authService: widget.authService,
+            serverService: widget.serverService,
+          ),
         ),
-      ),
-    );
-    if (mounted) _refreshServers();
+      );
+      if (mounted) _refreshServers();
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   Future<void> _confirmRemoveServer(PlexServer server) async {

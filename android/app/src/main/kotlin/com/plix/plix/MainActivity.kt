@@ -1,5 +1,7 @@
 package com.plix.plix
 
+import androidx.core.content.ContextCompat
+
 import android.os.PowerManager
 import android.view.SoundEffectConstants
 import androidx.media3.common.AudioAttributes
@@ -361,10 +363,20 @@ class MainActivity: FlutterActivity() {
             when (call.method) {
                 "checkAudioSupported" -> {
                     val codec = call.argument<String>("codec") ?: ""
-                    result.success(isAudioCodecSupported(codec))
+                    kotlin.concurrent.thread {
+                        val supported = isAudioCodecSupported(codec)
+                        runOnUiThread {
+                            result.success(supported)
+                        }
+                    }
                 }
                 "getSupportedAudioFormats" -> {
-                    result.success(getSupportedAudioFormats())
+                    kotlin.concurrent.thread {
+                        val formats = getSupportedAudioFormats()
+                        runOnUiThread {
+                            result.success(formats)
+                        }
+                    }
                 }
                 "play" -> {
                     val url = call.argument<String>("url") ?: ""
@@ -1105,11 +1117,7 @@ class MainActivity: FlutterActivity() {
             }
             pipReceiver = receiver
             val filter = IntentFilter(PIP_PLAY_PAUSE_ACTION)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                registerReceiver(receiver, filter)
-            }
+            ContextCompat.registerReceiver(this, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         }
     }
 
@@ -1459,7 +1467,7 @@ class MainActivity: FlutterActivity() {
                         sendAction("pause")
                     }
                 })
-                isActive = true
+                isActive = false
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1469,7 +1477,7 @@ class MainActivity: FlutterActivity() {
     private fun updateMediaSessionActive(active: Boolean) {
         try {
             mediaSession?.let { session ->
-                session.isActive = true
+                session.isActive = active
                 val stateVal = if (active) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
                 val state = PlaybackState.Builder()
                     .setActions(

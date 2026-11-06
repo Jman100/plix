@@ -25,6 +25,7 @@ class AuthChooserScreen extends StatefulWidget {
 class _AuthChooserScreenState extends State<AuthChooserScreen> {
   final FocusNode _plexFocusNode = FocusNode();
   final FocusNode _jellyfinFocusNode = FocusNode();
+  bool _isNavigating = false;
 
   @override
   void dispose() {
@@ -34,6 +35,8 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   }
 
   void _choosePlex() {
+    if (_isNavigating) return;
+    _isNavigating = true;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LoginScreen(
@@ -45,6 +48,8 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   }
 
   void _chooseJellyfin() {
+    if (_isNavigating) return;
+    _isNavigating = true;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => JellyfinConnectScreen(

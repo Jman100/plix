@@ -1355,12 +1355,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    // Trigger state update for progress bar
-
-    if (mounted) {
-
+    // Trigger state update for progress bar only when controls or text subtitles are visible
+    if (mounted && (_showControls || _selectedSubtitle != null)) {
       setState(() {});
-
     }
 
   }
@@ -2161,33 +2158,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     // Never attempt to fetch text cues for VOBSUB or PGS bitmap subtitles (which causes Plex endpoint to hang/fail).
 
     if (!NativePlayerService.useMediaKit && stream != null && !isBitmap) {
-
+      final subStreamId = stream.id;
+      final curRatingKey = _currentItem.ratingKey;
       final content = await _mediaService.fetchSubtitleContent(
-
         ratingKey: _currentItem.ratingKey,
-
         subtitleStreamId: stream.id,
-
         streamKey: stream.key,
-
       );
 
-      if (content != null && content.isNotEmpty && mounted) {
-
+      if (content != null && content.isNotEmpty && mounted &&
+          _selectedSubtitle?.id == subStreamId &&
+          _currentItem.ratingKey == curRatingKey) {
         final cues = SubtitleParser.parse(content);
-
-        if (cues.isNotEmpty) {
-
+        if (cues.isNotEmpty && _selectedSubtitle?.id == subStreamId) {
           setState(() {
-
             _subtitleCues = cues;
-
           });
-
         }
-
       }
-
     }
 
   }
@@ -3112,18 +3100,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-        // Remote media keys (Play/Pause)
-
+        // Remote media keys (Play/Pause handled globally via _onGlobalKeyEvent)
         if (key == LogicalKeyboardKey.mediaPlayPause ||
-
             key == LogicalKeyboardKey.mediaPlay ||
-
             key == LogicalKeyboardKey.mediaPause) {
-
-          _togglePlayPause();
-
           return KeyEventResult.handled;
-
         }
 
 
@@ -3153,28 +3134,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-      // Seeking keys (media keys)
-
+      // Seeking keys (media keys handled globally via _onGlobalKeyEvent)
       if (key == LogicalKeyboardKey.mediaTrackNext ||
-
-          key == LogicalKeyboardKey.mediaFastForward) {
-
-        _accumulateSeek(_skipAheadSeconds);
-
-        return KeyEventResult.handled;
-
-      }
-
-
-
-      if (key == LogicalKeyboardKey.mediaTrackPrevious ||
-
+          key == LogicalKeyboardKey.mediaFastForward ||
+          key == LogicalKeyboardKey.mediaTrackPrevious ||
           key == LogicalKeyboardKey.mediaRewind) {
-
-        _accumulateSeek(-_quickRewindSeconds);
-
         return KeyEventResult.handled;
-
       }
 
 

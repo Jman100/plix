@@ -158,7 +158,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _items.sort((a, b) => (a.year ?? 0).compareTo(b.year ?? 0));
           break;
         case _LibrarySortOption.dateAdded:
-          _items.sort((a, b) => (b.originallyAvailableAt ?? "").compareTo(a.originallyAvailableAt ?? ""));
+          _items.sort((a, b) => (b.addedAt ?? 0).compareTo(a.addedAt ?? 0));
           break;
       }
     });

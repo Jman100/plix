@@ -420,7 +420,7 @@ class _LibrariesSheetContentState extends State<_LibrariesSheetContent> {
                           if (lib.type == 'artist') icon = Icons.music_note_rounded;
 
                           return Container(
-                            key: ValueKey('reorder_'),
+                            key: ValueKey('reorder_${lib.compositeId}'),
                             height: 64.0,
                             alignment: Alignment.center,
                             child: ListTile(

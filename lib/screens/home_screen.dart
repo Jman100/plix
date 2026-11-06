@@ -53,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static List<PlexMediaItem> _cachedContinueWatching = [];
 
   late PlexMediaService _mediaService;
+  bool _isNavigating = false;
   String _clientId = '';
 
   List<PlexServer> _allServers = [];
@@ -1169,6 +1170,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _openSettings() {
+    if (_isNavigating) return;
+    _isNavigating = true;
     NativePlayerService().stop();
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -1179,6 +1182,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     ).then((_) {
       _initData();
+      _isNavigating = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _sidebarSettingsFocusNode.requestFocus();
