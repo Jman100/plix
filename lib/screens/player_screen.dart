@@ -225,6 +225,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   late PlexMediaItem _currentItem;
   bool _isSwitchingStreams = false;
   int _initGeneration = 0;
+  double? _scrubbingPositionMs;
 
   StreamSubscription<MediaKeyAction>? _mediaKeySub;
 
@@ -977,13 +978,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       }
 
     }
-
-
-
     if (mounted) {
-
-      Navigator.of(context).maybePop();
-
+      _exitPlayer();
     }
 
   }
@@ -1053,23 +1049,20 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     );
 
   }
-
-
+  void _exitPlayer() {
+    _nativePlayer.stop();
+    _timelineService.stop(_currentPositionMs);
+    _nativePlayer.setVideoBounds(x: 0, y: 0, width: -1, height: -1);
+    Navigator.of(context).pop(_playbackExitItem);
+  }
 
   void _cancelAutoplay() {
-
     _autoplayTimer?.cancel();
-
     setState(() {
-
       _isAutoplayCountdownActive = false;
-
       _nextEpisodeItem = null;
-
     });
-
-    Navigator.of(context).maybePop();
-
+    _exitPlayer();
   }
 
 
@@ -3858,23 +3851,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   @override
-
   void didChangeAppLifecycleState(AppLifecycleState state) {
-
-    if (state == AppLifecycleState.paused ||
-
-        state == AppLifecycleState.inactive ||
-
-        state == AppLifecycleState.hidden) {
-
-      if (_isAutoplayCountdownActive) {
-
-        _cancelAutoplay();
-
+    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    // On desktop, clicking outside the window sends inactive; do NOT cancel autoplay or close player.
+    if (!isDesktop) {
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.inactive ||
+          state == AppLifecycleState.hidden) {
+        if (_isAutoplayCountdownActive) {
+          _cancelAutoplay();
+        }
       }
-
     }
-
   }
 
 
@@ -4433,21 +4421,26 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                               overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
 
                             ),
-
                             child: Slider(
-
-                              value: progressMs.clamp(0.0, maxMs),
-
+                              value: (_scrubbingPositionMs ?? progressMs).clamp(0.0, maxMs),
                               min: 0.0,
-
                               max: maxMs,
-
-                              onChanged: (val) {
-
-                                _seekToTarget(val.round());
-
+                              onChangeStart: (val) {
+                                setState(() {
+                                  _scrubbingPositionMs = val;
+                                });
                               },
-
+                              onChanged: (val) {
+                                setState(() {
+                                  _scrubbingPositionMs = val;
+                                });
+                              },
+                              onChangeEnd: (val) {
+                                setState(() {
+                                  _scrubbingPositionMs = null;
+                                });
+                                _seekToTarget(val.round());
+                              },
                             ),
 
                           ),
@@ -5325,37 +5318,30 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                         inactiveTrackColor: Colors.white24,
 
                                       ),
-
                                       child: Slider(
-
-                                        value: progressMs.clamp(0.0, maxMs),
-
+                                        value: (_scrubbingPositionMs ?? progressMs).clamp(0.0, maxMs),
                                         min: 0.0,
-
                                         max: maxMs,
-
-                                        onChangeStart: (_) {
-
+                                        onChangeStart: (val) {
                                           _hideControlsTimer?.cancel();
-
+                                          setState(() {
+                                            _scrubbingPositionMs = val;
+                                          });
                                         },
-
                                         onChanged: (val) {
-
+                                          setState(() {
+                                            _scrubbingPositionMs = val;
+                                          });
+                                        },
+                                        onChangeEnd: (val) {
+                                          setState(() {
+                                            _scrubbingPositionMs = null;
+                                          });
                                           _seekToTarget(val.toInt());
-
-                                        },
-
-                                        onChangeEnd: (_) {
-
                                           if (_isPlaying && !_isPaused) {
-
                                             _scheduleHideControls();
-
                                           }
-
                                         },
-
                                       ),
 
                                     ),
@@ -7294,21 +7280,26 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                                                 overlayColor: PlixTheme.plexGold.withOpacity(0.3),
 
                                               ),
-
                                               child: Slider(
-
-                                                value: progress,
-
+                                                value: (_scrubbingPositionMs ?? progress).clamp(0.0, maxMs),
                                                 min: 0.0,
-
                                                 max: maxMs,
-
-                                                onChanged: (val) {
-
-                                                  _seekToTarget(val.toInt());
-
+                                                onChangeStart: (val) {
+                                                  setState(() {
+                                                    _scrubbingPositionMs = val;
+                                                  });
                                                 },
-
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    _scrubbingPositionMs = val;
+                                                  });
+                                                },
+                                                onChangeEnd: (val) {
+                                                  setState(() {
+                                                    _scrubbingPositionMs = null;
+                                                  });
+                                                  _seekToTarget(val.toInt());
+                                                },
                                               ),
 
                                             ),

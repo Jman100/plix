@@ -37,6 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isSearching = false;
   bool _isListening = false;
   Timer? _debounceTimer;
+  int _searchGeneration = 0;
 
   // Windows Text Search controller and node
   final TextEditingController _textController = TextEditingController();
@@ -123,9 +124,11 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
+    final generation = ++_searchGeneration;
+
     try {
       final items = await _mediaService.search(queryText);
-      if (mounted) {
+      if (mounted && generation == _searchGeneration) {
         for (final item in items) {
           _resultFocusNodes.putIfAbsent(item.ratingKey, () => FocusNode());
         }
@@ -135,7 +138,7 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _searchGeneration) {
         setState(() {
           _results = [];
           _isSearching = false;

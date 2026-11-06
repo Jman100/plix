@@ -68,6 +68,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   final Map<String, FocusNode> _episodeFocusNodes = {};
   String? _lastPlayedEpisodeKey;
   bool _isAnyEpisodeFocused = false;
+  int _seasonLoadGeneration = 0;
   bool _suppressScrollOnFocus = false;
   int _lastFocusedEpisodeIndex = 0;
   bool _isOnWatchlist = false;
@@ -702,6 +703,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     int? targetEpisodeIndex,
     bool isSeasonSwap = false,
   }) async {
+    final generation = ++_seasonLoadGeneration;
     setState(() {
       _isLoadingEpisodes = true;
       _selectedSeason = season;
@@ -713,7 +715,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         seasonKey: season.key,
         showRatingKey: _item.ratingKey,
       );
-      if (mounted) {
+      if (mounted && generation == _seasonLoadGeneration) {
         for (final ep in eps) {
           _episodeFocusNodes.putIfAbsent(ep.ratingKey, () => FocusNode());
         }
@@ -941,6 +943,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         : await _mediaService.markWatched(_item.ratingKey);
 
     if (success && mounted) {
+      _mediaService.invalidateCache(_item.ratingKey);
       setState(() {
         _item = _item.copyWith(
           viewCount: _item.isWatched ? 0 : 1,
