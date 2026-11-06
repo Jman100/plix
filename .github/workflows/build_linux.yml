@@ -12,8 +12,34 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Flutter Analyze & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Flutter Analyze
+        run: flutter analyze
+
+      - name: Run Flutter Tests
+        run: flutter test
+
   build-linux:
     name: Build Linux Packages
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -87,21 +113,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'arch')
-        uses: softprops/action-gh-release@v2
-        continue-on-error: true
-        with:
-          tag_name: v${{ env.VERSION }}
-          files: |
-            build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
-            build/staged_linux/plix-*-linux-x86_64.tar.gz
-            build/staged_linux/plix_linux.deb
-            build/staged_linux/plix_linux_arch.pkg.tar.zst
-            build/staged_linux/plix_linux_portable.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   verify-arch-compatibility:
     name: Verify Arch Linux Compatibility & Direct Play Libs
     needs: build-linux
@@ -153,3 +164,45 @@ jobs:
           mpv --version
 
           echo "SUCCESS: Arch Linux compatibility verified. All Direct Play and GUI libraries resolve cleanly!"
+
+  release-linux:
+    name: Release Linux Packages
+    needs: [build-linux, verify-arch-compatibility]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Arch Package Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plix_linux_arch
+          path: ./release_artifacts
+
+      - name: Download Portable Tarball Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plix_linux_tarball
+          path: ./release_artifacts
+
+      - name: Download DEB Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plix_linux_deb
+          path: ./release_artifacts
+
+      - name: Determine Version
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //; s/+.*//')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: |
+            ./release_artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

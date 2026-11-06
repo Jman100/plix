@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.4.1"
-$versionCode = 33
+$version = "1.7.1"
+$versionCode = 41
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -59,7 +59,7 @@ Write-Host "Updated web_site\plix.json successfully!" -ForegroundColor Green
 
 # Publish to GitHub Releases
 Write-Host "`n=== Publishing to GitHub Releases (v$version) ===" -ForegroundColor Cyan
-& python "scripts\github_release.py" "v$version" "Plix v$version" "web_site\plix.json" "$installerSource:plix_windows.exe" "web_site\plix.json:plix.json"
+& python "scripts\github_release.py" "v$version" "Plix v$version" "web_site\plix.json" "$($installerSource):plix_windows.exe" "web_site\plix.json:plix.json"
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "GitHub release upload exited with code $LASTEXITCODE"
 } else {
