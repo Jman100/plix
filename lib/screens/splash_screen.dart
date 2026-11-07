@@ -114,7 +114,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         final savedActiveId = await widget.serverService.getActiveServerId();
         final pinnedIds = await widget.serverService.getPinnedServerIds();
 
-        PlexServer? selectedServer;
+        final PlexServer selectedServer;
         if (savedActiveId != null) {
           selectedServer = servers.firstWhere(
             (s) => s.clientIdentifier == savedActiveId,
@@ -131,12 +131,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
         if (!v160FavoritesPrompted) {
           await prefs.setBool('plix_v160_favorites_prompted', true);
-          if (selectedServer != null) {
-            await widget.serverService.testAndResolveBestConnection(selectedServer);
-            await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
-          }
-          _navigateToFavoriteLibraries(servers, selectedServer ?? servers.first);
-        } else if (selectedServer != null && savedActiveId != null) {
+          await widget.serverService.testAndResolveBestConnection(selectedServer);
+          await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
+          _navigateToFavoriteLibraries(servers, selectedServer);
+        } else if (savedActiveId != null) {
           await widget.serverService.testAndResolveBestConnection(selectedServer);
           _navigateToHome(selectedServer);
         } else {

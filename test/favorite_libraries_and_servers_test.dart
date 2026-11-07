@@ -87,7 +87,7 @@ void main() {
       final sharedLibs = ['shared_srv_1', 'shared_srv_2'];
 
       final selectedIds = <String>{};
-      final hasSaved = false;
+      const hasSaved = false;
 
       // Simulate loading for owned server
       if (!hasSaved && ownedServer.owned) {
@@ -122,7 +122,7 @@ void main() {
       );
 
       final selectedIds = <String>{};
-      final hasSaved = false;
+      const hasSaved = false;
 
       if (!hasSaved && sharedServer1.owned) {
         selectedIds.add('shared_1_lib');

@@ -35,7 +35,6 @@ class WatchlistScreen extends StatefulWidget {
 class _WatchlistScreenState extends State<WatchlistScreen> {
   late PlexMediaService _mediaService;
   List<PlexMediaItem> _items = [];
-  List<PlexServer> _servers = [];
   bool _isLoading = true;
   String? _errorMessage;
   bool _isMultiServer = false;
@@ -192,7 +191,6 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       if (targetServers.isEmpty) {
         targetServers.add(widget.server);
       }
-      _servers = targetServers;
       _isMultiServer = targetServers.length > 1;
 
       final List<PlexMediaItem> aggregatedItems = [];

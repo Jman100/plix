@@ -99,7 +99,7 @@ void main() {
     });
 
     test('PlexMediaItem copyWith preserves or updates clearLogo', () {
-      final item = PlexMediaItem(
+      const item = PlexMediaItem(
         ratingKey: '1',
         key: '/library/metadata/1',
         title: 'Original',
@@ -192,7 +192,7 @@ void main() {
 
     test('Mobile movie backdrop in portrait uses fitWidth and topCenter', () {
       const isCompact = true;
-      final movie = PlexMediaItem(ratingKey: '10', key: '/m/10', title: 'Top Gun', type: 'movie');
+      const movie = PlexMediaItem(ratingKey: '10', key: '/m/10', title: 'Top Gun', type: 'movie');
       final fit = (isCompact && movie.isMovie) ? 'fitWidth' : 'cover';
       expect(fit, 'fitWidth');
     });
@@ -214,7 +214,7 @@ void main() {
     });
 
     test('Episode detail page SX:EX format excludes show title', () {
-      final ep = PlexMediaItem(
+      const ep = PlexMediaItem(
         ratingKey: '99',
         key: '/library/metadata/99',
         title: 'Desert Stumble',

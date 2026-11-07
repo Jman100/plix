@@ -1220,8 +1220,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.tune_rounded, size: 14, color: PlixTheme.plexGold),
-                  SizedBox(width: 6),
-                  Text(
+                  const SizedBox(width: 6),
+                  const Text(
                     'Customize Servers',
                     style: TextStyle(
                       color: Colors.white,

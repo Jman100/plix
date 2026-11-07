@@ -28,7 +28,7 @@ void main() {
     });
 
     test('Watchlist matching logic matches exact GUIDs across Discover and local server items', () {
-      final discoverItem = const PlexMediaItem(
+      const discoverItem = PlexMediaItem(
         ratingKey: '616bf60d8575f9def58a793e',
         key: '/library/metadata/616bf60d8575f9def58a793e',
         title: "Richard Hammond's Workshop",
@@ -41,7 +41,7 @@ void main() {
         ],
       );
 
-      final localServerItem = const PlexMediaItem(
+      const localServerItem = PlexMediaItem(
         ratingKey: '47341',
         key: '/library/metadata/47341',
         title: "Richard Hammond's Workshop",
@@ -70,7 +70,7 @@ void main() {
     });
 
     test('Watchlist matching logic handles word token overlap match with matching year', () {
-      final discoverItem = const PlexMediaItem(
+      const discoverItem = PlexMediaItem(
         ratingKey: '616bf60d8575f9def58a793e',
         key: '/library/metadata/616bf60d8575f9def58a793e',
         title: "Richard Hammond's Workshop",
@@ -78,7 +78,7 @@ void main() {
         year: 2021,
       );
 
-      final localServerItem = const PlexMediaItem(
+      const localServerItem = PlexMediaItem(
         ratingKey: '47341',
         key: '/library/metadata/47341',
         title: "Richard Hammond's Car Workshop",

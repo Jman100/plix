@@ -73,9 +73,9 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Logo
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   PlixAppLogo(
                     size: 48,
                     showWordmark: false,

@@ -84,7 +84,7 @@ void main() {
     });
 
     test('Date Added sorting strictly orders by addedAt', () {
-      final itemOld = PlexMediaItem(
+      const itemOld = PlexMediaItem(
         ratingKey: '1',
         key: '/1',
         title: 'Old Added (Released 2025)',
@@ -93,7 +93,7 @@ void main() {
         addedAt: 1000,
       );
 
-      final itemNew = PlexMediaItem(
+      const itemNew = PlexMediaItem(
         ratingKey: '2',
         key: '/2',
         title: 'Recently Added (Released 1980)',

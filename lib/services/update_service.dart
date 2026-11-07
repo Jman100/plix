@@ -528,14 +528,14 @@ fi
 
 INSTALL_SUCCESS=1
 if [[ "${targetFile.path}" == *.pkg.tar* ]] || command -v pacman >/dev/null 2>&1; then
-    echo "Running: \$ELEVATE pacman -U --noconfirm \"${targetFile.path}\""
+    echo "Running: \$ELEVATE pacman -U --noconfirm '${targetFile.path}'"
     echo ""
     \$ELEVATE pacman -U --noconfirm "${targetFile.path}"
     if [ \$? -eq 0 ]; then
         INSTALL_SUCCESS=0
     fi
 elif [[ "${targetFile.path}" == *.deb ]] || command -v dpkg >/dev/null 2>&1; then
-    echo "Running: \$ELEVATE dpkg -i \"${targetFile.path}\""
+    echo "Running: \$ELEVATE dpkg -i '${targetFile.path}'"
     echo ""
     \$ELEVATE dpkg -i "${targetFile.path}"
     if [ \$? -eq 0 ]; then
@@ -551,7 +551,7 @@ elif [[ "${targetFile.path}" == *.deb ]] || command -v dpkg >/dev/null 2>&1; the
         fi
     fi
 elif [[ "${targetFile.path}" == *.rpm ]] || command -v rpm >/dev/null 2>&1; then
-    echo "Running: \$ELEVATE rpm -U \"${targetFile.path}\""
+    echo "Running: \$ELEVATE rpm -U '${targetFile.path}'"
     echo ""
     \$ELEVATE rpm -U "${targetFile.path}"
     if [ \$? -eq 0 ]; then

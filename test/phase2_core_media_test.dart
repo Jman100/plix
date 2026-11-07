@@ -31,13 +31,13 @@ void main() {
       serviceA.invalidateCache();
       serviceB.invalidateCache();
 
-      final itemA = PlexMediaItem(
+      const itemA = PlexMediaItem(
         key: '/library/metadata/42',
         ratingKey: '42',
         title: 'Movie on Server A',
         type: 'movie',
       );
-      final itemB = PlexMediaItem(
+      const itemB = PlexMediaItem(
         key: '/library/metadata/42',
         ratingKey: '42',
         title: 'Movie on Server B',
@@ -67,7 +67,7 @@ void main() {
     });
 
     test('PlexSubtitleStream identifies bitmap vs text subtitles correctly', () {
-      final srt = PlexSubtitleStream(
+      const srt = PlexSubtitleStream(
         id: '1',
         key: '/sub/1',
         streamIndex: 2,
@@ -76,7 +76,7 @@ void main() {
         languageCode: 'eng',
         displayTitle: 'English (SRT)',
       );
-      final pgs = PlexSubtitleStream(
+      const pgs = PlexSubtitleStream(
         id: '2',
         key: '/sub/2',
         streamIndex: 3,
@@ -85,7 +85,7 @@ void main() {
         languageCode: 'eng',
         displayTitle: 'English (PGS)',
       );
-      final vobsub = PlexSubtitleStream(
+      const vobsub = PlexSubtitleStream(
         id: '3',
         key: '/sub/3',
         streamIndex: 4,

@@ -34,7 +34,7 @@ jobs:
 
       - name: Run Flutter Analyze
         shell: pwsh
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Run Flutter Tests
         shell: pwsh

@@ -155,7 +155,6 @@ void main() {
     });
 
     testWidgets('never shows for existing users or updates without fresh install flag', (tester) async {
-      final prefs = await SharedPreferences.getInstance();
       // An existing user or app update will NOT have plix_fresh_install_pending_tour
       await serverService.saveFavoriteLibraryIds(['test_srv_lib1']);
 
