@@ -86,11 +86,7 @@ class UpdateInfo {
     final isArch = UpdateService.isArchLinux();
     final effectiveLinux = isArch ? linuxArch : linuxDeb;
 
-    final rawNotes = json['releaseNotes']?.toString() ?? '';
-    final notes = Platform.isAndroid
-        ? (json['androidReleaseNotes']?.toString() ??
-            'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.')
-        : rawNotes;
+    final notes = json['releaseNotes']?.toString() ?? '';
     final date = json['releaseDate']?.toString() ?? '';
 
     final sha = json['sha256']?.toString() ?? '';
@@ -351,10 +347,7 @@ class UpdateService {
             }
           }
         }
-        final rawNotes = json['body']?.toString() ?? '';
-        final notes = Platform.isAndroid
-            ? 'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.'
-            : rawNotes;
+        final notes = json['body']?.toString() ?? '';
         final date = (json['published_at']?.toString() ?? '').split('T').first;
         final hasUpdate = isVersionNewer(tagName, currentVersion);
         final isArch = isArchLinux();
@@ -1054,9 +1047,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Text(
-                          Platform.isAndroid
-                              ? 'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.'
-                              : widget.updateInfo.releaseNotes,
+                          widget.updateInfo.releaseNotes,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
