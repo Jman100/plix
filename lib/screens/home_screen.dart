@@ -263,6 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       ThemeMusicService.instance.stopImmediate();
       _checkForAutoUpdate();
+      _refreshContinueWatching(forceFocusFirst: false);
     }
   }
 

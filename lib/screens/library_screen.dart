@@ -38,6 +38,9 @@ enum _LibrarySortOption {
 class _LibraryScreenState extends State<LibraryScreen> {
   late PlexMediaService _mediaService;
   List<PlexMediaItem> _items = [];
+  List<PlexMediaItem> _allItems = [];
+  String? _selectedCategory;
+  final FocusNode _categoriesButtonFocusNode = FocusNode();
   bool _isLoading = true;
   String? _errorMessage;
   int? _lastSelectedIndex;
@@ -142,6 +145,120 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
+
+  List<PlexMediaItem> _filterByCategory(List<PlexMediaItem> items) {
+    if (_selectedCategory == null) return List.from(items);
+    return items.where((it) {
+      return it.genres.any((g) => g.toLowerCase() == _selectedCategory!.toLowerCase());
+    }).toList();
+  }
+
+  List<String> get _availableCategories {
+    final catSet = <String>{};
+    for (final it in _allItems) {
+      for (final g in it.genres) {
+        final trimmed = g.trim();
+        if (trimmed.isNotEmpty) catSet.add(trimmed);
+      }
+    }
+    final list = catSet.toList();
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  void _showCategoriesDialog() {
+    final categories = _availableCategories;
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No categories or genres found for this library.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: PlixTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: PlixTheme.cardBorder, width: 1.5),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.category_rounded, color: PlixTheme.plexGold, size: 22),
+              const SizedBox(width: 10),
+              const Text('Filter by Category', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    tileColor: _selectedCategory == null ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                    leading: Icon(Icons.apps_rounded, color: _selectedCategory == null ? PlixTheme.plexGold : Colors.white70),
+                    title: const Text('All Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    trailing: _selectedCategory == null ? Icon(Icons.check_rounded, color: PlixTheme.plexGold) : null,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      setState(() {
+                        _selectedCategory = null;
+                        _items = _filterByCategory(_allItems);
+                      });
+                      _applySort();
+                    },
+                  ),
+                  const Divider(color: Colors.white12),
+                  for (final cat in categories) ...[
+                    Builder(
+                      builder: (tileCtx) {
+                        final count = _allItems.where((it) => it.genres.any((g) => g.toLowerCase() == cat.toLowerCase())).length;
+                        final isSel = _selectedCategory?.toLowerCase() == cat.toLowerCase();
+                        return ListTile(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                          title: Text(cat, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('$count', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                              if (isSel) ...[
+                                const SizedBox(width: 8),
+                                Icon(Icons.check_rounded, color: PlixTheme.plexGold, size: 18),
+                              ],
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            setState(() {
+                              _selectedCategory = cat;
+                              _items = _filterByCategory(_allItems);
+                            });
+                            _applySort();
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _applySort() {
     setState(() {
       switch (_sortOption) {
@@ -176,10 +293,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final serverService = PlexServerService(authService: PlexAuthService());
         await serverService.testAndResolveBestConnection(_mediaService.server);
       }
-      final items = await _mediaService.getLibraryItems(widget.library.key);
+      final items = await _mediaService.getLibraryItems(widget.library.key, libraryType: widget.library.type);
       if (mounted) {
         setState(() {
-          _items = items;
+          _allItems = items;
+          _items = _filterByCategory(items);
           _isLoading = false;
         });
         _applySort();
@@ -232,6 +350,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: Text(widget.library.title),
         actions: [
+          IconButton(
+            focusNode: _categoriesButtonFocusNode,
+            icon: Icon(
+              _selectedCategory != null ? Icons.category_rounded : Icons.category_outlined,
+              color: _selectedCategory != null ? PlixTheme.plexGold : Colors.white,
+            ),
+            tooltip: _selectedCategory != null ? 'Category: $_selectedCategory' : 'Categories',
+            onPressed: _showCategoriesDialog,
+          ),
           PopupMenuButton<_LibrarySortOption>(
             icon: const Icon(Icons.sort_rounded),
             tooltip: 'Sort library',
@@ -300,7 +427,53 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   : ClipRect(
                       child: Padding(
                         padding: EdgeInsets.only(top: isCompact ? 12 : 24),
-                        child: GridView.builder(
+                        child: Column(
+                      children: [
+                        if (_selectedCategory != null) ...[
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 24, vertical: 4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: PlixTheme.plexGold.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Category: $_selectedCategory',
+                                        style: TextStyle(color: PlixTheme.plexGold, fontSize: 13, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedCategory = null;
+                                            _items = _filterByCategory(_allItems);
+                                          });
+                                          _applySort();
+                                        },
+                                        child: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${_items.length} items',
+                                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Expanded(
+                          child: GridView.builder(
                         controller: _gridScrollController,
                         clipBehavior: Clip.none,
                       padding: EdgeInsets.only(
@@ -343,6 +516,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         );
                       },
                     ),
+                  ),
+                ],
+              ),
                       ),
                     ),
     );

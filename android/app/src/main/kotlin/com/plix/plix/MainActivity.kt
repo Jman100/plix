@@ -617,6 +617,14 @@ class MainActivity: FlutterActivity() {
             var selectedMediaGroup: androidx.media3.common.TrackGroup? = null
             val currentTracks = player.currentTracks
 
+            // 0. If targetTrackIndex is -1 (external/downloaded subtitle handled by Flutter overlay),
+            // disable internal text track overrides so ExoPlayer does not default to an embedded track (e.g. Arabic).
+            if (targetTrackIndex != null && targetTrackIndex == -1) {
+                builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                player.trackSelectionParameters = builder.build()
+                return
+            }
+
             // 1. If targetTrackIndex is provided, select the exact text track by 0-based index
             if (targetTrackIndex != null && targetTrackIndex >= 0) {
                 var textTrackCounter = 0
@@ -898,6 +906,7 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun playMedia(url: String, headers: Map<String, String>?, positionMs: Long) {
+        android.util.Log.i("MainActivity", "playMedia URL: $url")
         stopPlayback()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

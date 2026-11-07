@@ -526,7 +526,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
               const cardWidth = 240.0;
               const spacing = 12.0;
               final columns = isCompact
-                  ? 1
+                  ? 2
                   : ((availableWidth + spacing) / (cardWidth + spacing)).floor().clamp(1, 4);
 
               final List<List<PlexLibrary>> rows = [];
@@ -540,59 +540,117 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
                   for (int r = 0; r < rows.length; r++) ...[
                     if (r > 0) const SizedBox(height: spacing),
                     Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize: isCompact ? MainAxisSize.max : MainAxisSize.min,
                       children: [
                         for (int c = 0; c < rows[r].length; c++) ...[
                           if (c > 0) const SizedBox(width: spacing),
-                          _FavoriteLibraryCard(
-                            library: rows[r][c],
-                            isFavorited: _selectedCompositeIds.contains(rows[r][c].compositeId),
-                            isFirstRow: sIdx == 0 && r == 0,
-                            focusNode: _cardFocusNodes.putIfAbsent(
-                              rows[r][c].compositeId,
-                              () => FocusNode(debugLabel: 'fav_'),
-                            ),
-                            onLeft: c > 0
-                                ? () => _cardFocusNodes[rows[r][c - 1].compositeId]?.requestFocus()
-                                : null,
-                            onRight: c < rows[r].length - 1
-                                ? () => _cardFocusNodes[rows[r][c + 1].compositeId]?.requestFocus()
-                                : null,
-                            onDown: () {
-                              if (r < rows.length - 1) {
-                                final nextRow = rows[r + 1];
-                                final targetCol = math.min(c, nextRow.length - 1);
-                                _cardFocusNodes[nextRow[targetCol].compositeId]?.requestFocus();
-                              } else {
-                                if (nextServerWithLibs != null) {
-                                  final nextLibs = _serverLibraries[nextServerWithLibs.clientIdentifier]!;
-                                  _cardFocusNodes[nextLibs.first.compositeId]?.requestFocus();
-                                } else {
-                                  _bottomSaveBtnFocusNode.requestFocus();
-                                }
-                              }
-                            },
-                            onUp: () {
-                              if (r > 0) {
-                                final prevRow = rows[r - 1];
-                                final targetCol = math.min(c, prevRow.length - 1);
-                                _cardFocusNodes[prevRow[targetCol].compositeId]?.requestFocus();
-                              } else {
-                                if (prevServerWithLibs != null) {
-                                  final prevLibs = _serverLibraries[prevServerWithLibs.clientIdentifier]!;
-                                  _cardFocusNodes[prevLibs.first.compositeId]?.requestFocus();
-                                } else {
-                                  _saveBtnFocusNode.requestFocus();
-                                  if (_scrollController.hasClients) {
-                                    _scrollController.animateTo(0.0,
-                                        duration: const Duration(milliseconds: 200),
-                                        curve: Curves.easeOutCubic);
-                                  }
-                                }
-                              }
-                            },
-                            onToggle: () => _toggleFavorite(rows[r][c].compositeId),
-                          ),
+                          isCompact
+                              ? Expanded(
+                                  child: _FavoriteLibraryCard(
+                                    library: rows[r][c],
+                                    isCompact: true,
+                                    isFavorited: _selectedCompositeIds.contains(rows[r][c].compositeId),
+                                    isFirstRow: sIdx == 0 && r == 0,
+                                    focusNode: _cardFocusNodes.putIfAbsent(
+                                      rows[r][c].compositeId,
+                                      () => FocusNode(debugLabel: 'fav_'),
+                                    ),
+                                    onLeft: c > 0
+                                        ? () => _cardFocusNodes[rows[r][c - 1].compositeId]?.requestFocus()
+                                        : null,
+                                    onRight: c < rows[r].length - 1
+                                        ? () => _cardFocusNodes[rows[r][c + 1].compositeId]?.requestFocus()
+                                        : null,
+                                    onDown: () {
+                                      if (r < rows.length - 1) {
+                                        final nextRow = rows[r + 1];
+                                        final targetCol = math.min(c, nextRow.length - 1);
+                                        _cardFocusNodes[nextRow[targetCol].compositeId]?.requestFocus();
+                                      } else {
+                                        if (nextServerWithLibs != null) {
+                                          final nextLibs = _serverLibraries[nextServerWithLibs.clientIdentifier]!;
+                                          _cardFocusNodes[nextLibs.first.compositeId]?.requestFocus();
+                                        } else {
+                                          _bottomSaveBtnFocusNode.requestFocus();
+                                        }
+                                      }
+                                    },
+                                    onUp: () {
+                                      if (r > 0) {
+                                        final prevRow = rows[r - 1];
+                                        final targetCol = math.min(c, prevRow.length - 1);
+                                        _cardFocusNodes[prevRow[targetCol].compositeId]?.requestFocus();
+                                      } else {
+                                        if (prevServerWithLibs != null) {
+                                          final prevLibs = _serverLibraries[prevServerWithLibs.clientIdentifier]!;
+                                          _cardFocusNodes[prevLibs.first.compositeId]?.requestFocus();
+                                        } else {
+                                          _saveBtnFocusNode.requestFocus();
+                                          if (_scrollController.hasClients) {
+                                            _scrollController.animateTo(0.0,
+                                                duration: const Duration(milliseconds: 200),
+                                                curve: Curves.easeOutCubic);
+                                          }
+                                        }
+                                      }
+                                    },
+                                    onToggle: () => _toggleFavorite(rows[r][c].compositeId),
+                                  ),
+                                )
+                              : _FavoriteLibraryCard(
+                                  library: rows[r][c],
+                                  isCompact: false,
+                                  isFavorited: _selectedCompositeIds.contains(rows[r][c].compositeId),
+                                  isFirstRow: sIdx == 0 && r == 0,
+                                  focusNode: _cardFocusNodes.putIfAbsent(
+                                    rows[r][c].compositeId,
+                                    () => FocusNode(debugLabel: 'fav_'),
+                                  ),
+                                  onLeft: c > 0
+                                      ? () => _cardFocusNodes[rows[r][c - 1].compositeId]?.requestFocus()
+                                      : null,
+                                  onRight: c < rows[r].length - 1
+                                      ? () => _cardFocusNodes[rows[r][c + 1].compositeId]?.requestFocus()
+                                      : null,
+                                  onDown: () {
+                                    if (r < rows.length - 1) {
+                                      final nextRow = rows[r + 1];
+                                      final targetCol = math.min(c, nextRow.length - 1);
+                                      _cardFocusNodes[nextRow[targetCol].compositeId]?.requestFocus();
+                                    } else {
+                                      if (nextServerWithLibs != null) {
+                                        final nextLibs = _serverLibraries[nextServerWithLibs.clientIdentifier]!;
+                                        _cardFocusNodes[nextLibs.first.compositeId]?.requestFocus();
+                                      } else {
+                                        _bottomSaveBtnFocusNode.requestFocus();
+                                      }
+                                    }
+                                  },
+                                  onUp: () {
+                                    if (r > 0) {
+                                      final prevRow = rows[r - 1];
+                                      final targetCol = math.min(c, prevRow.length - 1);
+                                      _cardFocusNodes[prevRow[targetCol].compositeId]?.requestFocus();
+                                    } else {
+                                      if (prevServerWithLibs != null) {
+                                        final prevLibs = _serverLibraries[prevServerWithLibs.clientIdentifier]!;
+                                        _cardFocusNodes[prevLibs.first.compositeId]?.requestFocus();
+                                      } else {
+                                        _saveBtnFocusNode.requestFocus();
+                                        if (_scrollController.hasClients) {
+                                          _scrollController.animateTo(0.0,
+                                              duration: const Duration(milliseconds: 200),
+                                              curve: Curves.easeOutCubic);
+                                        }
+                                      }
+                                    }
+                                  },
+                                  onToggle: () => _toggleFavorite(rows[r][c].compositeId),
+                                ),
+                        ],
+                        if (isCompact && rows[r].length < columns) ...[
+                          const SizedBox(width: spacing),
+                          const Expanded(child: SizedBox.shrink()),
                         ],
                       ],
                     ),
@@ -610,6 +668,7 @@ class _FavoriteLibraryCard extends StatefulWidget {
   final PlexLibrary library;
   final bool isFavorited;
   final bool isFirstRow;
+  final bool isCompact;
   final FocusNode focusNode;
   final VoidCallback onToggle;
   final VoidCallback? onDown;
@@ -621,6 +680,7 @@ class _FavoriteLibraryCard extends StatefulWidget {
     required this.library,
     required this.isFavorited,
     this.isFirstRow = false,
+    this.isCompact = false,
     required this.focusNode,
     required this.onToggle,
     this.onDown,
@@ -736,7 +796,7 @@ class _FavoriteLibraryCardState extends State<_FavoriteLibraryCard> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          width: 240,
+          width: widget.isCompact ? null : 240,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: isHighlighted

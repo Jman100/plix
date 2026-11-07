@@ -196,20 +196,24 @@ class _MediaCardState extends State<MediaCard> {
                       children: [
                         Icon(
                           Icons.dns_rounded,
-                          size: 11,
+                          size: widget.width < 125 ? 9.5 : 11,
                           color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Flexible(
-                          child: Text(
-                            widget.topServerName!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
-                              letterSpacing: 0.2,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              widget.topServerName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: widget.width < 125 ? 9.5 : 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textMuted,
+                                letterSpacing: 0.1,
+                              ),
                             ),
                           ),
                         ),

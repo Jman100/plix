@@ -86,7 +86,11 @@ class UpdateInfo {
     final isArch = UpdateService.isArchLinux();
     final effectiveLinux = isArch ? linuxArch : linuxDeb;
 
-    final notes = json['releaseNotes']?.toString() ?? '';
+    final rawNotes = json['releaseNotes']?.toString() ?? '';
+    final notes = Platform.isAndroid
+        ? (json['androidReleaseNotes']?.toString() ??
+            'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.')
+        : rawNotes;
     final date = json['releaseDate']?.toString() ?? '';
 
     final sha = json['sha256']?.toString() ?? '';
@@ -122,8 +126,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.7.1';
-  static int _currentVersionCode = 41;
+  static String _currentVersion = '1.8.0';
+  static int _currentVersionCode = 42;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -347,7 +351,10 @@ class UpdateService {
             }
           }
         }
-        final notes = json['body']?.toString() ?? '';
+        final rawNotes = json['body']?.toString() ?? '';
+        final notes = Platform.isAndroid
+            ? 'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.'
+            : rawNotes;
         final date = (json['published_at']?.toString() ?? '').split('T').first;
         final hasUpdate = isVersionNewer(tagName, currentVersion);
         final isArch = isArchLinux();
@@ -1047,7 +1054,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Text(
-                          widget.updateInfo.releaseNotes,
+                          Platform.isAndroid
+                              ? 'THIS UPDATE MUST BE INSTALLED MANUALLY. UNINSTALL PLIX AND REINSTALL FROM THE PLIX WEBSITE.'
+                              : widget.updateInfo.releaseNotes,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 13,

@@ -107,6 +107,7 @@ class PlexMarker {
   });
 
   bool get isIntro => type.toLowerCase() == 'intro';
+  bool get isCredits => type.toLowerCase() == 'credits';
 
   factory PlexMarker.fromJson(Map<String, dynamic> json) {
     return PlexMarker(
@@ -236,6 +237,7 @@ class PlexMediaItem {
   final List<PlexMarker> markers;
   final String? guid;
   final List<String> guids;
+  final List<String> genres;
   final String? grandparentGuid;
   final int? lastViewedAt;
   final String? subtype;
@@ -309,6 +311,7 @@ class PlexMediaItem {
     this.markers = const [],
     this.guid,
     this.guids = const [],
+    this.genres = const [],
     this.grandparentGuid,
     this.lastViewedAt,
     this.subtype,
@@ -334,6 +337,7 @@ class PlexMediaItem {
       extraType == '1' ||
       (type == 'clip' && title.toLowerCase().contains('trailer'));
   PlexMarker? get introMarker => markers.where((m) => m.isIntro).firstOrNull;
+  PlexMarker? get creditsMarker => markers.where((m) => m.isCredits).firstOrNull;
 
   bool get isWatched => (viewCount ?? 0) > 0;
   bool get isInProgress => (viewOffset ?? 0) > 0;
@@ -1048,6 +1052,20 @@ class PlexMediaItem {
       }
     }
 
+    final List<String> parsedGenres = [];
+    final rawGenres = json['Genre'] ?? json['Genres'];
+    if (rawGenres is List) {
+      for (final g in rawGenres) {
+        if (g is Map && g['tag'] != null) {
+          final s = g['tag'].toString().trim();
+          if (s.isNotEmpty && !parsedGenres.contains(s)) parsedGenres.add(s);
+        } else if (g != null) {
+          final s = g.toString().trim();
+          if (s.isNotEmpty && !parsedGenres.contains(s)) parsedGenres.add(s);
+        }
+      }
+    }
+
     final List<String> parsedGuids = [];
     if (parsedGuid != null && parsedGuid.isNotEmpty) {
       parsedGuids.add(parsedGuid);
@@ -1141,6 +1159,7 @@ class PlexMediaItem {
       markers: markers,
       guid: parsedGuid,
       guids: parsedGuids,
+      genres: parsedGenres,
       grandparentGuid: json['grandparentGuid']?.toString(),
       subtype: json['subtype']?.toString(),
       extraType: json['extraType']?.toString(),
@@ -1216,6 +1235,7 @@ class PlexMediaItem {
     List<PlexMarker>? markers,
     String? guid,
     List<String>? guids,
+    List<String>? genres,
     String? grandparentGuid,
     int? lastViewedAt,
     String? subtype,
@@ -1289,6 +1309,7 @@ class PlexMediaItem {
       targetSeasonKey: targetSeasonKey ?? this.targetSeasonKey,
       guid: guid ?? this.guid,
       guids: guids ?? this.guids,
+      genres: genres ?? this.genres,
       grandparentGuid: grandparentGuid ?? this.grandparentGuid,
       lastViewedAt: lastViewedAt ?? this.lastViewedAt,
       subtype: subtype ?? this.subtype,

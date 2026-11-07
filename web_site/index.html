@@ -171,7 +171,7 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-black tracking-tight text-white">PLIX</span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
-              v1.7.1
+              v1.8.0
             </span>
           </div>
           <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
@@ -215,7 +215,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.7.1</strong> is now live</span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.8.0</strong> is now live</span>
         <span class="text-neutral-500">•</span>
         <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
           <span>Release Notes</span>
@@ -267,7 +267,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.7.1</span>
+            <span id="winVersionLabel">Version 1.8.0</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -304,7 +304,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.7.1</span>
+            <span id="androidVersionLabel">Version 1.8.0</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -363,7 +363,7 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
-            <span id="linuxVersionLabel">Version 1.7.1</span>
+            <span id="linuxVersionLabel">Version 1.8.0</span>
             <span>DEB • Arch • Portable</span>
           </div>
         </div>
@@ -543,7 +543,7 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.7.1</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.8.0</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
               <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 4, 2026</span></p>
@@ -570,50 +570,38 @@
         <!-- Release Notes Content List -->
         <div>
           <h3 class="text-xs font-bold tracking-wider text-neutral-400 uppercase mb-4">What's New in this Release:</h3>
-          <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
+                    <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Arch Linux Self-Updater Fix:</strong> Resolved package auto-updater opening in archive managers (such as Ark) by introducing an interactive terminal updater script that executes pacman -U with elevated privileges and cleanly relaunches Plix.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Android Manual Reinstall Required:</strong> Due to core playback and package updates, Android users must uninstall previous versions of Plix and reinstall fresh from <a href="https://plix.jman100.com" class="text-brand-cyan hover:underline">https://plix.jman100.com</a>.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Plex Watchlist Instant Open:</strong> Eliminated 20-second blocking delays when opening Plex watchlist titles by adding fast-path active local server resolution (~100ms) with non-blocking background metadata synchronization.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Search Subtitles Modal Timeout &amp; Focus Fix:</strong> Prevented media overlay timeout from hiding controls behind the modal during playback, keeping remote focus locked inside the search dialog.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Title Art &amp; Clear Logos:</strong> Replicated official Plex title art branding across the home hero section, movie, show, and episode detail pages with English logo prioritization and styled typographic fallbacks.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Jellyfin Downloaded Subtitles Matching:</strong> Resolved issue where downloaded external subtitles defaulted to Arabic MKV tracks by disabling ExoPlayer internal text tracks and streaming exact subtitle files with MediaSourceId.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Home Title Art Pre-Caching &amp; Transcode Acceleration:</strong> Background pre-caching engine warms up title art across Continue Watching and active library rows; size-bounded Plex photo transcoding delivers lightweight, transparent PNGs (~15-30 KB) with zero perceived lag.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Jellyfin Transcoding Fix:</strong> Fixed quality transcode source error on Jellyfin media by omitting StartTimeTicks from HLS VOD master manifests to preserve valid segment timestamps.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Zero-Shift Detail Pages:</strong> Pre-positioned reserved bounding boxes for title artwork on movies, shows, and episodes eliminate vertical layout jumping when media metadata and assets load.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Watchlist Series-Level Filtering:</strong> Restricted Watchlist to top-level series and movies, preventing individual episodes (like FBI S9:E3) from cluttering the watchlist and routing episode watchlist actions to parent shows.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Mobile Portrait Art &amp; Navigation Polish:</strong> Movie detail pages in mobile portrait feature prominent centered title art over top-aligned, full-width backdrops; centered episode and show headers; and a scrollable favorite libraries sheet with a 5th-item peek indicator.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Custom Theme Color Picker Keyboard Navigation:</strong> Added dedicated edit mode for hex color input on TV, allowing smooth D-pad navigation across virtual keyboard keys without accidental dismissals.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Desktop Volume Controls &amp; Autoplay Fix:</strong> Added in-player desktop volume slider with hover controls, mute toggle, and mouse wheel support; fixed unfocused background window autoplay interruptions.</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">Live Theme Preview Button Background:</strong> Updated theme settings live preview bar button background to dynamically reflect configured Sidebar &amp; Surfaces colors across standard, OLED, and Glass themes.</div>
             </li>
             <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Windows Per-App Display HDR:</strong> Automatic detection and dynamic switching of display HDR for HDR10 media playback on Windows, cleanly restoring SDR upon stop.</div>
-            </li>
-            <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Detail Header SX:EX Notation:</strong> Streamlined episode detail subtitle line to clean SX:EX format, eliminating show title redundancy.</div>
-            </li>
-            <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">Multi-Server Settings Accuracy:</strong> Correctly enumerates and displays all connected Plex and Jellyfin servers in settings.</div>
-            </li>
-            <li class="flex items-start gap-3">
-              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">✓</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.7.1 (versionCode 41).</div>
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.8.0 (versionCode 42).</div>
             </li>
           </ul>
         </div>

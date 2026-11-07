@@ -185,6 +185,9 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
         title: item.title,
         type: 'episode',
         thumb: item.thumb,
+        server: item.server ?? widget.server,
+        serverId: item.serverId ?? widget.server.clientIdentifier,
+        librarySectionId: item.librarySectionId ?? widget.library.key,
         grandparentTitle: item.grandparentTitle ?? item.title,
         grandparentThumb: item.grandparentThumb ?? item.thumb,
       );

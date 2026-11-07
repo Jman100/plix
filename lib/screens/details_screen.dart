@@ -63,6 +63,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   final FocusNode _firstCastFocusNode = FocusNode();
   final FocusNode _seasonDropdownFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _seasonsScrollController = ScrollController();
   final GlobalKey _actionRowKey = GlobalKey();
   final Map<String, FocusNode> _seasonFocusNodes = {};
   final Map<String, FocusNode> _episodeFocusNodes = {};
@@ -87,6 +88,21 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       }
     }
     return _seasonFocusNodes.values.firstOrNull ?? _firstSeasonFocusNode;
+  }
+
+  void _scrollToSelectedSeason() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_seasonsScrollController.hasClients || _selectedSeason == null) return;
+      final idx = _seasons.indexWhere((s) => s.ratingKey == _selectedSeason!.ratingKey || s.key == _selectedSeason!.key);
+      if (idx > 0) {
+        final target = (idx * 125.0 - 40.0).clamp(0.0, _seasonsScrollController.position.maxScrollExtent);
+        _seasonsScrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
   }
 
   void _focusSelectedSeason() {
@@ -203,6 +219,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     ThemeMusicService.instance.unregisterScreen(_screenToken);
     _scrollController.dispose();
+    _seasonsScrollController.dispose();
     _firstEpisodeFocusNode.dispose();
     _firstSeasonFocusNode.dispose();
     _seasonDropdownFocusNode.dispose();
@@ -295,9 +312,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   Future<void> _loadFullDetails({bool restoreFocus = false, bool refresh = false}) async {
     setState(() => _isLoadingDetails = true);
 
-    // If item is a cloud/Discover item, resolve to server item BEFORE fetching metadata
-    final isCloudItem = int.tryParse(_item.ratingKey) == null && !_mediaService.server.isJellyfin;
-    if (isCloudItem || ((_item.isMovie || _item.isEpisode) && (_item.partKey == null || _item.partKey!.isEmpty))) {
+    // If item is a cloud/Discover item, resolve to server item BEFORE fetching metadata.
+    // Skip resolving if it already belongs to a local Jellyfin server or local Plex server with library section.
+    final isJellyfinItem = _mediaService.server.isJellyfin || (_item.server?.isJellyfin == true);
+    final isCloudItem = int.tryParse(_item.ratingKey) == null && !isJellyfinItem;
+    if (!isJellyfinItem && (isCloudItem || ((_item.isMovie || _item.isEpisode) && (_item.partKey == null || _item.partKey!.isEmpty) && _item.librarySectionId == null))) {
       try {
         final serverService = PlexServerService(authService: PlexAuthService());
         final authService = PlexAuthService();
@@ -387,6 +406,18 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                 (s) => s.ratingKey == widget.initialSeasonKey || s.key == widget.initialSeasonKey,
                 orElse: () => seasons.first,
               );
+            } else if (_queuedEpisode != null) {
+              // Auto-select season matching the resume/queued episode
+              final queuedParentIndex = _queuedEpisode!.parentIndex;
+              final queuedParentRatingKey = _queuedEpisode!.parentRatingKey;
+              targetSeason = seasons.firstWhere(
+                (s) => (queuedParentRatingKey != null && (s.ratingKey == queuedParentRatingKey || s.key == queuedParentRatingKey)) ||
+                       (queuedParentIndex != null && s.index == queuedParentIndex),
+                orElse: () => seasons.firstWhere(
+                  (s) => (s.viewOffset != null && s.viewOffset! > 0) || (s.viewCount != null && s.viewCount! > 0),
+                  orElse: () => seasons.first,
+                ),
+              );
             } else {
               targetSeason = seasons.firstWhere(
                 (s) => (s.viewOffset != null && s.viewOffset! > 0) || (s.viewCount != null && s.viewCount! > 0),
@@ -403,6 +434,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           if (_selectedSeason != null) {
             final targetEpToFocus =
                 widget.initialEpisodeKey ?? ((!(Platform.isWindows || Platform.isLinux) && restoreFocus) ? _lastPlayedEpisodeKey : null);
+            _scrollToSelectedSeason();
             _loadEpisodesForSeason(
               _selectedSeason!,
               focusEpisodeKey: targetEpToFocus,
@@ -1249,6 +1281,16 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   label: 'Trailer',
                   onPressed: _playTrailer,
                 ),
+              if (_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
+                PlixButton(
+                  isPrimary: false,
+                  fontSize: 12.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  icon: const Icon(Icons.tv_rounded, size: 16),
+                  label: 'Series',
+                  onDown: _focusFirstCast,
+                  onPressed: _goToSeries,
+                ),
               PlixButton(
                 isPrimary: false,
                 fontSize: 12.0,
@@ -1276,7 +1318,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   size: 16,
                 ),
                 label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
-                blockRight: !(_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty),
+                blockRight: !(widget.server.owned && (_item.isMovie || _item.isEpisode)),
                 onDown: _focusFirstCast,
                 onPressed: _toggleWatched,
               ),
@@ -1287,18 +1329,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   icon: const Icon(Icons.info_outline_rounded, size: 16),
                   label: 'Get Info',
-                  onPressed: _showGetInfoModal,
-                ),
-              if (_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
-                PlixButton(
-                  isPrimary: false,
-                  fontSize: 12.0,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  icon: const Icon(Icons.tv_rounded, size: 16),
-                  label: 'Series',
                   blockRight: true,
                   onDown: _focusFirstCast,
-                  onPressed: _goToSeries,
+                  onPressed: _showGetInfoModal,
                 ),
             ] else ...[
               PlixButton(
@@ -1809,8 +1842,14 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                                   isPrimary: false,
                                                   fontSize: 12.0,
                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.cloud_off_rounded, size: 16),
-                                                  label: 'Not in Library',
+                                                  icon: _isLoadingDetails
+                                                      ? const SizedBox(
+                                                          width: 14,
+                                                          height: 14,
+                                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                                        )
+                                                      : const Icon(Icons.cloud_off_rounded, size: 16),
+                                                  label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
                                                   onDown: _focusFirstCast,
                                                   onPressed: () {
                                                     ScaffoldMessenger.of(context).removeCurrentSnackBar();
@@ -1847,6 +1886,20 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                                   onPressed: _playTrailer,
                                                 ),
                                               ],
+                                              if (_item.isEpisode &&
+                                                  _item.grandparentRatingKey != null &&
+                                                  _item.grandparentRatingKey!.isNotEmpty) ...[
+                                                PlixButton(
+                                                  onUp: () => _backButtonFocusNode.requestFocus(),
+                                                  isPrimary: false,
+                                                  fontSize: 12.0,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                  icon: const Icon(Icons.tv_rounded, size: 16),
+                                                  label: 'Series',
+                                                  onDown: _focusFirstCast,
+                                                  onPressed: _goToSeries,
+                                                ),
+                                              ],
                                               PlixButton(
                                                 onUp: () => _backButtonFocusNode.requestFocus(),
                                                 isPrimary: false,
@@ -1880,10 +1933,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                                   size: 16,
                                                 ),
                                                 label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
-                                                blockRight: !widget.server.owned &&
-                                                      !(_item.isEpisode &&
-                                                          _item.grandparentRatingKey != null &&
-                                                          _item.grandparentRatingKey!.isNotEmpty),
+                                                blockRight: !(widget.server.owned && (_item.isMovie || _item.isEpisode)),
                                                 onDown: _focusFirstCast,
                                                 onPressed: _toggleWatched,
                                               ),
@@ -1895,28 +1945,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                                     icon: const Icon(Icons.info_outline_rounded, size: 16),
                                                     label: 'Get Info',
-                                                    blockRight: !(_item.isEpisode &&
-                                                        _item.grandparentRatingKey != null &&
-                                                        _item.grandparentRatingKey!.isNotEmpty),
+                                                    blockRight: true,
                                                     onDown: _focusFirstCast,
                                                     onPressed: _showGetInfoModal,
                                                   ),
                                                 ],
-                                              if (_item.isEpisode &&
-                                                  _item.grandparentRatingKey != null &&
-                                                  _item.grandparentRatingKey!.isNotEmpty) ...[
-                                                PlixButton(
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.tv_rounded, size: 16),
-                                                  label: 'Series',
-                                                  blockRight: true,
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: _goToSeries,
-                                                ),
-                                              ],
                                             ])
                                               IntrinsicWidth(child: button),
                                               ],
@@ -2059,9 +2092,12 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                         )
                       else
                         SizedBox(
-                          height: 48,
+                          height: 54,
                           child: ListView.separated(
+                            controller: _seasonsScrollController,
                             scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                             physics: const BouncingScrollPhysics(),
                             itemCount: _seasons.length,
                             separatorBuilder: (_, __) => const SizedBox(width: 10),
