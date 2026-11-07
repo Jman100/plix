@@ -211,7 +211,7 @@ class _CastCardState extends State<_CastCard> {
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            width: 112,
+            width: 100,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: highlighted ? PlixTheme.cardFocused : Colors.transparent,
@@ -227,8 +227,8 @@ class _CastCardState extends State<_CastCard> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
-                    width: 104,
-                    height: 124,
+                    width: 92,
+                    height: 138,
                     child: widget.imageUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: widget.imageUrl,

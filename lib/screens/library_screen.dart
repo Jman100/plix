@@ -178,82 +178,45 @@ class _LibraryScreenState extends State<LibraryScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: PlixTheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: PlixTheme.cardBorder, width: 1.5),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.category_rounded, color: PlixTheme.plexGold, size: 22),
-              const SizedBox(width: 10),
-              const Text('Filter by Category', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SizedBox(
-            width: 440,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    tileColor: _selectedCategory == null ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
-                    leading: Icon(Icons.apps_rounded, color: _selectedCategory == null ? PlixTheme.plexGold : Colors.white70),
-                    title: const Text('All Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    trailing: _selectedCategory == null ? Icon(Icons.check_rounded, color: PlixTheme.plexGold) : null,
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      setState(() {
-                        _selectedCategory = null;
-                        _items = _filterByCategory(_allItems);
-                      });
-                      _applySort();
-                    },
-                  ),
-                  const Divider(color: Colors.white12),
-                  for (final cat in categories) ...[
-                    Builder(
-                      builder: (tileCtx) {
-                        final count = _allItems.where((it) => it.genres.any((g) => g.toLowerCase() == cat.toLowerCase())).length;
-                        final isSel = _selectedCategory?.toLowerCase() == cat.toLowerCase();
-                        return ListTile(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
-                          title: Text(cat, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('$count', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                              if (isSel) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.check_rounded, color: PlixTheme.plexGold, size: 18),
-                              ],
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.of(ctx).pop();
-                            setState(() {
-                              _selectedCategory = cat;
-                              _items = _filterByCategory(_allItems);
-                            });
-                            _applySort();
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close', style: TextStyle(color: Colors.white70)),
-            ),
-          ],
+        return _CategoryDialogContent(
+          categories: categories,
+          selectedCategory: _selectedCategory,
+          allItems: _allItems,
+          onSelect: (cat) {
+            Navigator.of(ctx).pop();
+            setState(() {
+              _selectedCategory = cat;
+              _items = _filterByCategory(_allItems);
+            });
+            _applySort();
+          },
+        );
+      },
+    );
+  }
+
+  void _showSortDialog() {
+    final sortOptions = [
+      {'opt': _LibrarySortOption.nameAsc, 'title': 'Name (A to Z)'},
+      {'opt': _LibrarySortOption.nameDesc, 'title': 'Name (Z to A)'},
+      {'opt': _LibrarySortOption.yearDesc, 'title': 'Release Year (Newest)'},
+      {'opt': _LibrarySortOption.yearAsc, 'title': 'Release Year (Oldest)'},
+      {'opt': _LibrarySortOption.dateAdded, 'title': 'Date Added (Recently Added)'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return _SortDialogContent(
+          options: sortOptions,
+          currentSort: _sortOption,
+          onSelect: (opt) {
+            Navigator.of(ctx).pop();
+            setState(() {
+              _sortOption = opt;
+            });
+            _applySort();
+          },
         );
       },
     );
@@ -281,7 +244,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
-  Future<void> _loadItems() async {
+  Future<void> _loadItems({bool refresh = false}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -293,7 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final serverService = PlexServerService(authService: PlexAuthService());
         await serverService.testAndResolveBestConnection(_mediaService.server);
       }
-      final items = await _mediaService.getLibraryItems(widget.library.key, libraryType: widget.library.type);
+      final items = await _mediaService.getLibraryItems(widget.library.key, libraryType: widget.library.type, refresh: refresh);
       if (mounted) {
         setState(() {
           _allItems = items;
@@ -359,41 +322,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
             tooltip: _selectedCategory != null ? 'Category: $_selectedCategory' : 'Categories',
             onPressed: _showCategoriesDialog,
           ),
-          PopupMenuButton<_LibrarySortOption>(
+          IconButton(
             icon: const Icon(Icons.sort_rounded),
             tooltip: 'Sort library',
-            color: PlixTheme.surface,
-            initialValue: _sortOption,
-            onSelected: (option) {
-              _sortOption = option;
-              _applySort();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _LibrarySortOption.nameAsc,
-                child: Text('Name (A to Z)', style: TextStyle(color: Colors.white)),
-              ),
-              const PopupMenuItem(
-                value: _LibrarySortOption.nameDesc,
-                child: Text('Name (Z to A)', style: TextStyle(color: Colors.white)),
-              ),
-              const PopupMenuItem(
-                value: _LibrarySortOption.yearDesc,
-                child: Text('Release Year (Newest)', style: TextStyle(color: Colors.white)),
-              ),
-              const PopupMenuItem(
-                value: _LibrarySortOption.yearAsc,
-                child: Text('Release Year (Oldest)', style: TextStyle(color: Colors.white)),
-              ),
-              const PopupMenuItem(
-                value: _LibrarySortOption.dateAdded,
-                child: Text('Date Added (Recently Added)', style: TextStyle(color: Colors.white)),
-              ),
-            ],
+            onPressed: _showSortDialog,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadItems,
+            onPressed: () => _loadItems(refresh: true),
           ),
         ],
       ),
@@ -427,100 +363,324 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   : ClipRect(
                       child: Padding(
                         padding: EdgeInsets.only(top: isCompact ? 12 : 24),
-                        child: Column(
-                      children: [
-                        if (_selectedCategory != null) ...[
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 24, vertical: 4),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: PlixTheme.plexGold.withOpacity(0.18),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                        child: CustomScrollView(
+                          controller: _gridScrollController,
+                          slivers: [
+                            if (_selectedCategory != null)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: isCompact ? 14 : 24,
+                                    right: isCompact ? 14 : 24,
+                                    top: 4,
+                                    bottom: 12,
                                   ),
                                   child: Row(
-                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        'Category: $_selectedCategory',
-                                        style: TextStyle(color: PlixTheme.plexGold, fontSize: 13, fontWeight: FontWeight.bold),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: PlixTheme.plexGold.withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'Category: $_selectedCategory',
+                                              style: TextStyle(color: PlixTheme.plexGold, fontSize: 13, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedCategory = null;
+                                                  _items = _filterByCategory(_allItems);
+                                                });
+                                                _applySort();
+                                              },
+                                              child: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedCategory = null;
-                                            _items = _filterByCategory(_allItems);
-                                          });
-                                          _applySort();
-                                        },
-                                        child: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
+                                      const Spacer(),
+                                      Text(
+                                        '${_items.length} items',
+                                        style: const TextStyle(color: Colors.white54, fontSize: 12),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Spacer(),
-                                Text(
-                                  '${_items.length} items',
-                                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              ),
+                            SliverPadding(
+                              padding: EdgeInsets.only(
+                                left: isCompact ? 14 : 24,
+                                right: isCompact ? 14 : 24,
+                                bottom: isCompact ? 24 : 140,
+                              ),
+                              sliver: SliverGrid(
+                                gridDelegate: isCompact
+                                    ? SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: (MediaQuery.of(context).size.width / 130).floor().clamp(3, 7),
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 12,
+                                        childAspectRatio: 0.51,
+                                      )
+                                    : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 165,
+                                        childAspectRatio: 0.52,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 18,
+                                      ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final item = _items[index];
+                                    return LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        return MediaCard(
+                                          item: item,
+                                          mediaService: _mediaService,
+                                          focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
+                                          width: constraints.maxWidth,
+                                          margin: EdgeInsets.zero,
+                                          autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
+                                          enableHighlight: !isCompact,
+                                          onFocusChange: (focused) {
+                                            if (focused) _handleItemFocus(index, isCompact);
+                                          },
+                                          onTap: () => _onItemTap(item, index),
+                                        );
+                                      },
+                                    );
+                                  },
+                                  childCount: _items.length,
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        Expanded(
-                          child: GridView.builder(
-                        controller: _gridScrollController,
-                        clipBehavior: Clip.none,
-                      padding: EdgeInsets.only(
-                        left: isCompact ? 14 : 24,
-                        right: isCompact ? 14 : 24,
-                        bottom: isCompact ? 24 : 140,
+                          ],
+                        ),
                       ),
-                      gridDelegate: isCompact
-                              ? SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: (MediaQuery.of(context).size.width / 130).floor().clamp(3, 7),
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.51,
-                            )
-                          : const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 165,
-                              childAspectRatio: 0.52,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 18,
-                            ),
-                      itemCount: _items.length,
-                      itemBuilder: (context, index) {
-                        final item = _items[index];
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
-                            return MediaCard(
-                              item: item,
-                              mediaService: _mediaService,
-                              focusNode: _focusNodes.putIfAbsent(index, () => FocusNode()),
-                              width: constraints.maxWidth,
-                              margin: EdgeInsets.zero,
-                              autofocus: !isCompact && index == (_lastSelectedIndex ?? 0),
-                              enableHighlight: !isCompact,
-                              onFocusChange: (focused) {
-                                if (focused) _handleItemFocus(index, isCompact);
-                              },
-                              onTap: () => _onItemTap(item, index),
-                            );
-                          },
-                        );
-                      },
                     ),
-                  ),
-                ],
+    );
+  }
+}
+
+
+class _CategoryDialogContent extends StatefulWidget {
+  final List<String> categories;
+  final String? selectedCategory;
+  final List<PlexMediaItem> allItems;
+  final ValueChanged<String?> onSelect;
+
+  const _CategoryDialogContent({
+    required this.categories,
+    required this.selectedCategory,
+    required this.allItems,
+    required this.onSelect,
+  });
+
+  @override
+  State<_CategoryDialogContent> createState() => _CategoryDialogContentState();
+}
+
+class _CategoryDialogContentState extends State<_CategoryDialogContent> {
+  final FocusNode _allCategoriesFocusNode = FocusNode();
+  final Map<String, FocusNode> _categoryFocusNodes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.selectedCategory == null) {
+        _allCategoriesFocusNode.requestFocus();
+        Scrollable.ensureVisible(context, alignment: 0.5);
+      } else {
+        final node = _categoryFocusNodes[widget.selectedCategory!.toLowerCase()];
+        if (node != null) {
+          node.requestFocus();
+          if (node.context != null) {
+            Scrollable.ensureVisible(node.context!, alignment: 0.5);
+          }
+        } else {
+          _allCategoriesFocusNode.requestFocus();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _allCategoriesFocusNode.dispose();
+    for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: PlixTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: PlixTheme.cardBorder, width: 1.5),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.category_rounded, color: PlixTheme.plexGold, size: 22),
+          const SizedBox(width: 10),
+          const Text('Filter by Category', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: SizedBox(
+        width: 440,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                focusNode: _allCategoriesFocusNode,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                tileColor: widget.selectedCategory == null ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                leading: Icon(Icons.apps_rounded, color: widget.selectedCategory == null ? PlixTheme.plexGold : Colors.white70),
+                title: const Text('All Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                trailing: widget.selectedCategory == null ? Icon(Icons.check_rounded, color: PlixTheme.plexGold) : null,
+                onTap: () => widget.onSelect(null),
               ),
+              const Divider(color: Colors.white12),
+              for (final cat in widget.categories) ...[
+                Builder(
+                  builder: (tileCtx) {
+                    final count = widget.allItems.where((it) => it.genres.any((g) => g.toLowerCase() == cat.toLowerCase())).length;
+                    final isSel = widget.selectedCategory?.toLowerCase() == cat.toLowerCase();
+                    final node = _categoryFocusNodes.putIfAbsent(cat.toLowerCase(), () => FocusNode());
+                    return ListTile(
+                      focusNode: node,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                      title: Text(cat, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('$count', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                          if (isSel) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.check_rounded, color: PlixTheme.plexGold, size: 18),
+                          ],
+                        ],
                       ),
-                    ),
+                      onTap: () => widget.onSelect(cat),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close', style: TextStyle(color: Colors.white70)),
+        ),
+      ],
+    );
+  }
+}
+
+class _SortDialogContent extends StatefulWidget {
+  final List<Map<String, dynamic>> options;
+  final _LibrarySortOption currentSort;
+  final ValueChanged<_LibrarySortOption> onSelect;
+
+  const _SortDialogContent({
+    required this.options,
+    required this.currentSort,
+    required this.onSelect,
+  });
+
+  @override
+  State<_SortDialogContent> createState() => _SortDialogContentState();
+}
+
+class _SortDialogContentState extends State<_SortDialogContent> {
+  final Map<_LibrarySortOption, FocusNode> _focusNodes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final node = _focusNodes[widget.currentSort] ?? _focusNodes[widget.options.first['opt'] as _LibrarySortOption];
+      if (node != null) {
+        node.requestFocus();
+        if (node.context != null) {
+          Scrollable.ensureVisible(node.context!, alignment: 0.5);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final node in _focusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: PlixTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: PlixTheme.cardBorder, width: 1.5),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.sort_rounded, color: PlixTheme.plexGold, size: 22),
+          const SizedBox(width: 10),
+          const Text('Sort Library', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in widget.options) ...[
+                Builder(
+                  builder: (tileCtx) {
+                    final opt = item['opt'] as _LibrarySortOption;
+                    final title = item['title'] as String;
+                    final isSel = widget.currentSort == opt;
+                    final node = _focusNodes.putIfAbsent(opt, () => FocusNode());
+                    return ListTile(
+                      focusNode: node,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                      title: Text(title, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                      trailing: isSel ? Icon(Icons.check_rounded, color: PlixTheme.plexGold, size: 18) : null,
+                      onTap: () => widget.onSelect(opt),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close', style: TextStyle(color: Colors.white70)),
+        ),
+      ],
     );
   }
 }

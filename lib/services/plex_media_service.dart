@@ -1548,12 +1548,9 @@ class PlexMediaService {
 
 
 
-  Future<List<PlexMediaItem>> getLibraryItems(String sectionKey, {String? libraryType}) async {
-
+  Future<List<PlexMediaItem>> getLibraryItems(String sectionKey, {String? libraryType, bool refresh = false}) async {
     if (server.isJellyfin) {
-
-      return _jfService.getLibraryItems(sectionKey, filter: libraryType);
-
+      return _jfService.getLibraryItems(sectionKey, filter: libraryType, refresh: refresh);
     }
 
     final url = Uri.parse('$baseUrl/library/sections/$sectionKey/all');
@@ -2420,7 +2417,7 @@ class PlexMediaService {
 
         if (response.statusCode == 200) {
 
-          final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+          final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
 
           if (_isSubtitleContent(body)) {
 
@@ -2448,7 +2445,7 @@ class PlexMediaService {
 
         if (response.statusCode == 200) {
 
-          final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+          final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
 
           if (_isSubtitleContent(body)) {
 
@@ -2490,7 +2487,7 @@ class PlexMediaService {
 
       if (response.statusCode == 200) {
 
-        final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+        final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
 
         if (_isSubtitleContent(body)) {
 
@@ -2528,7 +2525,7 @@ class PlexMediaService {
 
       if (response.statusCode == 200) {
 
-        final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+        final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
 
         if (_isSubtitleContent(body)) {
 
@@ -4104,62 +4101,56 @@ class PlexMediaService {
 
 
 
+  static String _toThreeLetterLang(String lang) {
+    const map = {
+      'en': 'eng', 'es': 'spa', 'fr': 'fra', 'de': 'deu', 'it': 'ita',
+      'pt': 'por', 'nl': 'nld', 'pl': 'pol', 'ru': 'rus', 'ja': 'jpn',
+      'ko': 'kor', 'zh': 'zho', 'ar': 'ara', 'hi': 'hin', 'tr': 'tur',
+      'sv': 'swe', 'da': 'dan', 'no': 'nor', 'fi': 'fin', 'cs': 'ces',
+      'el': 'ell', 'he': 'heb', 'hu': 'hun', 'ro': 'ron', 'th': 'tha',
+      'vi': 'vie', 'id': 'ind', 'uk': 'ukr',
+    };
+    return map[lang.toLowerCase()] ?? lang;
+  }
+
   Future<List<SubtitleSearchResult>> searchSubtitles({
-
     required String ratingKey,
-
     String language = 'en',
-
   }) async {
-
     if (server.isJellyfin) {
-
       return _jfService.searchSubtitles(itemId: ratingKey, language: language);
-
     }
 
-
-
     final List<SubtitleSearchResult> results = [];
-
-    try {
-
-      final uri = Uri.parse('$baseUrl/library/metadata/$ratingKey/subtitles?language=$language&X-Plex-Token=$token');
-
-      final response = await http.get(uri, headers: _headers);
-
-      if (response.statusCode == 200) {
-
-        final body = response.body.trim();
-
-        if (body.startsWith('{')) {
-
-          final data = jsonDecode(body);
-
-          final container = data['MediaContainer'] ?? {};
-
-          final rawItems = container['Stream'] ?? container['SearchResult'] ?? container['Subtitle'] ?? [];
-
-          final list = rawItems is List ? rawItems : (rawItems is Map ? [rawItems] : []);
-
-          for (final item in list) {
-
-            if (item is Map<String, dynamic>) {
-
-              results.add(SubtitleSearchResult.fromPlexJson(item));
-
+    Future<void> doSearch(String langCode) async {
+      try {
+        final uri = Uri.parse('$baseUrl/library/metadata/$ratingKey/subtitles?language=$langCode&X-Plex-Token=$token');
+        final response = await http.get(uri, headers: _headers);
+        if (response.statusCode == 200) {
+          final body = response.body.trim();
+          if (body.startsWith('{')) {
+            final data = jsonDecode(body);
+            final container = data['MediaContainer'] ?? {};
+            final rawItems = container['Stream'] ?? container['SearchResult'] ?? container['Subtitle'] ?? [];
+            final list = rawItems is List ? rawItems : (rawItems is Map ? [rawItems] : []);
+            for (final item in list) {
+              if (item is Map<String, dynamic>) {
+                results.add(SubtitleSearchResult.fromPlexJson(item));
+              }
             }
-
           }
-
         }
+      } catch (_) {}
+    }
 
+    await doSearch(language);
+    if (results.isEmpty && language.length == 2) {
+      final lang3 = _toThreeLetterLang(language);
+      if (lang3 != language) {
+        await doSearch(lang3);
       }
-
-    } catch (_) {}
-
+    }
     return results;
-
   }
 
 
@@ -4217,59 +4208,63 @@ class PlexMediaService {
 
 
   Future<String?> fetchRemoteSubtitleFile(SubtitleSearchResult subtitle, {String? ratingKey}) async {
-
     if (server.isJellyfin) {
-
       return _jfService.fetchDownloadedSubtitleContent(
-
         itemId: ratingKey ?? '',
-
         subtitle: subtitle,
-
       );
+    }
 
+    if (ratingKey != null && ratingKey.isNotEmpty) {
+      final lang = subtitle.languageCode.toLowerCase();
+      final lang3 = _toThreeLetterLang(subtitle.languageCode).toLowerCase();
+      for (int attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) {
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
+        try {
+          final latestItem = await getItemMetadata(ratingKey, refresh: true);
+          final match = latestItem.subtitleStreams.where((s) =>
+              s.languageCode.toLowerCase() == lang ||
+              s.languageCode.toLowerCase() == lang3 ||
+              s.language.toLowerCase() == subtitle.language.toLowerCase() ||
+              (lang.length >= 2 && s.languageCode.toLowerCase().startsWith(lang.substring(0, 2)))
+          ).lastOrNull;
+          if (match != null && match.id.isNotEmpty) {
+            final content = await fetchSubtitleContent(
+              ratingKey: ratingKey,
+              subtitleStreamId: match.id,
+              streamKey: match.key,
+              mediaSourceId: latestItem.partId,
+            );
+            if (content != null && content.isNotEmpty) {
+              return content;
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     try {
-
       final path = subtitle.key;
-
       final uri = path.startsWith('http')
-
           ? Uri.parse(path)
-
           : Uri.parse('$baseUrl${path.startsWith('/') ? path : '/$path'}');
-
       
-
       final queryParams = Map<String, String>.from(uri.queryParameters);
-
       if (!queryParams.containsKey('X-Plex-Token')) {
-
         queryParams['X-Plex-Token'] = token;
-
       }
-
       final finalUri = uri.replace(queryParameters: queryParams);
-
       final response = await http.get(finalUri, headers: {'Accept': '*/*'});
-
-      if (response.statusCode == 200) {
-
-        final body = utf8.decode(response.bodyBytes, allowMalformed: true);
-
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
         if (_isSubtitleContent(body)) {
-
           return body;
-
         }
-
       }
-
     } catch (_) {}
-
     return null;
-
   }
 
 }

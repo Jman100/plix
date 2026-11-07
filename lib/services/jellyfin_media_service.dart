@@ -214,6 +214,8 @@ class JellyfinMediaService {
     }
 
     final List<PlexSubtitleStream> subStreams = [];
+    final List<PlexSubtitleStream> embeddedSubStreams = [];
+    final List<PlexSubtitleStream> externalSubStreams = [];
 
     final List<PlexAudioStream> audStreams = [];
 
@@ -268,39 +270,29 @@ class JellyfinMediaService {
 
 
       if (sType == 'subtitle') {
-
-        final isExternal = streamMap['IsExternal'] == true;
-
-        final deliveryUrl = streamMap['DeliveryUrl']?.toString() ?? '';
-
-        final thisStreamIndex = isExternal ? -1 : subIndex++;
-
-        subStreams.add(
-
-          PlexSubtitleStream(
-
-            id: sIndex.toString(),
-
-            key: deliveryUrl.isNotEmpty ? deliveryUrl : '/Videos/$id/${mediaSourceId ?? id}/Subtitles/$sIndex/Stream.$codec',
-
-            codec: codec,
-
-            language: lang,
-
-            languageCode: lang,
-
-            displayTitle: title,
-
-            isSelected: isDefault,
-
-            isForced: isForced,
-
-            streamIndex: thisStreamIndex,
-
-          ),
-
+        final isExternal = streamMap['IsExternal'] == true ||
+            streamMap['isExternal'] == true ||
+            streamMap['DeliveryMethod']?.toString().toLowerCase() == 'external' ||
+            streamMap['deliveryMethod']?.toString().toLowerCase() == 'external' ||
+            (streamMap['DeliveryUrl']?.toString().isNotEmpty == true) ||
+            (streamMap['deliveryUrl']?.toString().isNotEmpty == true);
+        final deliveryUrl = streamMap['DeliveryUrl']?.toString() ?? streamMap['deliveryUrl']?.toString() ?? '';
+        final streamObj = PlexSubtitleStream(
+          id: sIndex.toString(),
+          key: deliveryUrl.isNotEmpty ? deliveryUrl : '/Videos/$id/${mediaSourceId ?? id}/Subtitles/$sIndex/Stream.$codec',
+          codec: codec,
+          language: lang,
+          languageCode: lang,
+          displayTitle: title,
+          isSelected: isDefault,
+          isForced: isForced,
+          streamIndex: isExternal ? -1 : embeddedSubStreams.length,
         );
-
+        if (isExternal) {
+          externalSubStreams.add(streamObj);
+        } else {
+          embeddedSubStreams.add(streamObj);
+        }
       } else if (sType == 'audio') {
 
         final channels = (streamMap['Channels'] as num?)?.toInt();
@@ -557,6 +549,9 @@ class JellyfinMediaService {
 
 
 
+    
+    subStreams.addAll(embeddedSubStreams);
+    subStreams.addAll(externalSubStreams);
     final people = <MediaPerson>[];
 
     final rawPeople = json['People'] as List<dynamic>? ?? [];
@@ -1092,23 +1087,17 @@ class JellyfinMediaService {
 
 
   Future<List<PlexMediaItem>> getLibraryItems(
-
     String sectionKey, {
-
     String? filter,
-
     String? sort,
-
+    bool refresh = false,
   }) async {
-
     final cacheKey = '$sectionKey:$filter:$sort';
-
-    final cached = _libraryCache[cacheKey];
-
-    if (cached != null && DateTime.now().difference(cached.timestamp).inMinutes < 3) {
-
-      return cached.items;
-
+    if (!refresh) {
+      final cached = _libraryCache[cacheKey];
+      if (cached != null && DateTime.now().difference(cached.timestamp).inMinutes < 3) {
+        return cached.items;
+      }
     }
 
 
@@ -2017,6 +2006,34 @@ class JellyfinMediaService {
 
 
 
+  static String decodeSubtitleBytes(List<int> bytes) {
+    if (bytes.isEmpty) return '';
+    if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+      bytes = bytes.sublist(3);
+    }
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {}
+    if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) {
+      try {
+        final units = <int>[];
+        for (int i = 2; i + 1 < bytes.length; i += 2) {
+          units.add(bytes[i] | (bytes[i + 1] << 8));
+        }
+        return String.fromCharCodes(units);
+      } catch (_) {}
+    }
+    try {
+      final decoded = utf8.decode(bytes, allowMalformed: true);
+      if (!decoded.contains('\uFFFD')) {
+        return decoded;
+      }
+      return latin1.decode(bytes);
+    } catch (_) {
+      return latin1.decode(bytes);
+    }
+  }
+
   Future<String?> fetchSubtitleContent({
 
     required String itemId,
@@ -2045,25 +2062,26 @@ class JellyfinMediaService {
 
 
     if (streamKey != null && streamKey.isNotEmpty) {
-
       try {
-
-        final sep = streamKey.contains('?') ? '&' : '?';
-
-        final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
-
-        final url = Uri.parse('$baseUrl$path${sep}api_key=$token');
-
-        final response = await http.get(url, headers: textHeaders);
-
-        if (response.statusCode == 200 && response.body.isNotEmpty) {
-
-          return response.body;
-
+        final Uri url;
+        if (streamKey.startsWith('http://') || streamKey.startsWith('https://')) {
+          final uri = Uri.parse(streamKey);
+          final q = Map<String, String>.from(uri.queryParameters);
+          if (!q.containsKey('api_key')) q['api_key'] = token;
+          url = uri.replace(queryParameters: q);
+        } else {
+          final sep = streamKey.contains('?') ? '&' : '?';
+          final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
+          url = Uri.parse('$baseUrl$path${sep}api_key=$token');
         }
-
+        final response = await http.get(url, headers: textHeaders);
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          final body = decodeSubtitleBytes(response.bodyBytes);
+          if (body.isNotEmpty && !body.trim().startsWith('{')) {
+            return body;
+          }
+        }
       } catch (_) {}
-
     }
 
 
@@ -2093,10 +2111,11 @@ class JellyfinMediaService {
 
         final response = await http.get(url, headers: textHeaders);
 
-        if (response.statusCode == 200 && response.body.isNotEmpty && !response.body.trim().startsWith('{')) {
-
-          return response.body;
-
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          final body = decodeSubtitleBytes(response.bodyBytes);
+          if (body.isNotEmpty && !body.trim().startsWith('{')) {
+            return body;
+          }
         }
 
       } catch (_) {}
@@ -2121,14 +2140,15 @@ class JellyfinMediaService {
       final lang3 = subtitle.language.toLowerCase();
       PlexSubtitleStream? match;
       PlexMediaItem? latestItem;
-      for (int attempt = 0; attempt < 3; attempt++) {
+      for (int attempt = 0; attempt < 5; attempt++) {
         if (attempt > 0) {
-          await Future.delayed(const Duration(milliseconds: 600));
+          await Future.delayed(const Duration(milliseconds: 700));
         }
         latestItem = await getItemMetadata(cleanId, refresh: true);
         final found = latestItem.subtitleStreams.where(
           (s) => s.languageCode.toLowerCase() == lang ||
                  s.language.toLowerCase() == lang3 ||
+                 (lang3.isNotEmpty && s.language.toLowerCase().contains(lang3)) ||
                  (lang.length >= 2 && s.languageCode.toLowerCase().startsWith(lang.substring(0, 2))),
         ).lastOrNull;
         if (found != null) {

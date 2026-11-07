@@ -40,6 +40,30 @@ class PlexSubtitleStream {
     );
   }
 
+  PlexSubtitleStream copyWith({
+    String? id,
+    String? key,
+    String? codec,
+    String? language,
+    String? languageCode,
+    String? displayTitle,
+    bool? isSelected,
+    bool? isForced,
+    int? streamIndex,
+  }) {
+    return PlexSubtitleStream(
+      id: id ?? this.id,
+      key: key ?? this.key,
+      codec: codec ?? this.codec,
+      language: language ?? this.language,
+      languageCode: languageCode ?? this.languageCode,
+      displayTitle: displayTitle ?? this.displayTitle,
+      isSelected: isSelected ?? this.isSelected,
+      isForced: isForced ?? this.isForced,
+      streamIndex: streamIndex ?? this.streamIndex,
+    );
+  }
+
   bool get isBitmapSubtitle {
     final c = codec.toLowerCase();
     return c == 'vobsub' ||
@@ -854,6 +878,7 @@ class PlexMediaItem {
         if (parts != null) {
           for (final p in parts) {
             if (p is! Map<String, dynamic>) continue;
+            final isPrimaryPart = (p == parts.first);
             pKey ??= p['key'] as String?;
             pId ??= p['id']?.toString();
             fPath ??= p['file'] as String?;
@@ -927,7 +952,7 @@ class PlexMediaItem {
                         ? (stMap['bitrate'] as num).toInt()
                         : int.tryParse(stMap['bitrate']?.toString() ?? '');
                   }
-                } else if (streamType == 2 && audios.isEmpty) {
+                } else if (streamType == 2 && isPrimaryPart) {
                   audios.add(PlexAudioStream.fromJson(stMap, streamIndex: audioIdx));
                   audioIdx++;
                   if (aCodec == null || stMap['selected'] == 1 || stMap['selected'] == true) {
@@ -938,7 +963,7 @@ class PlexMediaItem {
                     aProf = stMap['profile'] as String? ?? stMap['audioChannelLayout'] as String?;
                     aTitle = stMap['displayTitle'] as String? ?? stMap['extendedDisplayTitle'] as String?;
                   }
-                } else if (streamType == 3 && subs.isEmpty) {
+                } else if (streamType == 3 && isPrimaryPart) {
                   subs.add(PlexSubtitleStream.fromJson(stMap, streamIndex: subIdx));
                   subIdx++;
                 }

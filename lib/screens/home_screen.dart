@@ -446,6 +446,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return false;
   }
 
+  int _getLibrarySortIndex(PlexMediaItem item) {
+    if (_libraries.isEmpty) return 999999;
+    final itemServerId = item.serverId ?? item.server?.clientIdentifier;
+
+    for (int i = 0; i < _libraries.length; i++) {
+      final lib = _libraries[i];
+      if (itemServerId != null && itemServerId.isNotEmpty && lib.serverId != itemServerId) {
+        continue;
+      }
+
+      // 1. Direct match via librarySectionId (Plex & Jellyfin)
+      if (item.librarySectionId != null && item.librarySectionId!.isNotEmpty) {
+        final normItemKey = item.librarySectionId!.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        final normLibKey = lib.key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        if (item.librarySectionId == lib.key || normItemKey == normLibKey) {
+          return i;
+        }
+      }
+
+      // 2. Match via ancestorIds (Jellyfin hierarchy)
+      if (item.ancestorIds.isNotEmpty) {
+        final normalizedLibKey = lib.key.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+        for (final ancestor in item.ancestorIds) {
+          final normalizedAncestor = ancestor.replaceAll('-', '').replaceAll('_', '').toLowerCase();
+          if (normalizedAncestor == normalizedLibKey) {
+            return i;
+          }
+        }
+      }
+
+      // 3. Fallback match via librarySectionTitle if on the same server
+      if (item.librarySectionTitle != null && item.librarySectionTitle!.isNotEmpty &&
+          item.librarySectionTitle!.toLowerCase() == lib.title.toLowerCase()) {
+        return i;
+      }
+
+      // 4. If this server only has ONE favorited library, and item came from this server:
+      final serverLibs = _libraries.where((l) => l.serverId == lib.serverId).toList();
+      if (serverLibs.length == 1) {
+        final singleLib = serverLibs.first;
+        if (singleLib.isMovie && item.isMovie) return i;
+        if (singleLib.isShow && (item.isEpisode || item.isShow)) return i;
+        if (!singleLib.isMovie && !singleLib.isShow) return i;
+      }
+    }
+
+    return 999999;
+  }
+
+  void _sortContinueWatching(List<PlexMediaItem> list) {
+    list.sort((a, b) {
+      final idxA = _getLibrarySortIndex(a);
+      final idxB = _getLibrarySortIndex(b);
+      if (idxA != idxB) return idxA.compareTo(idxB);
+      return (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0);
+    });
+  }
+
   Future<void> _initData() async {
     ThemeMusicService.instance.stopImmediate();
     _lastFocusedContentNode = null;
@@ -633,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         continueWatching.addAll(list);
       }
       final filteredContinueWatching = continueWatching.where(_isItemInFavoritedLibraries).toList();
-      filteredContinueWatching.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
+      _sortContinueWatching(filteredContinueWatching);
       _continueWatching = filteredContinueWatching;
       _cachedContinueWatching = List.from(filteredContinueWatching);
       _precacheAllHomeLogos();
@@ -934,7 +992,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         cw.addAll(list);
       }
       final filteredCw = cw.where(_isItemInFavoritedLibraries).toList();
-      filteredCw.sort((a, b) => (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0));
+      _sortContinueWatching(filteredCw);
 
       if (mounted) {
         final oldFirst = _continueWatching.firstOrNull;
@@ -2225,11 +2283,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     firstRowFound = true;
                     final viewMoreNode = _viewMoreFocusNodes.putIfAbsent(lib.compositeId, () => FocusNode());
                     final rowId = 'lib_${lib.compositeId}';
-                    final serverLabel = (isMultiServer && lib.serverName != null && lib.serverName!.isNotEmpty) ? ' (${lib.serverName})' : '';
+                    final serverName = (isMultiServer && lib.serverName != null && lib.serverName!.isNotEmpty) ? lib.serverName : null;
                     return _HomeRowSection(
                       key: _rowSectionKeys.putIfAbsent(rowId, () => GlobalKey<_HomeRowSectionState>()),
                       rowId: rowId,
-                      title: 'Recently Added in ${lib.title}$serverLabel',
+                      title: 'Recently Added in ${lib.title}',
+                      serverName: serverName,
                       icon: lib.isMovie
                           ? Icons.movie_outlined
                           : Icons.tv_outlined,
@@ -2287,6 +2346,7 @@ class _HomeRowSection extends StatefulWidget {
   final bool isLastRow;
   final String? highlightedItemId;
   final bool hasTopServerName;
+  final String? serverName;
 
   final void Function(PlexMediaItem item, bool isHovered)? onItemHovered;
 
@@ -2312,6 +2372,7 @@ class _HomeRowSection extends StatefulWidget {
     this.onRowDown,
     this.isLastRow = false,
     this.highlightedItemId,
+    this.serverName,
   });
 
   @override
@@ -2434,18 +2495,37 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
               ),
               child: Row(
                 children: [
-                  Icon(widget.icon, color: PlixTheme.plexGold, size: isCompact ? 20 : 18),
+                  Icon(widget.icon, color: PlixTheme.plexGold, size: isCompact ? 18 : 18),
                   const SizedBox(width: 8),
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      color: PlixTheme.textPrimary,
-                      fontSize: isCompact ? 20 : 17,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: widget.title,
+                            style: TextStyle(
+                              color: PlixTheme.textPrimary,
+                              fontSize: isCompact ? 16 : 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (widget.serverName != null && widget.serverName!.isNotEmpty)
+                            TextSpan(
+                              text: ' (${widget.serverName})',
+                              style: TextStyle(
+                                color: PlixTheme.textSecondary,
+                                fontSize: isCompact ? 12 : 14,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (hasViewMore) ...[
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: widget.onViewMore,
                       borderRadius: BorderRadius.circular(6),

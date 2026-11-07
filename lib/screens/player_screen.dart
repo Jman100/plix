@@ -2578,7 +2578,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
     }
 
-    final actualPos = _selectedQuality.isDirectPlay ? pos : (_streamOffsetMs + pos);
+    final actualPos = (_selectedQuality.isDirectPlay || widget.server.isJellyfin) ? pos : (_streamOffsetMs + pos);
 
 
 
@@ -3852,11 +3852,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-        _streamOffsetMs = _currentPositionMs;
-
-
-
-        startPos = 0;
+        if (widget.server.isJellyfin) {
+          _streamOffsetMs = 0;
+          startPos = _currentPositionMs;
+        } else {
+          _streamOffsetMs = _currentPositionMs;
+          startPos = 0;
+        }
 
 
 
@@ -4254,31 +4256,33 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-      await _nativePlayer.setSubtitleTrack(
-
-
-
-        enabled: true,
-
-
-
-        language: stream.languageCode.isNotEmpty ? stream.languageCode : stream.language,
-
-
-
-        label: stream.displayTitle,
-
-
-
-        trackIndex: stream.streamIndex,
-
-
-
-        url: subUrl,
-
-
-
-      );
+      if (stream.streamIndex >= 0) {
+        await _nativePlayer.setSubtitleTrack(
+          enabled: true,
+          language: stream.languageCode.isNotEmpty ? stream.languageCode : stream.language,
+          label: stream.displayTitle,
+          trackIndex: stream.streamIndex,
+          url: subUrl,
+        );
+      } else {
+        await _nativePlayer.setSubtitleTrack(enabled: false);
+        try {
+          final content = await _mediaService.fetchSubtitleContent(
+            ratingKey: _currentItem.ratingKey,
+            subtitleStreamId: stream.id,
+            streamKey: stream.key,
+            mediaSourceId: _currentItem.partId,
+          );
+          if (content != null && content.isNotEmpty && mounted && _selectedSubtitle?.id == stream.id) {
+            final cues = SubtitleParser.parse(content);
+            if (cues.isNotEmpty && mounted) {
+              setState(() {
+                _subtitleCues = cues;
+              });
+            }
+          }
+        } catch (_) {}
+      }
 
 
 
@@ -5285,26 +5289,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    if (_selectedQuality.isDirectPlay) {
-
-
-
+    if (_selectedQuality.isDirectPlay || widget.server.isJellyfin) {
       _nativePlayer.seekTo(clampedTarget);
-
-
-
       _timelineService.updatePosition(clampedTarget);
-
-
-
       _currentPositionMs = clampedTarget;
-
-
-
       if (mounted) setState(() {});
-
-
-
     } else {
 
 
@@ -5786,37 +5775,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
       MaterialPageRoute(
-
-
-
         builder: (_) => DetailsScreen(
-
-
-
           initialItem: showItem,
-
-
-
           initialSeasonKey: seasonKey,
-
-
-
-          initialEpisodeKey: episodeKey,
-
-
-
           server: widget.server,
-
-
-
           clientId: widget.clientId,
-
-
-
         ),
-
-
-
       ),
 
 
@@ -7110,9 +7074,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       ),
 
     ).whenComplete(() {
-
       _onModalClosed();
-
+      if (!_isAnyModalOrRouteOpen && mounted) {
+        _scheduleHideControls();
+      }
     });
 
   }
@@ -7581,9 +7546,13 @@ void _showSubtitleSelector() {
 
       } else {
 
-        _streamOffsetMs = currentPosition;
-
-        startPos = 0;
+        if (widget.server.isJellyfin) {
+          _streamOffsetMs = 0;
+          startPos = currentPosition;
+        } else {
+          _streamOffsetMs = currentPosition;
+          startPos = 0;
+        }
 
         streamUrl = _mediaService.buildTranscodeUrl(
 
@@ -19885,27 +19854,30 @@ class _SubtitleSearchDialogState extends State<_SubtitleSearchDialog> {
 
       final content = await widget.mediaService.fetchRemoteSubtitleFile(sub, ratingKey: widget.item.ratingKey);
 
+      PlexSubtitleStream? resolvedStream;
+      try {
+        final updatedItem = await widget.mediaService.getItemMetadata(widget.item.ratingKey, refresh: true);
+        final langCode = sub.languageCode.toLowerCase();
+        final langName = sub.language.toLowerCase();
+        resolvedStream = updatedItem.subtitleStreams.where((s) =>
+            s.languageCode.toLowerCase() == langCode ||
+            s.language.toLowerCase() == langName ||
+            (langCode.length >= 2 && s.languageCode.toLowerCase().startsWith(langCode.substring(0, 2)))
+        ).lastOrNull;
+      } catch (_) {}
 
-
-      final stream = PlexSubtitleStream(
-
-        id: sub.id.isNotEmpty ? sub.id : 'remote_${DateTime.now().millisecondsSinceEpoch}',
-
-        key: sub.key,
-
-        codec: sub.format.isNotEmpty ? sub.format : 'srt',
-
-        language: sub.language,
-
-        languageCode: sub.languageCode,
-
-        displayTitle: sub.title,
-
-        streamIndex: -1,
-
-        isSelected: true,
-
-      );
+      final stream = (resolvedStream != null)
+          ? resolvedStream.copyWith(streamIndex: -1, isSelected: true)
+          : PlexSubtitleStream(
+              id: sub.id.isNotEmpty ? sub.id : 'remote_${DateTime.now().millisecondsSinceEpoch}',
+              key: sub.key,
+              codec: sub.format.isNotEmpty ? sub.format : 'srt',
+              language: sub.language,
+              languageCode: sub.languageCode,
+              displayTitle: sub.title,
+              streamIndex: -1,
+              isSelected: true,
+            );
 
 
 

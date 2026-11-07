@@ -438,7 +438,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             _loadEpisodesForSeason(
               _selectedSeason!,
               focusEpisodeKey: targetEpToFocus,
-              focusFirstEpisode: widget.initialEpisodeKey != null,
+              focusFirstEpisode: false,
             );
             final currentFocus = FocusScope.of(context).focusedChild;
             final hasActiveFocus = currentFocus != null &&
