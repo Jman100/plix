@@ -7,6 +7,7 @@ import '../services/plex_server_service.dart';
 import 'favorite_libraries_screen.dart';
 import 'jellyfin_connect_screen.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
 import '../widgets/brand_logo.dart';
 import '../services/plix_device_helper.dart';
 
@@ -180,17 +181,66 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
     }
   }
 
+  void _navigateToHome() async {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      PlexServer? targetServer = widget.currentServer;
+      if (targetServer == null && _servers.isNotEmpty) {
+        final activeId = await widget.serverService.getActiveServerId();
+        targetServer = _servers.firstWhere(
+          (s) => s.clientIdentifier == activeId,
+          orElse: () => _servers.first,
+        );
+      }
+      if (targetServer != null && mounted) {
+        await widget.serverService.setActiveServerId(targetServer.clientIdentifier);
+        await widget.serverService.testAndResolveBestConnection(targetServer);
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              server: targetServer!,
+              authService: widget.authService,
+              serverService: widget.serverService,
+            ),
+          ),
+          (route) => false,
+        );
+      }
+    } finally {
+      _isNavigating = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final canGoBack = Navigator.of(context).canPop();
     final isCompact = PlixDeviceHelper.isCompact(context);
 
-    return Scaffold(
-      backgroundColor: PlixTheme.background,
-      appBar: AppBar(
-        title: const Text('Customize Servers'),
-        automaticallyImplyLeading: canGoBack,
-      ),
+    return PopScope(
+      canPop: canGoBack || _servers.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_servers.isNotEmpty) {
+          _navigateToHome();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: PlixTheme.background,
+        appBar: AppBar(
+          title: const Text('Customize Servers'),
+          automaticallyImplyLeading: canGoBack,
+          leading: canGoBack
+              ? null
+              : (_servers.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      tooltip: 'Back',
+                      onPressed: _navigateToHome,
+                    )
+                  : null),
+        ),
       body: Center(
         child: SingleChildScrollView(
           controller: _scrollController,
@@ -212,7 +262,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'You are connected to all signed-in servers simultaneously. Pick which libraries appear in your navigation.',
+                  'All servers you have access to are connected at once. You can connect additional servers using the buttons below, or customize your favorite libraries, which will determine which libraries appear in the navigation menu.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: PlixTheme.textSecondary,
@@ -325,6 +375,7 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

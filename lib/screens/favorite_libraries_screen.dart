@@ -248,6 +248,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
         }
 
         if (targetServer != null) {
+          await widget.serverService.setActiveServerId(targetServer.clientIdentifier);
           await widget.serverService.testAndResolveBestConnection(targetServer);
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil(

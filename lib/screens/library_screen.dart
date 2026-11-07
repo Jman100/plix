@@ -360,66 +360,65 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         style: TextStyle(color: PlixTheme.textSecondary, fontSize: 16),
                       ),
                     )
-                  : ClipRect(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: isCompact ? 12 : 24),
-                        child: CustomScrollView(
-                          controller: _gridScrollController,
-                          slivers: [
-                            if (_selectedCategory != null)
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    left: isCompact ? 14 : 24,
-                                    right: isCompact ? 14 : 24,
-                                    top: 4,
-                                    bottom: 12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: PlixTheme.plexGold.withOpacity(0.18),
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Category: $_selectedCategory',
-                                              style: TextStyle(color: PlixTheme.plexGold, fontSize: 13, fontWeight: FontWeight.bold),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            InkWell(
-                                              onTap: () {
-                                                setState(() {
-                                                  _selectedCategory = null;
-                                                  _items = _filterByCategory(_allItems);
-                                                });
-                                                _applySort();
-                                              },
-                                              child: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        '${_items.length} items',
-                                        style: const TextStyle(color: Colors.white54, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            SliverPadding(
+                  : CustomScrollView(
+                      controller: _gridScrollController,
+                      clipBehavior: Clip.none,
+                      slivers: [
+                        if (_selectedCategory != null)
+                          SliverToBoxAdapter(
+                            child: Padding(
                               padding: EdgeInsets.only(
                                 left: isCompact ? 14 : 24,
                                 right: isCompact ? 14 : 24,
-                                bottom: isCompact ? 24 : 140,
+                                top: isCompact ? 10 : 16,
+                                bottom: 8,
                               ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: PlixTheme.plexGold.withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Category: $_selectedCategory',
+                                          style: TextStyle(color: PlixTheme.plexGold, fontSize: 13, fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedCategory = null;
+                                              _items = _filterByCategory(_allItems);
+                                            });
+                                            _applySort();
+                                          },
+                                          child: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${_items.length} items',
+                                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        SliverPadding(
+                          padding: EdgeInsets.only(
+                            left: isCompact ? 14 : 24,
+                            right: isCompact ? 14 : 24,
+                            top: _selectedCategory != null ? (isCompact ? 8 : 12) : (isCompact ? 14 : 20),
+                            bottom: isCompact ? 24 : 140,
+                          ),
                               sliver: SliverGrid(
                                 gridDelegate: isCompact
                                     ? SliverGridDelegateWithFixedCrossAxisCount(
@@ -461,8 +460,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             ),
                           ],
                         ),
-                      ),
-                    ),
     );
   }
 }

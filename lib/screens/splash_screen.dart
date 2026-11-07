@@ -95,52 +95,36 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         return;
       }
 
-      final bool v160FavoritesPrompted = prefs.getBool('plix_v160_favorites_prompted') ?? false;
+      final savedActiveId = await widget.serverService.getActiveServerId();
+      final pinnedIds = await widget.serverService.getPinnedServerIds();
 
-      if (servers.length == 1) {
-        // Only one server accessible: use it by default
-        final server = servers.first;
-        await widget.serverService.testAndResolveBestConnection(server);
-        await widget.serverService.setActiveServerId(server.clientIdentifier);
-        final favoriteIds = await widget.serverService.getFavoriteLibraryIds();
-        if (favoriteIds == null || !v160FavoritesPrompted) {
-          await prefs.setBool('plix_v160_favorites_prompted', true);
-          _navigateToFavoriteLibraries(servers, server);
-        } else {
-          _navigateToHome(server);
-        }
+      final PlexServer selectedServer;
+      if (savedActiveId != null) {
+        selectedServer = servers.firstWhere(
+          (s) => s.clientIdentifier == savedActiveId,
+          orElse: () => servers.first,
+        );
+      } else if (pinnedIds.isNotEmpty) {
+        selectedServer = servers.firstWhere(
+          (s) => pinnedIds.contains(s.clientIdentifier),
+          orElse: () => servers.first,
+        );
       } else {
-        // Multiple servers accessible
-        final savedActiveId = await widget.serverService.getActiveServerId();
-        final pinnedIds = await widget.serverService.getPinnedServerIds();
+        selectedServer = servers.first;
+      }
 
-        final PlexServer selectedServer;
-        if (savedActiveId != null) {
-          selectedServer = servers.firstWhere(
-            (s) => s.clientIdentifier == savedActiveId,
-            orElse: () => servers.first,
-          );
-        } else if (pinnedIds.isNotEmpty) {
-          selectedServer = servers.firstWhere(
-            (s) => pinnedIds.contains(s.clientIdentifier),
-            orElse: () => servers.first,
-          );
-        } else {
-          selectedServer = servers.first;
-        }
+      await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
+      await widget.serverService.testAndResolveBestConnection(selectedServer);
 
-        if (!v160FavoritesPrompted) {
-          await prefs.setBool('plix_v160_favorites_prompted', true);
-          await widget.serverService.testAndResolveBestConnection(selectedServer);
-          await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
-          _navigateToFavoriteLibraries(servers, selectedServer);
-        } else if (savedActiveId != null) {
-          await widget.serverService.testAndResolveBestConnection(selectedServer);
-          _navigateToHome(selectedServer);
-        } else {
-          // Offer server pinning selection screen
-          _navigateToServerSelect(servers);
-        }
+      final favoriteIds = await widget.serverService.getFavoriteLibraryIds();
+      final hasFavorites = favoriteIds != null && favoriteIds.isNotEmpty;
+      final bool v160FavoritesPrompted = (prefs.getBool('plix_v160_favorites_prompted') ?? false) || hasFavorites;
+
+      if (!v160FavoritesPrompted) {
+        await prefs.setBool('plix_v160_favorites_prompted', true);
+        _navigateToFavoriteLibraries(servers, selectedServer);
+      } else {
+        _navigateToHome(selectedServer);
       }
     } catch (_) {
       if (mounted) {
