@@ -70,7 +70,8 @@ class _PlixBackButtonState extends State<PlixBackButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.forceShow && Platform.isAndroid && !PlixDeviceHelper.isTelevision) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    if (!widget.forceShow && Platform.isAndroid && !PlixDeviceHelper.isTelevision && !isLandscape) {
       return const SizedBox.shrink();
     }
     final isHighlighted = _isFocused || _isHovered;

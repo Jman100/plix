@@ -80,6 +80,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final FocusNode _sidebarSwitchServerFocusNode = FocusNode();
   final FocusNode _sidebarSignOutFocusNode = FocusNode();
   final FocusNode _firstContinueWatchingFocusNode = FocusNode();
+  PlexMediaItem? _lastWatchedItem;
+  int? _lastWatchedOriginalIndex;
+  bool _cursorMovedSinceReturn = false;
+  bool _isAwaitingContinueWatchingRefresh = false;
+
+  void _recordWatchedItem(PlexMediaItem item) {
+    _lastWatchedItem = item;
+    final idx = _continueWatching.indexWhere((it) => it.ratingKey == item.ratingKey);
+    _lastWatchedOriginalIndex = idx >= 0 ? idx : null;
+    _cursorMovedSinceReturn = false;
+    _isAwaitingContinueWatchingRefresh = false;
+  }
+
+  void _onReturnedFromWatching() {
+    _isAwaitingContinueWatchingRefresh = true;
+    _cursorMovedSinceReturn = false;
+    _refreshContinueWatching(
+      openedRatingKey: _lastWatchedItem?.ratingKey,
+      previousFirstKey: _continueWatching.firstOrNull?.ratingKey,
+    );
+  }
   final Map<String, FocusNode> _viewMoreFocusNodes = {};
   final Map<String, GlobalKey<_HomeRowSectionState>> _rowSectionKeys = {};
   final Map<String, int> _rowLastFocusedIndices = {};
@@ -835,6 +856,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _heroDebounceTimer;
 
   void _onRowItemFocused(PlexMediaItem item, BuildContext rowContext, String rowId, [FocusNode? node, bool isFirstRow = false, int? itemIndex]) {
+    if (_isAwaitingContinueWatchingRefresh && _lastWatchedItem != null) {
+      final isWatchedItem = item.ratingKey == _lastWatchedItem!.ratingKey ||
+          (_lastWatchedItem!.grandparentRatingKey != null &&
+              item.grandparentRatingKey == _lastWatchedItem!.grandparentRatingKey);
+      if (!isWatchedItem || rowId != 'continue_watching') {
+        _cursorMovedSinceReturn = true;
+      }
+    }
     _heroViewMoreTitle = null;
     if (node != null) {
       _lastFocusedContentNode = node;
@@ -914,9 +943,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (!mounted) return;
 
-    final previousFirstKey = _continueWatching.firstOrNull?.ratingKey;
-    final openedRatingKey = item.ratingKey;
-
+    _recordWatchedItem(item);
     NativePlayerService().stop();
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -928,7 +955,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     ).then((_) {
-      _refreshContinueWatching(openedRatingKey: openedRatingKey, previousFirstKey: previousFirstKey);
+      _onReturnedFromWatching();
     });
   }
 
@@ -995,35 +1022,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _sortContinueWatching(filteredCw);
 
       if (mounted) {
-        final oldFirst = _continueWatching.firstOrNull;
-        final newFirst = filteredCw.firstOrNull;
-        final newFirstKey = newFirst?.ratingKey;
-        final continueWatchingChanged = oldFirst == null ||
-            newFirst == null ||
-            oldFirst.ratingKey != newFirst.ratingKey ||
-            oldFirst.targetRatingKey != newFirst.targetRatingKey ||
-            (oldFirst.viewOffset ?? -1) != (newFirst.viewOffset ?? -1);
-        final didItemMoveToFront = openedRatingKey != null &&
-            newFirstKey != null &&
-            newFirstKey != previousFirstKey &&
-            (newFirstKey == openedRatingKey || filteredCw.any((it) => it.ratingKey == openedRatingKey && it.ratingKey == newFirstKey));
+        final watchedItem = _lastWatchedItem;
+        final originalIndex = _lastWatchedOriginalIndex;
+        final cursorMoved = _cursorMovedSinceReturn;
+        final wasAwaiting = _isAwaitingContinueWatchingRefresh;
 
-        // After playback, the active Continue Watching item may be a later
-        // episode (or even a different show). Keep the hero in sync with it.
-        final shouldUpdateHero = openedRatingKey != null &&
-            filteredCw.isNotEmpty &&
-            continueWatchingChanged;
-        final shouldFocusFirst = forceFocusFirst || didItemMoveToFront || shouldUpdateHero;
+        _isAwaitingContinueWatchingRefresh = false;
+        _lastWatchedItem = null;
+        _lastWatchedOriginalIndex = null;
+        _cursorMovedSinceReturn = false;
 
         _cachedContinueWatching = List.from(filteredCw);
         setState(() {
           _continueWatching = filteredCw;
-          if ((shouldFocusFirst || shouldUpdateHero) && filteredCw.isNotEmpty) {
-            _heroItem = filteredCw.first;
-          } else if (_heroItem != null) {
-            final match = filteredCw.where((item) => item.ratingKey == _heroItem!.ratingKey);
-            if (match.isNotEmpty) {
-              _heroItem = match.first;
+          if (filteredCw.isNotEmpty) {
+            if (wasAwaiting && !cursorMoved && watchedItem != null) {
+              final match = filteredCw.where((it) =>
+                  it.ratingKey == watchedItem.ratingKey ||
+                  (watchedItem.grandparentRatingKey != null &&
+                   it.grandparentRatingKey == watchedItem.grandparentRatingKey));
+              if (match.isNotEmpty) {
+                _heroItem = match.first;
+              } else {
+                _heroItem = filteredCw.first;
+              }
+            } else if (_heroItem != null) {
+              final match = filteredCw.where((item) => item.ratingKey == _heroItem!.ratingKey);
+              if (match.isNotEmpty) {
+                _heroItem = match.first;
+              }
             }
           }
         });
@@ -1031,14 +1058,52 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _startMobileHeroTimer();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_isUpdateDialogOpen || _isWelcomeTourOpen || ModalRoute.of(context)?.isCurrent != true) return;
-          if (PlixDeviceHelper.isPhone(context)) return;
           if (!mounted) return;
-          // Never steal focus if user currently has focus in sidebar nav or on a sidebar item!
+          if (_isUpdateDialogOpen || _isWelcomeTourOpen || ModalRoute.of(context)?.isCurrent != true) return;
           if (keepSidebarFocus || _sidebarSettingsFocusNode.hasFocus || _isSidebarFocused || _sidebarHomeFocusNode.hasFocus) {
             return;
           }
-          if (shouldFocusFirst) {
+
+          if (wasAwaiting) {
+            if (cursorMoved) {
+              // User has already moved the cursor since returning: do NOT touch cursor!
+              return;
+            }
+
+            // User has NOT moved cursor: keep cursor on the item just watched
+            if (watchedItem != null) {
+              int targetIndex = filteredCw.indexWhere((it) => it.ratingKey == watchedItem.ratingKey);
+              if (targetIndex == -1 && watchedItem.grandparentRatingKey != null && watchedItem.grandparentRatingKey!.isNotEmpty) {
+                targetIndex = filteredCw.indexWhere((it) =>
+                    it.grandparentRatingKey == watchedItem.grandparentRatingKey ||
+                    it.parentRatingKey == watchedItem.grandparentRatingKey);
+              }
+              if (targetIndex == -1 && originalIndex != null && originalIndex >= 0) {
+                targetIndex = originalIndex.clamp(0, filteredCw.isEmpty ? -1 : filteredCw.length - 1);
+              }
+
+              if (targetIndex >= 0 && targetIndex < filteredCw.length) {
+                void applyTargetFocus() {
+                  if (!mounted) return;
+                  if (_sidebarSettingsFocusNode.hasFocus || _isSidebarFocused || _sidebarHomeFocusNode.hasFocus) return;
+
+                  final cwState = _rowSectionKeys['continue_watching']?.currentState;
+                  if (cwState != null) {
+                    cwState.focusAt(targetIndex);
+                    cwState.scrollToIndex(targetIndex);
+                  } else if (targetIndex == 0 && _firstContinueWatchingFocusNode.canRequestFocus) {
+                    _firstContinueWatchingFocusNode.requestFocus();
+                  }
+                }
+
+                applyTargetFocus();
+                Future.delayed(const Duration(milliseconds: 60), applyTargetFocus);
+                return;
+              }
+            }
+          }
+
+          if (forceFocusFirst) {
             _firstContinueWatchingFocusNode.requestFocus();
           } else {
             if (_lastFocusedContentNode != null &&
@@ -1075,6 +1140,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _quickPlay(PlexMediaItem item) {
+    _recordWatchedItem(item);
     NativePlayerService().stop();
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -1085,11 +1151,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           initialPositionMs: item.viewOffset ?? 0,
         ),
       ),
-    ).then((_) => _refreshContinueWatching(
-          openedRatingKey: item.ratingKey,
-          previousFirstKey: _continueWatching.firstOrNull?.ratingKey,
-          forceFocusFirst: false,
-        ));
+    ).then((_) {
+      _onReturnedFromWatching();
+    });
   }
 
   void _switchServer() async {
@@ -2160,6 +2224,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _handleBackPress();
               return KeyEventResult.handled;
             }
+            if (_isAwaitingContinueWatchingRefresh && event is KeyDownEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.arrowDown ||
+                  key == LogicalKeyboardKey.arrowUp ||
+                  key == LogicalKeyboardKey.arrowLeft ||
+                  key == LogicalKeyboardKey.arrowRight) {
+                _cursorMovedSinceReturn = true;
+              }
+            }
             return KeyEventResult.ignored;
           },
           child: Stack(
@@ -2580,7 +2653,7 @@ class _HomeRowSectionState extends State<_HomeRowSection> {
                         : widget.mediaService;
                     final serverName = item.server?.name ?? (item.server?.isJellyfin == true ? 'Jellyfin' : 'Plex');
                     return MediaCard(
-                      key: ValueKey('${item.server?.clientIdentifier ?? "srv"}_${item.ratingKey}_${item.viewOffset ?? 0}'),
+                      key: ValueKey('${item.server?.clientIdentifier ?? "srv"}_${item.ratingKey}'),
                       enableHighlight: !isCompact || isHighlightedCard,
                       isForcedHighlighted: isHighlightedCard,
                       item: item,

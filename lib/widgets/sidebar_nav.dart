@@ -63,6 +63,8 @@ class SidebarNav extends StatefulWidget {
 
 class _SidebarNavState extends State<SidebarNav> {
   bool _isExpanded = false;
+  bool _mobileLandscapeExpanded = false;
+  Orientation? _lastOrientation;
   late List<PlexLibrary> _orderedLibraries;
   String? _activeReorderKey;
   bool _isReorderMode = false;
@@ -282,12 +284,18 @@ class _SidebarNavState extends State<SidebarNav> {
 
   @override
   Widget build(BuildContext context) {
+    final currentOrientation = MediaQuery.of(context).orientation;
+    if (_lastOrientation != currentOrientation) {
+      _lastOrientation = currentOrientation;
+      _mobileLandscapeExpanded = false;
+    }
+
     final isMobileLandscape = !(Platform.isWindows || Platform.isLinux) &&
         !PlixDeviceHelper.isTelevision &&
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        currentOrientation == Orientation.landscape;
     final isReorderGripEnabled = !PlixDeviceHelper.isTelevision &&
-        ((Platform.isWindows || Platform.isLinux) || MediaQuery.of(context).orientation == Orientation.landscape);
-    final effectiveExpanded = isMobileLandscape || _isExpanded;
+        ((Platform.isWindows || Platform.isLinux) || currentOrientation == Orientation.landscape);
+    final effectiveExpanded = isMobileLandscape ? _mobileLandscapeExpanded : _isExpanded;
     final width = effectiveExpanded ? 245.0 : 72.0;
 
     return MouseRegion(
@@ -371,140 +379,225 @@ class _SidebarNavState extends State<SidebarNav> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header / Logo with Server Name beside it when expanded
-            Container(
-              height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            if (PlixDeviceHelper.isTelevision && !effectiveExpanded)
+              Container(
+                height: 64,
+                width: 72.0,
+                alignment: Alignment.center,
+                child: const PlixAppLogo(
+                  size: 38,
+                  showWordmark: false,
+                  borderRadius: 10,
+                  glow: false,
+                ),
+              )
+            else
+              Container(
+                height: 64,
+                padding: EdgeInsets.symmetric(horizontal: effectiveExpanded ? 14 : 10),
               alignment: Alignment.centerLeft,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
                 child: SizedBox(
-                  width: 245.0 - 32.0,
+                  width: effectiveExpanded ? (245.0 - 28.0) : (72.0 - 20.0),
                   child: Row(
-                children: [
-                  if (!effectiveExpanded)
-                    const PlixAppLogo(
-                      size: 38,
-                      showWordmark: false,
-                      borderRadius: 10,
-                      glow: false,
-                    ),
-                  if (effectiveExpanded) ...[
-                    const PlixAppLogo(
-                      size: 32,
-                      showWordmark: false,
-                      borderRadius: 8,
-                      glow: false,
-                    ),
-                    const SizedBox(width: 10),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          const TextSpan(
-                            text: 'pli',
-                            style: TextStyle(
-                              color: PlixTheme.textPrimary,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              fontFamily: 'Roboto',
-                              letterSpacing: 0.5,
+                    children: [
+                      if (!effectiveExpanded) ...[
+                        if (isMobileLandscape)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                setState(() {
+                                  _mobileLandscapeExpanded = true;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: PlixTheme.plexGold.withOpacity(0.4),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const PlixAppLogo(
+                                      size: 22,
+                                      showWordmark: false,
+                                      borderRadius: 6,
+                                      glow: false,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 18,
+                                      color: PlixTheme.plexGold,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
+                          )
+                        else
+                          const PlixAppLogo(
+                            size: 38,
+                            showWordmark: false,
+                            borderRadius: 10,
+                            glow: false,
                           ),
-                          TextSpan(
-                            text: 'x',
-                            style: TextStyle(
-                              color: PlixTheme.plexGold,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              fontFamily: 'Roboto',
-                              letterSpacing: 0.5,
+                      ],
+                      if (effectiveExpanded) ...[
+                        const PlixAppLogo(
+                          size: 30,
+                          showWordmark: false,
+                          borderRadius: 8,
+                          glow: false,
+                        ),
+                        const SizedBox(width: 8),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              const TextSpan(
+                                text: 'pli',
+                                style: TextStyle(
+                                  color: PlixTheme.textPrimary,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'Roboto',
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'x',
+                                style: TextStyle(
+                                  color: PlixTheme.plexGold,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'Roboto',
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Builder(builder: (context) {
+                          final distinctServers = _orderedLibraries
+                              .map((l) => l.serverName)
+                              .where((n) => n != null && n.isNotEmpty)
+                              .toSet();
+                          if (distinctServers.length > 1) {
+                            return Expanded(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    width: 1,
+                                    height: 14,
+                                    color: PlixTheme.cardBorder,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(Icons.dns_rounded, size: 13, color: PlixTheme.plexGold),
+                                  const SizedBox(width: 4),
+                                  const Expanded(
+                                    child: Text(
+                                      ' Servers',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: PlixTheme.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          final singleServerName = distinctServers.isNotEmpty
+                              ? distinctServers.first
+                              : widget.currentServer?.name;
+                          if (singleServerName != null && singleServerName.isNotEmpty) {
+                            final isJf = _orderedLibraries.isNotEmpty
+                                ? _orderedLibraries.first.isJellyfin
+                                : (widget.currentServer?.isJellyfin ?? false);
+                            return Expanded(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    width: 1,
+                                    height: 14,
+                                    color: PlixTheme.cardBorder,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  isJf
+                                      ? const JellyfinLogo(size: 13, color: Color(0xFF8E51DC))
+                                      : const PlexLogo(size: 13, color: Color(0xFFE5A00D)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      singleServerName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: PlixTheme.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        }),
+                        if (isMobileLandscape) ...[
+                          const SizedBox(width: 4),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                setState(() {
+                                  _mobileLandscapeExpanded = false;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: PlixTheme.plexGold.withOpacity(0.4),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.chevron_left_rounded,
+                                  size: 18,
+                                  color: PlixTheme.plexGold,
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    Builder(builder: (context) {
-                      final distinctServers = _orderedLibraries
-                          .map((l) => l.serverName)
-                          .where((n) => n != null && n.isNotEmpty)
-                          .toSet();
-                      if (distinctServers.length > 1) {
-                        return Expanded(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 1,
-                                height: 16,
-                                color: PlixTheme.cardBorder,
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.dns_rounded, size: 14, color: PlixTheme.plexGold),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  '${distinctServers.length} Servers',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: PlixTheme.textSecondary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      final singleServerName = distinctServers.isNotEmpty
-                          ? distinctServers.first
-                          : widget.currentServer?.name;
-                      if (singleServerName != null && singleServerName.isNotEmpty) {
-                        final isJf = _orderedLibraries.isNotEmpty
-                            ? _orderedLibraries.first.isJellyfin
-                            : (widget.currentServer?.isJellyfin ?? false);
-                        return Expanded(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 1,
-                                height: 16,
-                                color: PlixTheme.cardBorder,
-                              ),
-                              const SizedBox(width: 8),
-                              isJf
-                                  ? const JellyfinLogo(size: 14, color: Color(0xFF8E51DC))
-                                  : const PlexLogo(size: 14, color: Color(0xFFE5A00D)),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  singleServerName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: PlixTheme.textSecondary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    }),
-                  ],
-                ],
-              ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
-
+            const SizedBox(height: 12),
             Divider(color: PlixTheme.cardBorder, height: 1),
 
             // Navigation Items (Home, Search, Watchlist, Libraries, Settings, Switch Server, Sign Out)

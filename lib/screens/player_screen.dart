@@ -544,6 +544,21 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   String _errorMessage = '';
 
+  void _showPlaybackError(String error) {
+    if (!mounted) return;
+    setState(() {
+      _hasError = true;
+      _errorMessage = error;
+      _showControls = false;
+      _isAutoplayCountdownActive = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _hasError) {
+        _errorBtnFocusNode.requestFocus();
+      }
+    });
+  }
+
 
 
   IconData? _centerFeedbackIcon;
@@ -635,6 +650,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   bool _autoplayEnabled = true;
+  int _autoplayTriggerSeconds = 20;
+  final FocusNode _errorBtnFocusNode = FocusNode();
 
   bool _continuePlaybackScreenOff = false;
 
@@ -1290,19 +1307,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-        setState(() {
-
-
-
-          _hasError = true;
-
-
-
-          _errorMessage = err;
-
-
-
-        });
+        _showPlaybackError(err);
 
 
 
@@ -1725,6 +1730,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
           _autoplayEnabled = prefs.getBool('autoplay_next_episode') ?? true;
+          _autoplayTriggerSeconds = prefs.getInt('autoplay_trigger_seconds') ?? 20;
 
 
 
@@ -2606,9 +2612,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         triggerMs = credits.startTimeOffset;
 
-      } else if (_durationMs > 10000) {
-
-        triggerMs = _durationMs - 10000;
+      } else if (_durationMs > (_autoplayTriggerSeconds * 1000)) {
+        triggerMs = _durationMs - (_autoplayTriggerSeconds * 1000);
 
       } else {
 
@@ -4156,19 +4161,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-        setState(() {
-
-
-
-          _hasError = true;
-
-
-
-          _errorMessage = e.toString();
-
-
-
-        });
+        _showPlaybackError(e.toString());
 
 
 
@@ -6184,6 +6177,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (_hasError) {
+      if (event is KeyDownEvent) {
+        final key = event.logicalKey;
+        if (key == LogicalKeyboardKey.escape ||
+            key == LogicalKeyboardKey.goBack ||
+            key == LogicalKeyboardKey.browserBack) {
+          Navigator.of(context).pop();
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.ignored;
+    }
 
     if (_isModalOpen) {
 
@@ -6562,6 +6567,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   bool _onGlobalKeyEvent(KeyEvent event) {
+    if (_hasError) return false;
 
 
 
@@ -7675,14 +7681,7 @@ void _showSubtitleSelector() {
 
 
           _isSwitchingQuality = false;
-
-
-
-          _hasError = true;
-
-
-
-          _errorMessage = 'Failed to switch quality: $e';
+          _showPlaybackError('Failed to switch quality: $e');
 
 
 
@@ -7954,6 +7953,7 @@ void _showSubtitleSelector() {
 
 
 
+    _errorBtnFocusNode.dispose();
     _autoplayPlayNowFocusNode.dispose();
 
 
@@ -12812,170 +12812,6 @@ void _showSubtitleSelector() {
 
 
 
-              // Error state
-
-
-
-              if (_hasError)
-
-
-
-                Center(
-
-
-
-                  child: Container(
-
-
-
-                    padding: const EdgeInsets.all(24),
-
-
-
-                    decoration: BoxDecoration(
-
-
-
-                      color: Colors.black.withOpacity(0.85),
-
-
-
-                      borderRadius: BorderRadius.circular(12),
-
-
-
-                    ),
-
-
-
-                    child: Column(
-
-
-
-                      mainAxisSize: MainAxisSize.min,
-
-
-
-                      children: [
-
-
-
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-
-
-
-                        const SizedBox(height: 12),
-
-
-
-                        const Text(
-
-
-
-                          'Playback Error',
-
-
-
-                          style: TextStyle(
-
-
-
-                            color: Colors.white,
-
-
-
-                            fontSize: 18,
-
-
-
-                            fontWeight: FontWeight.bold,
-
-
-
-                          ),
-
-
-
-                        ),
-
-
-
-                        const SizedBox(height: 8),
-
-
-
-                        Text(
-
-
-
-                          _errorMessage,
-
-
-
-                          textAlign: TextAlign.center,
-
-
-
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-
-
-
-                        ),
-
-
-
-                        const SizedBox(height: 20),
-
-
-
-                        PlixButton(
-
-
-
-                          autofocus: true,
-
-
-
-                          isPrimary: true,
-
-
-
-                          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-
-
-
-                          label: 'Go Back',
-
-
-
-                          onPressed: () => Navigator.of(context).pop(),
-
-
-
-                        ),
-
-
-
-                      ],
-
-
-
-                    ),
-
-
-
-                  ),
-
-
-
-                ),
-
-
-
-
-
-
-
               // Center quick action feedback (Play, Pause, Seek icons and text) with frosted glass transparency
 
 
@@ -13644,15 +13480,9 @@ void _showSubtitleSelector() {
 
 
 
-                    ignoring: !_showControls,
-
-
-
+                    ignoring: !_showControls || _hasError,
                     child: ExcludeFocus(
-
-
-
-                      excluding: !_showControls,
+                      excluding: !_showControls || _hasError,
 
 
 
@@ -16361,6 +16191,64 @@ void _showSubtitleSelector() {
 
 
               _buildGestureHud(isCompact: false),
+
+              // Error state overlay on top of everything
+              if (_hasError)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withOpacity(0.88),
+                    alignment: Alignment.center,
+                    child: FocusScope(
+                      autofocus: true,
+                      child: Container(
+                        padding: const EdgeInsets.all(28),
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        decoration: BoxDecoration(
+                          color: PlixTheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.5), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.8),
+                              blurRadius: 24,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 54),
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Playback Error',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _errorMessage,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                            ),
+                            const SizedBox(height: 24),
+                            PlixButton(
+                              focusNode: _errorBtnFocusNode,
+                              autofocus: true,
+                              isPrimary: true,
+                              icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                              label: 'Go Back',
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
 
 

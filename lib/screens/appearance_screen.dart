@@ -274,7 +274,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                 children: [
 
-                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
 
                     PlixBackButton(
 

@@ -328,7 +328,7 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                 ),
                 child: Row(
                   children: [
-                    if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                    if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
                       PlixBackButton(
                         focusNode: _backFocusNode,
                         autofocus: false,

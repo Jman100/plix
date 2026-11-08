@@ -122,8 +122,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.8.2';
-  static int _currentVersionCode = 44;
+  static String _currentVersion = '1.8.3';
+  static int _currentVersionCode = 45;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -700,8 +700,17 @@ fi
       exit(0);
     }
 
-    final String cacheDirPath = await _channel.invokeMethod('getCacheDir');
-    final filePath = '$cacheDirPath/plix_update.apk';
+    await cleanUpDownloadedUpdate();
+
+    String downloadDirPath = '';
+    try {
+      downloadDirPath = await _channel.invokeMethod<String>('getDownloadsDir') ?? '';
+    } catch (_) {}
+    if (downloadDirPath.isEmpty) {
+      final String cacheDirPath = await _channel.invokeMethod('getCacheDir');
+      downloadDirPath = cacheDirPath;
+    }
+    final filePath = '$downloadDirPath/plix_update.apk';
     final targetFile = File(filePath);
 
     final shaToVerify = expectedSha256 ?? updateInfo?.getExpectedSha256ForTarget('plix_android.apk');
@@ -712,6 +721,31 @@ fi
       onProgress: onProgress,
     );
     await _channel.invokeMethod('installApk', {'filePath': targetFile.path});
+  }
+
+  static Future<void> cleanUpDownloadedUpdate() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final dirs = <String>{};
+      try {
+        final d = await _channel.invokeMethod<String>('getDownloadsDir');
+        if (d != null && d.isNotEmpty) dirs.add(d);
+      } catch (_) {}
+      try {
+        final c = await _channel.invokeMethod<String>('getCacheDir');
+        if (c != null && c.isNotEmpty) dirs.add(c);
+      } catch (_) {}
+
+      for (final dir in dirs) {
+        final f = File('$dir/plix_update.apk');
+        if (await f.exists()) {
+          await f.delete();
+          debugPrint('[UpdateService] Cleaned up downloaded update APK: ${f.path}');
+        }
+      }
+    } catch (e) {
+      debugPrint('[UpdateService] Error cleaning up update APK: $e');
+    }
   }
 
   static Future<void> showUpdateDialog(BuildContext context, UpdateInfo updateInfo) async {

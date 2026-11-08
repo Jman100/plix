@@ -160,7 +160,7 @@ class _PersonScreenState extends State<PersonScreen> {
               padding: EdgeInsets.fromLTRB(isCompact ? 14 : 28, 16, 20, 8),
               child: Row(
                 children: [
-                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
                     PlixBackButton(
                       focusNode: _backFocusNode,
                       autofocus: true,

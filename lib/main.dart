@@ -18,6 +18,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   PlixImageCache.configure();
   await UpdateService.initVersion();
+  if (Platform.isAndroid) {
+    UpdateService.cleanUpDownloadedUpdate();
+  }
 
   await PlixDeviceHelper.initDeviceName();
   if (Platform.isIOS) {
@@ -74,6 +77,9 @@ class PlixApp extends StatelessWidget {
           title: 'Plix',
           debugShowCheckedModeBanner: false,
           theme: PlixTheme.themeData,
+          builder: (context, child) {
+            return _SystemUiOrientationWatcher(child: child ?? const SizedBox.shrink());
+          },
           home: SplashScreen(
             authService: authService,
             serverService: serverService,
@@ -81,5 +87,56 @@ class PlixApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _SystemUiOrientationWatcher extends StatefulWidget {
+  final Widget child;
+  const _SystemUiOrientationWatcher({required this.child});
+
+  @override
+  State<_SystemUiOrientationWatcher> createState() => _SystemUiOrientationWatcherState();
+}
+
+class _SystemUiOrientationWatcherState extends State<_SystemUiOrientationWatcher> with WidgetsBindingObserver {
+  Orientation? _lastOrientation;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _applySystemUi(MediaQuery.of(context).orientation);
+    }
+  }
+
+  void _applySystemUi(Orientation orientation) {
+    if (!PlixDeviceHelper.isTelevision && (Platform.isAndroid || Platform.isIOS)) {
+      if (orientation == Orientation.landscape) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    if (_lastOrientation != orientation) {
+      _lastOrientation = orientation;
+      _applySystemUi(orientation);
+    }
+    return widget.child;
   }
 }

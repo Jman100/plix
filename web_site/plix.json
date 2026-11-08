@@ -1,7 +1,7 @@
 {
-    "version": "1.8.2",
-    "versionCode": 44,
-    "releaseNotes": "- Connected Servers Startup & Resume: Resolved an issue where backgrounding Plix or accessing Android TV settings could cause the app to reopen into the Connected Servers screen without a back button; Plix now seamlessly returns directly to the Home screen and provides graceful Home navigation fallbacks\n- Connected Servers Information: Updated description to clearly explain multi-server connectivity and how favorite libraries configure the navigation menu\n- Library Grid Highlight Border: Fixed top row item focus highlight border getting truncated at the top of full library screens\n- App Version Bump: v1.8.2 (versionCode 44)",
+    "version": "1.8.3",
+    "versionCode": 45,
+    "releaseNotes": "- Mobile Landscape Immersive Mode & Navigation: Clean full-screen display with system status and gesture navigation bars hidden in landscape mode, expandable sidebar chevron toggle, and dedicated top back buttons for smooth single-tap navigation\n- TV Sidebar Nav Alignment: Centered the app logo in collapsed navigation on TV displays to eliminate empty spacing and align with sidebar menu items\n- Home Screen Focus Retention: Preserved card focus on Continue Watching after returning from playback, with smart detection to respect user navigation before server refresh completes\n- App Version Bump: v1.8.3 (versionCode 45)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",

@@ -1662,7 +1662,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Back & Home buttons placed naturally at top of content so it scrolls away
-                        if (!Platform.isAndroid || PlixDeviceHelper.isTelevision)
+                        if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16),
                             child: Row(

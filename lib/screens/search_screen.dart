@@ -294,7 +294,7 @@ class _SearchScreenState extends State<SearchScreen> {
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 12),
       child: Row(
         children: [
-          if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+          if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
             PlixBackButton(
               focusNode: _backButtonFocus,
               onRight: () => _homeButtonFocus.requestFocus(),

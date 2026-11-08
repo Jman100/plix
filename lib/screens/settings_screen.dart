@@ -58,6 +58,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _checkUpdateBtnFocusNode = FocusNode();
 
   final FocusNode _autoplayFocusNode = FocusNode();
+  final FocusNode _autoplayTriggerFocusNode = FocusNode();
+  int _autoplayTriggerSeconds = 20;
   final FocusNode _rewindFocusNode = FocusNode();
   final FocusNode _skipFocusNode = FocusNode();
   final FocusNode _aboutServerFocusNode = FocusNode();
@@ -144,6 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _autoCheckUpdates = autoCheck;
         _autoplayNextEpisode = prefs.getBool('autoplay_next_episode') ?? true;
+        _autoplayTriggerSeconds = prefs.getInt('autoplay_trigger_seconds') ?? 20;
         _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
         _playTvThemes = prefs.getBool('play_tv_show_themes') ?? true;
         _continuePlaybackScreenOff = prefs.getBool('continue_playback_screen_off') ?? false;
@@ -302,6 +305,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setBool('autoplay_next_episode', newVal);
   }
 
+  Future<void> _cycleAutoplayTriggerSeconds() async {
+    const options = [10, 15, 20, 30, 45, 60];
+    final currentIdx = options.indexOf(_autoplayTriggerSeconds);
+    final nextVal = currentIdx == -1 ? 20 : options[(currentIdx + 1) % options.length];
+    setState(() => _autoplayTriggerSeconds = nextVal);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('autoplay_trigger_seconds', nextVal);
+  }
+
   Future<void> _toggleAutoSkipIntro() async {
     final newVal = !_autoSkipIntro;
     setState(() => _autoSkipIntro = newVal);
@@ -365,6 +377,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _backButtonFocusNode.dispose();
     _homeButtonFocusNode.dispose();
     _autoplayFocusNode.dispose();
+    _autoplayTriggerFocusNode.dispose();
     _skipIntroFocusNode.dispose();
     _themeFocusNode.dispose();
     _screenOffFocusNode.dispose();
@@ -406,7 +419,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: isCompact ? 10 : 16),
               child: Row(
                 children: [
-                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision) ...[
+                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
                     PlixBackButton(
                       focusNode: _backButtonFocusNode,
                       autofocus: false,
@@ -494,17 +507,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _autoplayFocusNode,
                     onUp: () => _appearanceTileFocusNode.requestFocus(),
-                    onDown: () => _skipIntroFocusNode.requestFocus(),
+                    onDown: () => _autoplayNextEpisode
+                        ? _autoplayTriggerFocusNode.requestFocus()
+                        : _skipIntroFocusNode.requestFocus(),
                     title: 'Autoplay Next Episode',
                     subtitle: 'Automatically start the next episode with countdown when an episode finishes',
                     trailing: _autoplayNextEpisode ? 'Enabled' : 'Disabled',
                     isInteractive: true,
                     onTap: _toggleAutoplay,
                   ),
+                  if (_autoplayNextEpisode) ...[
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _autoplayTriggerFocusNode,
+                      onUp: () => _autoplayFocusNode.requestFocus(),
+                      onDown: () => _skipIntroFocusNode.requestFocus(),
+                      title: 'Autoplay Prompt Timing',
+                      subtitle: 'How many seconds before the end of an episode the autoplay countdown appears',
+                      trailing: '${_autoplayTriggerSeconds}s',
+                      isInteractive: true,
+                      onTap: _cycleAutoplayTriggerSeconds,
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   _SettingsActionTile(
                     focusNode: _skipIntroFocusNode,
-                    onUp: () => _autoplayFocusNode.requestFocus(),
+                    onUp: () => _autoplayNextEpisode
+                        ? _autoplayTriggerFocusNode.requestFocus()
+                        : _autoplayFocusNode.requestFocus(),
                     onDown: () => _themeFocusNode.requestFocus(),
                     title: 'Auto Skip Intro',
                     subtitle: 'Automatically skip intro markers when playing TV episodes',

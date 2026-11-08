@@ -278,6 +278,30 @@ class MainActivity: FlutterActivity() {
                 "getCacheDir" -> {
                     result.success(cacheDir.absolutePath)
                 }
+                "getDownloadsDir" -> {
+                    try {
+                        val publicDownloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                        if (!publicDownloads.exists()) {
+                            publicDownloads.mkdirs()
+                        }
+                        val testFile = java.io.File(publicDownloads, ".plix_test")
+                        if (testFile.createNewFile()) {
+                            testFile.delete()
+                            result.success(publicDownloads.absolutePath)
+                            return@setMethodCallHandler
+                        }
+                    } catch (_: Exception) {}
+
+                    try {
+                        val extDir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: externalCacheDir ?: cacheDir
+                        if (!extDir.exists()) {
+                            extDir.mkdirs()
+                        }
+                        result.success(extDir.absolutePath)
+                    } catch (_: Exception) {
+                        result.success(cacheDir.absolutePath)
+                    }
+                }
                 "isTelevision" -> {
                     var isTv = false
                     try {
