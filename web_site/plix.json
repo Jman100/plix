@@ -10,5 +10,8 @@
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseDate": "2026-11-09"
+    "releaseDate": "2026-11-09",
+    "linuxSha256": "253875992a9b5531e39ebddf1f0562030124dc0343b8ecda28aaafa8525a00ba",
+    "linuxArchSha256": "66f9c8d3747b4e5b6ed83dfa678a07415272dfd141d09b5523dcbecb4cbf6afe",
+    "linuxTarballSha256": "e06e92aaee853f771c6532802a2e27e6f4ec98a49e3aceba01a5dc4e49728088"
 }

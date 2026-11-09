@@ -93,7 +93,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plix_linux_arch
-          path: build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
+          path: |
+            build/staged_linux/plix-*-1-x86_64.pkg.tar.zst
+            build/staged_linux/plix_linux_arch.pkg.tar.zst
           if-no-files-found: error
           retention-days: 14
 
@@ -101,7 +103,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plix_linux_tarball
-          path: build/staged_linux/plix-*-linux-x86_64.tar.gz
+          path: |
+            build/staged_linux/plix-*-linux-x86_64.tar.gz
+            build/staged_linux/plix_linux_portable.tar.gz
           if-no-files-found: error
           retention-days: 14
 
