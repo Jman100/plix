@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.7.1"
-$versionCode = 41
+$version = "1.8.4"
+$versionCode = 46
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 
@@ -31,15 +31,10 @@ $networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 # Generate and update plix.json release manifest
 $releaseNotes = @"
-- MPV Player for iOS: Integrated libmpv media_kit video player on iOS for native direct play of MKV, DTS, TrueHD, and advanced codecs
-- iOS Playback UI: Fully resolved playback UI visibility and touch responsiveness in portrait and landscape
-- Landscape Library Reordering: Added draggable grip handles on mobile landscape (Android, iOS) and Windows when reorder mode is active
-- iPhone Duo Support: Added tabletop, book, and fold-clearance layouts for iPhone Duo hardware
-- Windows Native ARM64: Redesigned Windows build with native ARM64 support and unified dual-architecture installer
-- Windows on ARM Playback: Fixed black screen on Windows for ARM (Direct3D 12_1/12_0 & updated ANGLE swapchain rendering pipeline)
-- Episode HDR Badges: Specific HDR format display (HDR10, HDR10+, Dolby Vision, HLG) on episodes across all views
-- Continue Watching Hero Duration: Added media content runtime length to the hero detail section
-- Version Bump: v1.3.3 (versionCode 32)
+- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing
+- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders
+- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases
+- App Version Bump: v1.8.4 (versionCode 46)
 "@
 
 $manifest = [ordered]@{

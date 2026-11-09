@@ -92,36 +92,50 @@ class _SidebarNavState extends State<SidebarNav> {
     }
   }
 
+  void _scrollToKeepItemVisible(FocusNode? node) {
+    if (!mounted || node == null) return;
+    final nodeCtx = node.context;
+    if (nodeCtx == null || !nodeCtx.mounted) return;
+    final renderObject = nodeCtx.findRenderObject() as RenderBox?;
+    final listViewBox = _listViewKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderObject != null && listViewBox != null && _scrollController.hasClients) {
+      final itemOffset = renderObject.localToGlobal(Offset.zero, ancestor: listViewBox);
+      final itemTop = itemOffset.dy;
+      final itemBottom = itemTop + renderObject.size.height;
+      final viewportHeight = _scrollController.position.viewportDimension;
+      final currentOffset = _scrollController.position.pixels;
+
+      // Scroll down if item is approaching or exceeds bottom of viewport
+      if (itemBottom > viewportHeight * 0.75) {
+        final target = (currentOffset + (itemBottom - viewportHeight * 0.75)).clamp(0.0, _scrollController.position.maxScrollExtent);
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        );
+      } else if (_orderedLibraries.isNotEmpty && _orderedLibraries.first.compositeId == _activeReorderKey) {
+        // Scrolled all the way to top item in reorder
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        );
+      } else if (itemTop < 60) {
+        // Scroll up if item is approaching the top of viewport
+        final target = (currentOffset + itemTop - 60).clamp(0.0, _scrollController.position.maxScrollExtent);
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
   void _ensureItemVisible(FocusNode node) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !node.hasFocus) return;
-      final nodeCtx = node.context;
-      if (nodeCtx == null || !nodeCtx.mounted) return;
-      final renderObject = nodeCtx.findRenderObject() as RenderBox?;
-      final listViewBox = _listViewKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderObject != null && listViewBox != null && _scrollController.hasClients) {
-        final itemOffset = renderObject.localToGlobal(Offset.zero, ancestor: listViewBox);
-        final itemTop = itemOffset.dy;
-        final itemBottom = itemTop + renderObject.size.height;
-        final viewportHeight = _scrollController.position.viewportDimension;
-        final currentOffset = _scrollController.position.pixels;
-
-        if (itemBottom > viewportHeight) {
-          final target = (currentOffset + (itemBottom - viewportHeight + 12)).clamp(0.0, _scrollController.position.maxScrollExtent);
-          _scrollController.animateTo(
-            target,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-          );
-        } else if (itemTop < 12) {
-          final target = (currentOffset + itemTop - 12).clamp(0.0, _scrollController.position.maxScrollExtent);
-          _scrollController.animateTo(
-            target,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      }
+      if (!mounted) return;
+      _scrollToKeepItemVisible(node);
     });
   }
 
@@ -205,7 +219,9 @@ class _SidebarNavState extends State<SidebarNav> {
       widget.onLibrariesReordered?.call(List.from(_orderedLibraries));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _itemFocusNodes[lib.compositeId]?.requestFocus();
+          final node = _itemFocusNodes[lib.compositeId];
+          node?.requestFocus();
+          _scrollToKeepItemVisible(node);
         }
       });
     }
@@ -264,12 +280,15 @@ class _SidebarNavState extends State<SidebarNav> {
             final node = _itemFocusNodes[lib.compositeId];
             if (node != null && node.canRequestFocus) {
               node.requestFocus();
+              _scrollToKeepItemVisible(node);
             }
           }
         });
       } else {
         setState(() => _activeReorderKey = lib.compositeId);
-        _itemFocusNodes[lib.compositeId]?.requestFocus();
+        final node = _itemFocusNodes[lib.compositeId];
+        node?.requestFocus();
+        _scrollToKeepItemVisible(node);
       }
       return;
     }
@@ -488,7 +507,7 @@ class _SidebarNavState extends State<SidebarNav> {
                         ),
                         Builder(builder: (context) {
                           final distinctServers = _orderedLibraries
-                              .map((l) => l.serverName)
+                              .map((l) => (l.serverName != null && l.serverName!.isNotEmpty) ? l.serverName! : l.serverId)
                               .where((n) => n != null && n.isNotEmpty)
                               .toSet();
                           if (distinctServers.length > 1) {
@@ -505,12 +524,12 @@ class _SidebarNavState extends State<SidebarNav> {
                                   const SizedBox(width: 6),
                                   Icon(Icons.dns_rounded, size: 13, color: PlixTheme.plexGold),
                                   const SizedBox(width: 4),
-                                  const Expanded(
+                                  Expanded(
                                     child: Text(
-                                      ' Servers',
+                                      '${distinctServers.length} Servers',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: PlixTheme.textSecondary,
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,

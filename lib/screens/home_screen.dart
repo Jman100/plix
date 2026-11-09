@@ -1262,7 +1262,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => SearchScreen(
           server: widget.server,
+          servers: _activeServers.isNotEmpty ? _activeServers : _allServers,
           clientId: _clientId,
+          isMultiServer: isMultiServer,
         ),
       ),
     ).then((_) {

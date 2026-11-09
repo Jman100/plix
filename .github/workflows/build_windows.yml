@@ -168,6 +168,8 @@ jobs:
     name: Package Unified Installer (x64 & ARM64)
     needs: [build-windows-arm64, build-windows-x64]
     runs-on: windows-latest
+    permissions:
+      contents: write
     timeout-minutes: 20
 
     steps:

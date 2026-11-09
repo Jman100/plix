@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.7.1"
-$versionCode = 41
+$version = "1.8.4"
+$versionCode = 46
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,18 +45,10 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Arch Linux Self-Updater Fix: Resolved package auto-updater opening in archive managers (such as Ark) by introducing an interactive terminal updater script that executes pacman -U with elevated privileges and cleanly relaunches Plix
-- Plex Watchlist Instant Open: Eliminated 20-second blocking delays when opening Plex watchlist titles by adding fast-path active local server resolution (~100ms) with non-blocking background metadata synchronization
-- Title Art & Clear Logos: Replicated official Plex title art branding across the home hero section, movie, show, and episode detail pages with English logo prioritization and styled typographic fallbacks
-- Home Title Art Pre-Caching & Transcode Acceleration: Background pre-caching engine warms up title art across Continue Watching and active library rows; size-bounded Plex photo transcoding delivers lightweight, transparent PNGs (~15-30 KB) with zero perceived lag
-- Zero-Shift Detail Pages: Pre-positioned reserved bounding boxes for title artwork on movies, shows, and episodes eliminate vertical layout jumping when media metadata and assets load
-- Plex Watchlist Seasons & Episodes Fix: Seamless fallback to Plex Discover cloud metadata provider (metadata.provider.plex.tv) and cross-server library resolution ensures watchlist shows load full seasons and episodes reliably
-- Mobile Portrait Art & Navigation Polish: Movie detail pages in mobile portrait feature prominent centered title art over top-aligned, full-width backdrops; centered episode and show headers; and a scrollable favorite libraries sheet with a 5th-item peek indicator
-- Desktop Volume Controls & Autoplay Fix: Added in-player desktop volume slider with hover controls, mute toggle, and mouse wheel support; fixed unfocused background window autoplay interruptions
-- Windows Per-App Display HDR: Automatic detection and dynamic switching of display HDR for HDR10 media playback on Windows, cleanly restoring SDR upon stop
-- Detail Header SX:EX Notation: Streamlined episode detail subtitle line to clean SX:EX format, eliminating show title redundancy
-- Multi-Server Settings Accuracy: Correctly enumerates and displays all connected Plex and Jellyfin servers in settings
-- App Version Bump: v1.7.1 (versionCode 41)
+- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing
+- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders
+- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases
+- App Version Bump: v1.8.4 (versionCode 46)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

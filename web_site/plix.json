@@ -1,12 +1,14 @@
 {
-    "version": "1.8.3",
-    "versionCode": 45,
-    "releaseNotes": "- Mobile Landscape Immersive Mode & Navigation: Clean full-screen display with system status and gesture navigation bars hidden in landscape mode, expandable sidebar chevron toggle, and dedicated top back buttons for smooth single-tap navigation\n- TV Sidebar Nav Alignment: Centered the app logo in collapsed navigation on TV displays to eliminate empty spacing and align with sidebar menu items\n- Home Screen Focus Retention: Preserved card focus on Continue Watching after returning from playback, with smart detection to respect user navigation before server refresh completes\n- App Version Bump: v1.8.3 (versionCode 45)",
+    "version": "1.8.4",
+    "versionCode": 46,
+    "releaseNotes": "- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing\n- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders\n- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases\n- App Version Bump: v1.8.4 (versionCode 46)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
+    "apkSha256": "07fafc372e64d0e1b3ff9daf640dd00474ecf1b56861148e25184496dfed9667",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
+    "windowsSha256": "55bf8d75866db186b604b23bffa8063e5490794c49c518007ea02857061d0d76",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseDate": "2026-11-07"
+    "releaseDate": "2026-11-09"
 }

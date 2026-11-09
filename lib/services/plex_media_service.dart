@@ -34,7 +34,7 @@ class PlexMediaService {
 
 
 
-  String get baseUrl => server.activeConnectionUri ?? '';
+  String get baseUrl => server.activeConnectionUri ?? (server.connections.isNotEmpty ? server.connections.first.uri : '');
 
   String get token => server.accessToken;
 
@@ -2586,164 +2586,157 @@ class PlexMediaService {
 
 
   Future<List<PlexMediaItem>> search(String query) async {
-
     if (server.isJellyfin) {
-
       return _jfService.search(query);
-
     }
-
     final q = query.trim();
-
     if (q.isEmpty) return [];
 
-
-
     final rawItems = <PlexMediaItem>[];
+    final effectiveBase = baseUrl;
+    if (effectiveBase.isEmpty) return [];
 
+    final encoded = Uri.encodeComponent(q);
+    final tokenParam = token.isNotEmpty ? '&X-Plex-Token=${Uri.encodeComponent(token)}' : '';
 
+    List<dynamic> extractList(dynamic container, List<String> candidateKeys) {
+      if (container is! Map) return [];
+      for (final k in candidateKeys) {
+        final val = container[k];
+        if (val is List) return val;
+        if (val is Map) return [val];
+      }
+      return [];
+    }
 
+    void parseAndAddItems(dynamic list) {
+      if (list is! List) return;
+      for (final raw in list) {
+        if (raw is Map) {
+          try {
+            final map = Map<String, dynamic>.from(raw);
+            final itemType = map['type']?.toString().toLowerCase();
+            // Skip non-media entities
+            if (itemType == 'person' || itemType == 'actor' || itemType == 'director' || itemType == 'genre' || itemType == 'playlist') {
+              continue;
+            }
+            final parsed = PlexMediaItem.fromJson(map);
+            if (parsed.ratingKey.isNotEmpty) {
+              rawItems.add(parsed.copyWith(server: server, serverId: server.clientIdentifier));
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 1. Query /hubs/search (handles case-insensitive 'Hub' / 'hub', 'Metadata' / 'Video' / 'Directory')
     try {
-
-      final encoded = Uri.encodeComponent(q);
-
-      // 1. Query /hubs/search
-
-      final uri = Uri.parse('$baseUrl/hubs/search?query=$encoded&limit=50&includeStreams=1');
-
-      final response = await http.get(uri, headers: _headers);
-
+      final uri = Uri.parse('$effectiveBase/hubs/search?query=$encoded&limit=50&includeStreams=1$tokenParam');
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
       if (response.statusCode == 200) {
-
         final data = json.decode(response.body) as Map<String, dynamic>;
-
-        final mc = data['MediaContainer'] as Map<String, dynamic>?;
-
-        if (mc != null) {
-
-          final hubs = mc['Hub'] as List<dynamic>?;
-
-          if (hubs != null) {
-
-            for (final h in hubs) {
-
-              final hubMeta = (h['Metadata'] as List<dynamic>?) ?? (h['Directory'] as List<dynamic>?);
-
-              if (hubMeta != null) {
-
-                for (final item in hubMeta) {
-
-                  rawItems.add(PlexMediaItem.fromJson(item as Map<String, dynamic>));
-
-                }
-
-              }
-
+        final mc = data['MediaContainer'] ?? data['mediaContainer'];
+        if (mc is Map) {
+          final hubs = extractList(mc, ['Hub', 'hub', 'hubs', 'Hubs']);
+          for (final h in hubs) {
+            if (h is! Map) continue;
+            final hubType = h['type']?.toString().toLowerCase();
+            if (hubType == 'actor' || hubType == 'director' || hubType == 'genre' || hubType == 'person') {
+              continue;
             }
-
+            final items = extractList(h, ['Metadata', 'metadata', 'Video', 'video', 'Directory', 'directory', 'Item', 'item']);
+            parseAndAddItems(items);
           }
-
-          final meta = (mc['Metadata'] as List<dynamic>?) ?? (mc['Directory'] as List<dynamic>?);
-
-          if (meta != null) {
-
-            for (final item in meta) {
-
-              rawItems.add(PlexMediaItem.fromJson(item as Map<String, dynamic>));
-
-            }
-
-          }
-
+          final directMeta = extractList(mc, ['Metadata', 'metadata', 'SearchResults', 'searchResults', 'Video', 'video', 'Directory', 'directory']);
+          parseAndAddItems(directMeta);
         }
-
       }
-
-
-
-      // 2. Fallback to /library/search if empty
-
-      if (rawItems.isEmpty) {
-
-        final libUri = Uri.parse('$baseUrl/library/search?query=$encoded&limit=50&includeStreams=1');
-
-        final libRes = await http.get(libUri, headers: _headers);
-
-        if (libRes.statusCode == 200) {
-
-          final data = json.decode(libRes.body) as Map<String, dynamic>;
-
-          final mc = data['MediaContainer'] as Map<String, dynamic>?;
-
-          final meta = mc?['Metadata'] as List<dynamic>?;
-
-          if (meta != null) {
-
-            for (final item in meta) {
-
-              rawItems.add(PlexMediaItem.fromJson(item as Map<String, dynamic>));
-
-            }
-
-          }
-
-        }
-
-      }
-
     } catch (_) {}
 
+    // 2. Fallback to PMS global /search endpoint if empty
+    if (rawItems.isEmpty) {
+      try {
+        final searchUri = Uri.parse('$effectiveBase/search?query=$encoded$tokenParam');
+        final searchRes = await http.get(searchUri, headers: _headers).timeout(const Duration(seconds: 7));
+        if (searchRes.statusCode == 200) {
+          final data = json.decode(searchRes.body) as Map<String, dynamic>;
+          final mc = data['MediaContainer'] ?? data['mediaContainer'];
+          if (mc is Map) {
+            final items = extractList(mc, ['Metadata', 'metadata', 'SearchResults', 'searchResults', 'Video', 'video', 'Directory', 'directory']);
+            parseAndAddItems(items);
+          }
+        }
+      } catch (_) {}
+    }
 
+    // 3. Fallback to querying movie & show library sections directly if still empty
+    if (rawItems.isEmpty) {
+      try {
+        final sectionsUri = Uri.parse('$effectiveBase/library/sections$tokenParam');
+        final secRes = await http.get(sectionsUri, headers: _headers).timeout(const Duration(seconds: 5));
+        if (secRes.statusCode == 200) {
+          final data = json.decode(secRes.body) as Map<String, dynamic>;
+          final mc = data['MediaContainer'] ?? data['mediaContainer'];
+          final directories = extractList(mc, ['Directory', 'directory', 'Metadata', 'metadata']);
+          final sectionKeys = <String>[];
+          for (final d in directories) {
+            if (d is Map) {
+              final type = d['type']?.toString().toLowerCase();
+              final key = d['key']?.toString();
+              if ((type == 'movie' || type == 'show') && key != null && key.isNotEmpty) {
+                sectionKeys.add(key);
+              }
+            }
+          }
+          final sectionFutures = sectionKeys.map((secKey) async {
+            try {
+              final secSearchUri = Uri.parse('$effectiveBase/library/sections/$secKey/all?title=$encoded$tokenParam');
+              final r = await http.get(secSearchUri, headers: _headers).timeout(const Duration(seconds: 5));
+              if (r.statusCode == 200) {
+                final d = json.decode(r.body) as Map<String, dynamic>;
+                final c = d['MediaContainer'] ?? d['mediaContainer'];
+                return extractList(c, ['Metadata', 'metadata', 'Video', 'video']);
+              }
+            } catch (_) {}
+            return [];
+          });
+          final results = await Future.wait(sectionFutures);
+          for (final resList in results) {
+            parseAndAddItems(resList);
+          }
+        }
+      } catch (_) {}
+    }
 
     if (rawItems.isEmpty) return [];
 
-
-
     final lowerQ = q.toLowerCase();
-
     final seen = <String>{};
-
     final filtered = <PlexMediaItem>[];
 
-
-
     for (final it in rawItems) {
-
       if (!seen.add(it.ratingKey)) continue;
 
-
-
-      // Filter out raw season items from search results
-
-      if (it.type == 'season') continue;
-
-
-
-      // If item is an episode, only show if query directly matches episode title (not show title)
-
-      if (it.isEpisode || it.type == 'episode') {
-
-        if (!it.title.toLowerCase().contains(lowerQ)) {
-
-          continue;
-
-        }
-
+      // Filter out raw season items and non-media items from search results
+      if (it.type == 'season' || it.type == 'person' || it.type == 'actor' || it.type == 'genre') {
+        continue;
       }
 
-
+      // If item is an episode, check both episode title and show/season title
+      if (it.isEpisode || it.type == 'episode') {
+        final titleMatch = it.title.toLowerCase().contains(lowerQ);
+        final gpMatch = it.grandparentTitle?.toLowerCase().contains(lowerQ) ?? false;
+        final pMatch = it.parentTitle?.toLowerCase().contains(lowerQ) ?? false;
+        if (!titleMatch && !gpMatch && !pMatch) {
+          continue;
+        }
+      }
 
       filtered.add(it);
-
     }
 
-
-
     return filtered;
-
   }
-
-
 
   Future<PlexMediaItem?> getMovieTrailer(
 
