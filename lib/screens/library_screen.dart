@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plex_library.dart';
@@ -7,6 +8,7 @@ import '../services/plex_media_service.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
+import '../services/plix_image_cache.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_bottom_nav.dart';
 import 'details_screen.dart';
@@ -47,6 +49,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final Map<int, FocusNode> _focusNodes = {};
   final ScrollController _gridScrollController = ScrollController();
   _LibrarySortOption _sortOption = _LibrarySortOption.nameAsc;
+  Timer? _focusAdjustTimer;
 
   @override
   void initState() {
@@ -58,10 +61,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _focusAdjustTimer?.cancel();
     _gridScrollController.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
     }
+    _focusNodes.clear();
+    PlixImageCache.trim();
     super.dispose();
   }
 
@@ -77,6 +83,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _handleItemFocus(int index, bool isCompact) {
     if (isCompact) return;
+    _focusAdjustTimer?.cancel();
     if (index < _firstRowItemCount(isCompact)) {
       void scrollToTop() {
         if (!mounted || !_gridScrollController.hasClients) return;
@@ -91,7 +98,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         scrollToTop();
         // Re-assert after the framework's focus ensureVisible pass.
-        Future<void>.delayed(const Duration(milliseconds: 80), scrollToTop);
+        _focusAdjustTimer = Timer(const Duration(milliseconds: 80), scrollToTop);
       });
       return;
     }
@@ -141,7 +148,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       adjustVisible();
-      Future<void>.delayed(const Duration(milliseconds: 80), adjustVisible);
+      _focusAdjustTimer = Timer(const Duration(milliseconds: 80), adjustVisible);
     });
   }
 
@@ -362,6 +369,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     )
                   : CustomScrollView(
                       controller: _gridScrollController,
+                      cacheExtent: 150.0,
                       clipBehavior: Clip.none,
                       slivers: [
                         if (_selectedCategory != null)
@@ -455,6 +463,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                     );
                                   },
                                   childCount: _items.length,
+                                  addAutomaticKeepAlives: false,
                                 ),
                               ),
                             ),

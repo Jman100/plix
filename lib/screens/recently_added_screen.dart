@@ -11,6 +11,7 @@ import '../widgets/plix_home_button.dart';
 import 'details_screen.dart';
 import '../services/plix_device_helper.dart';
 import '../widgets/plix_bottom_nav.dart';
+import '../services/plix_image_cache.dart';
 
 class RecentlyAddedScreen extends StatefulWidget {
   final PlexLibrary library;
@@ -54,6 +55,8 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
     for (final node in _focusNodes.values) {
       node.dispose();
     }
+    _focusNodes.clear();
+    PlixImageCache.trim();
     super.dispose();
   }
 
@@ -290,6 +293,8 @@ class _RecentlyAddedScreenState extends State<RecentlyAddedScreen> {
                                       crossAxisSpacing: 16,
                                       mainAxisSpacing: 18,
                                     ),
+                              cacheExtent: 150.0,
+                              addAutomaticKeepAlives: false,
                               itemCount: _items.length,
                               itemBuilder: (context, index) {
                                 final item = _items[index];

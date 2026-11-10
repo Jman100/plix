@@ -770,6 +770,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
                                       ),
 
+                                addAutomaticKeepAlives: false,
                                 itemCount: _items.length,
 
                                 itemBuilder: (context, index) {
