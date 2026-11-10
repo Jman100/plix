@@ -11,6 +11,10 @@ class SubtitleCue {
 }
 
 class SubtitleParser {
+  static final RegExp _blocksRegex = RegExp(r'\n{2,}');
+  static final RegExp _assTagsRegex = RegExp(r'\{[^}]*\}');
+  static final RegExp _htmlTagsRegex = RegExp(r'<[^>]*>');
+
   static List<SubtitleCue> parse(String content) {
     if (content.isEmpty) return [];
 
@@ -35,7 +39,7 @@ class SubtitleParser {
 
   static List<SubtitleCue> _parseSrtOrVtt(String content) {
     final List<SubtitleCue> cues = [];
-    final blocks = content.split(RegExp(r'\n{2,}'));
+    final blocks = content.split(_blocksRegex);
 
     for (final block in blocks) {
       final lines = block.trim().split('\n');
@@ -145,9 +149,9 @@ class SubtitleParser {
     // Replace ASS newline markers \N and \n
     s = s.replaceAll(r'\N', '\n').replaceAll(r'\n', '\n');
     // Remove ASS styling tags: {\an8}, {\b1}, {\c&H...&}, {\pos(x,y)}, etc.
-    s = s.replaceAll(RegExp(r'\{[^}]*\}'), '');
+    s = s.replaceAll(_assTagsRegex, '');
     // Remove HTML tags: <i>, </b>, <font color="...">, <c.yellow>
-    s = s.replaceAll(RegExp(r'<[^>]*>'), '');
+    s = s.replaceAll(_htmlTagsRegex, '');
     return s.trim();
   }
 

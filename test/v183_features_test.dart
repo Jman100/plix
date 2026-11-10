@@ -4,7 +4,7 @@ import 'package:plix/models/plex_media_item.dart';
 void main() {
   group('Autoplay Countdown Trigger Logic', () {
     test('Credits marker takes precedence over manual autoplay trigger seconds', () {
-      final itemWithCredits = PlexMediaItem(
+      const itemWithCredits = PlexMediaItem(
         ratingKey: '101',
         key: '/library/metadata/101',
         title: 'Episode With Credits',
@@ -27,7 +27,7 @@ void main() {
       const autoplayTriggerSeconds = 20;
       final durationMs = itemWithCredits.duration ?? 0;
       final int triggerMs;
-      if (credits != null && credits.startTimeOffset > 0) {
+      if (credits.startTimeOffset > 0) {
         triggerMs = credits.startTimeOffset;
       } else if (durationMs > (autoplayTriggerSeconds * 1000)) {
         triggerMs = durationMs - (autoplayTriggerSeconds * 1000);
@@ -40,7 +40,7 @@ void main() {
     });
 
     test('Manual autoplay trigger seconds is used when no credits marker exists', () {
-      final itemWithoutCredits = PlexMediaItem(
+      const itemWithoutCredits = PlexMediaItem(
         ratingKey: '102',
         key: '/library/metadata/102',
         title: 'Episode Without Credits',
@@ -68,7 +68,7 @@ void main() {
     });
 
     test('Custom autoplay trigger seconds (e.g. 45s) properly scales triggerMs', () {
-      final item = PlexMediaItem(
+      const item = PlexMediaItem(
         ratingKey: '103',
         key: '/library/metadata/103',
         title: 'Episode Custom Timing',

@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:plix/models/plex_media_item.dart';
 import 'package:plix/models/plex_server.dart';
 import 'package:plix/services/plex_media_service.dart';
@@ -32,18 +29,6 @@ void main() {
     });
 
     test('Plex search parses lowercase hub and uppercase Hub with Video / Metadata arrays', () async {
-      final server = PlexServer(
-        name: 'My Plex',
-        clientIdentifier: 'plex_1',
-        accessToken: 'plex_token',
-        activeConnectionUri: 'http://192.168.1.100:32400',
-        connections: [],
-        owned: true,
-        serverType: 'plex',
-      );
-
-      final service = PlexMediaService(server: server);
-
       // Verify that PlexMediaItem parses items correctly from hub responses
       final mockResponse = {
         'MediaContainer': {
@@ -101,10 +86,16 @@ void main() {
       for (final h in hubs) {
         if (h is! Map) continue;
         final hubType = h['type']?.toString().toLowerCase();
-        if (hubType == 'actor' || hubType == 'director' || hubType == 'person') continue;
-        final list = (h['Metadata'] ?? h['Video'] ?? h['Directory']) as List<dynamic>? ?? [];
-        for (final raw in list) {
-          items.add(PlexMediaItem.fromJson(Map<String, dynamic>.from(raw as Map)));
+        if (hubType == 'actor' || hubType == 'director' || hubType == 'genre' || hubType == 'person') {
+          continue;
+        }
+        final list = (h['Metadata'] ?? h['Video'] ?? h['Directory']) as List<dynamic>?;
+        if (list != null) {
+          for (final raw in list) {
+            if (raw is Map) {
+              items.add(PlexMediaItem.fromJson(Map<String, dynamic>.from(raw)));
+            }
+          }
         }
       }
 
@@ -116,7 +107,7 @@ void main() {
     });
 
     test('Episode search matches show title as well as episode title', () {
-      final episode = PlexMediaItem(
+      const episode = PlexMediaItem(
         ratingKey: '501',
         key: '/library/metadata/501',
         title: 'Ozymandias',

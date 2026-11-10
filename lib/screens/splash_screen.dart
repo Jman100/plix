@@ -8,7 +8,6 @@ import '../services/plex_server_service.dart';
 import 'auth_chooser_screen.dart';
 import 'home_screen.dart';
 import 'favorite_libraries_screen.dart';
-import 'server_select_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -137,18 +136,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => AuthChooserScreen(
-          authService: widget.authService,
-          serverService: widget.serverService,
-        ),
-      ),
-    );
-  }
-
-  void _navigateToServerSelect(List<PlexServer> servers) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => ServerSelectScreen(
-          servers: servers,
           authService: widget.authService,
           serverService: widget.serverService,
         ),

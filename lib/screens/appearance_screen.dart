@@ -328,7 +328,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                   const SizedBox(width: 10),
 
-                  Text(
+                  const Text(
 
                     'Appearance & Themes',
 
@@ -376,7 +376,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                             icon: const Icon(Icons.tune_rounded, size: 16),
 
-                            label: Text('Edit Custom Palette', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            label: const Text('Edit Custom Palette', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
 
                             onPressed: _showCustomThemeDialog,
 
@@ -418,7 +418,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                   const SizedBox(width: 6),
 
-                  Text(
+                  const Text(
 
                     'Base Atmosphere Themes',
 
@@ -590,7 +590,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                   const SizedBox(width: 6),
 
-                  Text(
+                  const Text(
 
                     'Accent Highlight Colors',
 
@@ -880,7 +880,7 @@ class _LiveThemePreviewBar extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              Text(
+              const Text(
 
                 'Live Preview',
 
@@ -926,13 +926,13 @@ class _LiveThemePreviewBar extends StatelessWidget {
 
                       ),
 
-                child: Row(
+                child: const Row(
 
                   mainAxisSize: MainAxisSize.min,
 
                   children: [
 
-                    const Icon(Icons.play_arrow_rounded, size: 13, color: Colors.white),
+                    Icon(Icons.play_arrow_rounded, size: 13, color: Colors.white),
 
                     SizedBox(width: 3),
 

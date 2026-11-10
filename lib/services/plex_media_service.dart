@@ -23,14 +23,25 @@ import 'update_service.dart';
 
 
 class PlexMediaService {
+  static final http.Client _defaultClient = http.Client();
+  static final Map<String, PlexMediaService> _instanceCache = {};
 
   final PlexServer server;
+  final http.Client _client;
+  late final JellyfinMediaService _jfService = JellyfinMediaService(server: server, client: _client);
 
-  late final JellyfinMediaService _jfService = JellyfinMediaService(server: server);
+  PlexMediaService({required this.server, http.Client? client})
+      : _client = client ?? _defaultClient;
 
-
-
-  PlexMediaService({required this.server});
+  static PlexMediaService forServer(PlexServer server, [http.Client? client]) {
+    final key = server.clientIdentifier;
+    if (key.isEmpty) return PlexMediaService(server: server, client: client);
+    final cached = _instanceCache[key];
+    if (cached != null && cached.server == server) {
+      return cached;
+    }
+    return _instanceCache[key] = PlexMediaService(server: server, client: client);
+  }
 
 
 
@@ -364,7 +375,7 @@ class PlexMediaService {
 
     final url = Uri.parse('$baseUrl/library/sections');
 
-    final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
+    final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 8));
 
 
 
@@ -540,8 +551,10 @@ class PlexMediaService {
 
 
 
-  static final Map<String, PlexMediaItem> _metadataCache = {};
+  static const int _maxMetadataCacheSize = 500;
+  static const int _maxDetailedCacheSize = 150;
 
+  static final Map<String, PlexMediaItem> _metadataCache = {};
   static final Map<String, PlexMediaItem> _detailedMetadataCache = {};
 
 
@@ -561,13 +574,23 @@ class PlexMediaService {
 
 
   void cacheMetadata(PlexMediaItem item) {
-
     if (item.ratingKey.isNotEmpty) {
-
-      _metadataCache[_cacheKey(item.ratingKey)] = item;
-
+      final key = _cacheKey(item.ratingKey);
+      if (_metadataCache.length >= _maxMetadataCacheSize && !_metadataCache.containsKey(key)) {
+        _metadataCache.remove(_metadataCache.keys.first);
+      }
+      _metadataCache[key] = item;
     }
+  }
 
+  void cacheDetailedMetadata(PlexMediaItem item) {
+    if (item.ratingKey.isNotEmpty) {
+      final key = _cacheKey(item.ratingKey);
+      if (_detailedMetadataCache.length >= _maxDetailedCacheSize && !_detailedMetadataCache.containsKey(key)) {
+        _detailedMetadataCache.remove(_detailedMetadataCache.keys.first);
+      }
+      _detailedMetadataCache[key] = item;
+    }
   }
 
 
@@ -624,7 +647,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -682,7 +705,7 @@ class PlexMediaService {
 
     try {
 
-      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
+      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
 
@@ -740,7 +763,7 @@ class PlexMediaService {
 
         final fallbackUrl = Uri.parse('$baseUrl/library/onDeck?includeStreams=1&includeGuids=1');
 
-        final response = await http.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 8));
+        final response = await _client.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
 
@@ -818,7 +841,7 @@ class PlexMediaService {
 
           '$baseUrl/library/sections/$sectionKey/recentlyAdded?X-Plex-Container-Start=$start&X-Plex-Container-Size=$pageSize&includeStreams=1&includeGuids=1');
 
-      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 8));
+      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) break;
 
@@ -922,7 +945,7 @@ class PlexMediaService {
 
             '$baseUrl/library/sections/$sectionKey/all?type=2&sort=addedAt:desc&X-Plex-Container-Start=0&X-Plex-Container-Size=$limit&includeStreams=1&includeGuids=1');
 
-        final allResponse = await http.get(allUrl, headers: _headers);
+        final allResponse = await _client.get(allUrl, headers: _headers);
 
         if (allResponse.statusCode == 200) {
 
@@ -1426,7 +1449,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/people/${person.id}');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -1490,7 +1513,7 @@ class PlexMediaService {
 
       try {
 
-        final response = await http.get(url, headers: _headers);
+        final response = await _client.get(url, headers: _headers);
 
         if (response.statusCode != 200) return [];
 
@@ -1555,7 +1578,7 @@ class PlexMediaService {
 
     final url = Uri.parse('$baseUrl/library/sections/$sectionKey/all');
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
 
 
@@ -1621,7 +1644,7 @@ class PlexMediaService {
 
         final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeStreams=1&includeMarkers=1');
 
-        response = await http.get(url, headers: _headers);
+        response = await _client.get(url, headers: _headers);
 
       } catch (_) {}
 
@@ -1643,7 +1666,7 @@ class PlexMediaService {
 
           final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$ratingKey?includeStreams=1&includeExternalMedia=1&X-Plex-Token=$effectiveToken');
 
-          final cloudRes = await http.get(cloudUrl, headers: {
+          final cloudRes = await _client.get(cloudUrl, headers: {
 
             'Accept': 'application/json',
 
@@ -1733,7 +1756,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/metadata/$keys?includeStreams=1&includeMarkers=1');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -1805,7 +1828,7 @@ class PlexMediaService {
 
         final url = Uri.parse('$baseUrl/library/metadata/$showRatingKey/children');
 
-        response = await http.get(url, headers: _headers);
+        response = await _client.get(url, headers: _headers);
 
       } catch (_) {}
 
@@ -1827,7 +1850,7 @@ class PlexMediaService {
 
           final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$showRatingKey/children?includeExternalMedia=1&X-Plex-Token=$effectiveToken');
 
-          final cloudRes = await http.get(cloudUrl, headers: {
+          final cloudRes = await _client.get(cloudUrl, headers: {
 
             'Accept': 'application/json',
 
@@ -1999,7 +2022,7 @@ class PlexMediaService {
 
         try {
 
-          response = await http.get(url, headers: _headers);
+          response = await _client.get(url, headers: _headers);
 
         } catch (_) {}
 
@@ -2019,7 +2042,7 @@ class PlexMediaService {
 
           final allLeavesUrl = Uri.parse('$baseUrl/library/metadata/$showRatingKey/allLeaves?includeStreams=1&includeGuids=1&includeMarkers=1');
 
-          final allLeavesRes = await http.get(allLeavesUrl, headers: _headers);
+          final allLeavesRes = await _client.get(allLeavesUrl, headers: _headers);
 
           if (allLeavesRes.statusCode == 200) {
 
@@ -2053,7 +2076,7 @@ class PlexMediaService {
 
             final cloudUrl = Uri.parse('https://metadata.provider.plex.tv/library/metadata/$targetKey/children?includeStreams=1&includeExternalMedia=1&X-Plex-Token=$effectiveToken');
 
-            final cloudRes = await http.get(cloudUrl, headers: {
+            final cloudRes = await _client.get(cloudUrl, headers: {
 
               'Accept': 'application/json',
 
@@ -2301,7 +2324,7 @@ class PlexMediaService {
 
     try {
 
-      final res = await http.get(url);
+      final res = await _client.get(url);
 
       return res.statusCode == 200;
 
@@ -2329,7 +2352,7 @@ class PlexMediaService {
 
     try {
 
-      final res = await http.get(url);
+      final res = await _client.get(url);
 
       return res.statusCode == 200;
 
@@ -2413,7 +2436,7 @@ class PlexMediaService {
 
         final url = Uri.parse('$baseUrl$path?X-Plex-Token=$token');
 
-        final response = await http.get(url, headers: subHeaders);
+        final response = await _client.get(url, headers: subHeaders);
 
         if (response.statusCode == 200) {
 
@@ -2441,7 +2464,7 @@ class PlexMediaService {
 
         final url = Uri.parse('$baseUrl/library/streams/$subtitleStreamId?X-Plex-Token=$token');
 
-        final response = await http.get(url, headers: subHeaders);
+        final response = await _client.get(url, headers: subHeaders);
 
         if (response.statusCode == 200) {
 
@@ -2483,7 +2506,7 @@ class PlexMediaService {
 
       );
 
-      final response = await http.get(url, headers: subHeaders);
+      final response = await _client.get(url, headers: subHeaders);
 
       if (response.statusCode == 200) {
 
@@ -2521,7 +2544,7 @@ class PlexMediaService {
 
       );
 
-      final response = await http.get(url, headers: subHeaders);
+      final response = await _client.get(url, headers: subHeaders);
 
       if (response.statusCode == 200) {
 
@@ -2551,7 +2574,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/parts/$partId?subtitleStreamID=$subtitleStreamId&X-Plex-Token=$token');
 
-      final response = await http.put(url, headers: _headers);
+      final response = await _client.put(url, headers: _headers);
 
       return response.statusCode == 200;
 
@@ -2571,7 +2594,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/parts/$partId?audioStreamID=$audioStreamId&X-Plex-Token=$token');
 
-      final response = await http.put(url, headers: _headers);
+      final response = await _client.put(url, headers: _headers);
 
       return response.statusCode == 200;
 
@@ -2632,7 +2655,7 @@ class PlexMediaService {
     // 1. Query /hubs/search (handles case-insensitive 'Hub' / 'hub', 'Metadata' / 'Video' / 'Directory')
     try {
       final uri = Uri.parse('$effectiveBase/hubs/search?query=$encoded&limit=50&includeStreams=1$tokenParam');
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
+      final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final mc = data['MediaContainer'] ?? data['mediaContainer'];
@@ -2657,7 +2680,7 @@ class PlexMediaService {
     if (rawItems.isEmpty) {
       try {
         final searchUri = Uri.parse('$effectiveBase/search?query=$encoded$tokenParam');
-        final searchRes = await http.get(searchUri, headers: _headers).timeout(const Duration(seconds: 7));
+        final searchRes = await _client.get(searchUri, headers: _headers).timeout(const Duration(seconds: 7));
         if (searchRes.statusCode == 200) {
           final data = json.decode(searchRes.body) as Map<String, dynamic>;
           final mc = data['MediaContainer'] ?? data['mediaContainer'];
@@ -2673,7 +2696,7 @@ class PlexMediaService {
     if (rawItems.isEmpty) {
       try {
         final sectionsUri = Uri.parse('$effectiveBase/library/sections$tokenParam');
-        final secRes = await http.get(sectionsUri, headers: _headers).timeout(const Duration(seconds: 5));
+        final secRes = await _client.get(sectionsUri, headers: _headers).timeout(const Duration(seconds: 5));
         if (secRes.statusCode == 200) {
           final data = json.decode(secRes.body) as Map<String, dynamic>;
           final mc = data['MediaContainer'] ?? data['mediaContainer'];
@@ -2691,7 +2714,7 @@ class PlexMediaService {
           final sectionFutures = sectionKeys.map((secKey) async {
             try {
               final secSearchUri = Uri.parse('$effectiveBase/library/sections/$secKey/all?title=$encoded$tokenParam');
-              final r = await http.get(secSearchUri, headers: _headers).timeout(const Duration(seconds: 5));
+              final r = await _client.get(secSearchUri, headers: _headers).timeout(const Duration(seconds: 5));
               if (r.statusCode == 200) {
                 final d = json.decode(r.body) as Map<String, dynamic>;
                 final c = d['MediaContainer'] ?? d['mediaContainer'];
@@ -2754,7 +2777,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/metadata/$ratingKey/extras');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -2818,7 +2841,7 @@ class PlexMediaService {
 
       final url = Uri.parse('$baseUrl/library/metadata/$ratingKey?includeExtras=1');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -2896,7 +2919,7 @@ class PlexMediaService {
 
         final discUrl = Uri.parse('https://discover.provider.plex.tv/library/metadata/$discoverKey?includeExtras=1');
 
-        final discRes = await http.get(discUrl, headers: {
+        final discRes = await _client.get(discUrl, headers: {
 
           'Accept': 'application/json',
 
@@ -3072,7 +3095,7 @@ class PlexMediaService {
 
         final url = Uri.parse('https://discover.provider.plex.tv/library/search?query=$q&X-Plex-Token=$tokenParam$typeParam');
 
-        final res = await http.get(url, headers: {
+        final res = await _client.get(url, headers: {
 
           'Accept': 'application/json',
 
@@ -3394,7 +3417,7 @@ class PlexMediaService {
 
             );
 
-            final response = await http.get(pagedUrl, headers: headers).timeout(const Duration(seconds: 10));
+            final response = await _client.get(pagedUrl, headers: headers).timeout(const Duration(seconds: 10));
 
             if (response.statusCode != 200) break;
 
@@ -3970,7 +3993,7 @@ class PlexMediaService {
 
         final url = Uri.parse('https://discover.provider.plex.tv/actions/addToWatchlist?ratingKey=$discoverKey&X-Plex-Token=$tokenParam');
 
-        final res = await http.put(url, headers: {
+        final res = await _client.put(url, headers: {
 
           'Accept': 'application/json',
 
@@ -4056,7 +4079,7 @@ class PlexMediaService {
 
         final url = Uri.parse('https://discover.provider.plex.tv/actions/removeFromWatchlist?ratingKey=$discoverKey&X-Plex-Token=$tokenParam');
 
-        final res = await http.put(url, headers: {
+        final res = await _client.put(url, headers: {
 
           'Accept': 'application/json',
 
@@ -4118,7 +4141,7 @@ class PlexMediaService {
     Future<void> doSearch(String langCode) async {
       try {
         final uri = Uri.parse('$baseUrl/library/metadata/$ratingKey/subtitles?language=$langCode&X-Plex-Token=$token');
-        final response = await http.get(uri, headers: _headers);
+        final response = await _client.get(uri, headers: _headers);
         if (response.statusCode == 200) {
           final body = response.body.trim();
           if (body.startsWith('{')) {
@@ -4186,7 +4209,7 @@ class PlexMediaService {
 
       final finalUri = uri.replace(queryParameters: queryParams);
 
-      final response = await http.put(finalUri, headers: _headers);
+      final response = await _client.put(finalUri, headers: _headers);
 
       return response.statusCode == 200 || response.statusCode == 201;
 
@@ -4249,7 +4272,7 @@ class PlexMediaService {
         queryParams['X-Plex-Token'] = token;
       }
       final finalUri = uri.replace(queryParameters: queryParams);
-      final response = await http.get(finalUri, headers: {'Accept': '*/*'});
+      final response = await _client.get(finalUri, headers: {'Accept': '*/*'});
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         final body = JellyfinMediaService.decodeSubtitleBytes(response.bodyBytes);
         if (_isSubtitleContent(body)) {

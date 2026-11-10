@@ -23,10 +23,14 @@ class PlexTimelineService {
   final StreamController<String?> _serverStopController = StreamController<String?>.broadcast();
   Stream<String?> get onServerStop => _serverStopController.stream;
 
+  static final http.Client _defaultClient = http.Client();
+  final http.Client _client;
+
   PlexTimelineService({
     required this.server,
     required this.clientId,
-  });
+    http.Client? client,
+  }) : _client = client ?? _defaultClient;
 
   String get baseUrl => server.activeConnectionUri ?? '';
   String get token => server.accessToken;
@@ -53,7 +57,7 @@ class PlexTimelineService {
       });
       () async {
         try {
-          await http.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
+          await _client.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
         } catch (_) {}
       }();
     }
@@ -187,7 +191,7 @@ class PlexTimelineService {
   Future<void> _checkSessionStatus() async {
     try {
       final sessionsUrl = Uri.parse('$baseUrl/status/sessions?X-Plex-Token=$token');
-      final res = await http.get(sessionsUrl, headers: {'Accept': 'application/json'}).timeout(const Duration(seconds: 3));
+      final res = await _client.get(sessionsUrl, headers: {'Accept': 'application/json'}).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final body = res.body.trim();
         if (body.isNotEmpty && !body.contains(clientId)) {
@@ -248,14 +252,14 @@ class PlexTimelineService {
         'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
       };
       try {
-        await http.post(url, headers: headers);
+        await _client.post(url, headers: headers);
       } catch (_) {}
       return;
     }
     final url = Uri.parse(
         '$baseUrl/:/scrobble?key=$ratingKey&identifier=com.plexapp.plugins.library&X-Plex-Token=$token');
     try {
-      await http.get(url);
+      await _client.get(url);
     } catch (_) {}
   }
 
@@ -280,7 +284,7 @@ class PlexTimelineService {
         'IsPaused': isPaused,
       });
       try {
-        await http.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
+        await _client.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
       } catch (_) {}
       return;
     }
@@ -319,7 +323,7 @@ class PlexTimelineService {
     };
 
     try {
-      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 4));
+      final response = await _client.get(url, headers: headers).timeout(const Duration(seconds: 4));
 
       // Handle server stopping playback / terminating session
       if (response.statusCode == 410 || response.statusCode == 403) {

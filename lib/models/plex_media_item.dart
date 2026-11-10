@@ -473,6 +473,10 @@ class PlexMediaItem {
     return '';
   }
 
+  static final RegExp _digitsOnlyRegex = RegExp(r'^\d+$');
+  static final RegExp _resolutionWithScanRegex = RegExp(r'^\d+[pi]$');
+  static final RegExp _rateDigitsInterlacedRegex = RegExp(r'\d+i');
+
   bool get isInterlaced {
     final scan = videoScanType?.toLowerCase().trim() ?? '';
     if (scan == 'interlaced' || scan == 'i') return true;
@@ -480,7 +484,7 @@ class PlexMediaItem {
 
     final rate = videoFrameRate?.toLowerCase().trim() ?? '';
     if (rate.contains('i') && !rate.contains('fps')) return true;
-    if (RegExp(r'\d+i').hasMatch(rate)) return true;
+    if (_rateDigitsInterlacedRegex.hasMatch(rate)) return true;
 
     final res = videoResolution?.toLowerCase().trim() ?? '';
     if (res.endsWith('i')) return true;
@@ -509,10 +513,10 @@ class PlexMediaItem {
     if (r == '480' || r == '480p' || r == '480i' || r == 'sd') return '480$scan';
     if (r == '576' || r == '576p' || r == '576i') return '576$scan';
 
-    if (RegExp(r'^\d+$').hasMatch(r)) {
+    if (_digitsOnlyRegex.hasMatch(r)) {
       return '$r$scan';
     }
-    if (RegExp(r'^\d+[pi]$').hasMatch(r)) {
+    if (_resolutionWithScanRegex.hasMatch(r)) {
       final numPart = r.substring(0, r.length - 1);
       return '$numPart$scan';
     }

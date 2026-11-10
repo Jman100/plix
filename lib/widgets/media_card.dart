@@ -109,7 +109,7 @@ class _MediaCardState extends State<MediaCard> {
     final imageWidth = PlixImageCache.requestWidth(widget.width);
     final imageHeight = PlixImageCache.requestHeight(height);
     final effectiveMediaService = (widget.item.server != null && widget.item.server != widget.mediaService.server)
-        ? PlexMediaService(server: widget.item.server!)
+        ? PlexMediaService.forServer(widget.item.server!)
         : widget.mediaService;
     final imageUrl = effectiveMediaService.buildImageUrl(
       widget.item.posterThumb,

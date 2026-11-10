@@ -19,12 +19,12 @@ import 'update_service.dart';
 
 
 class JellyfinMediaService {
-
+  static final http.Client _defaultClient = http.Client();
   final PlexServer server;
+  final http.Client _client;
 
-
-
-  JellyfinMediaService({required this.server});
+  JellyfinMediaService({required this.server, http.Client? client})
+      : _client = client ?? _defaultClient;
 
 
 
@@ -245,7 +245,6 @@ class JellyfinMediaService {
 
 
 
-    int subIndex = 0;
 
     int audioIndex = 0;
 
@@ -688,7 +687,7 @@ class JellyfinMediaService {
 
       final url = Uri.parse('$baseUrl/Users/$userId/Views');
 
-      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 4));
+      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 4));
 
       if (response.statusCode != 200) return [];
 
@@ -738,7 +737,7 @@ class JellyfinMediaService {
 
       );
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -794,7 +793,7 @@ class JellyfinMediaService {
 
           );
 
-          final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 6));
+          final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 6));
 
           if (response.statusCode == 200) {
 
@@ -834,7 +833,7 @@ class JellyfinMediaService {
 
             );
 
-            final response = await http.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 6));
+            final response = await _client.get(fallbackUrl, headers: _headers).timeout(const Duration(seconds: 6));
 
             if (response.statusCode == 200) {
 
@@ -902,7 +901,7 @@ class JellyfinMediaService {
 
         );
 
-        final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 6));
+        final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 6));
 
         if (response.statusCode == 200) {
 
@@ -956,7 +955,7 @@ class JellyfinMediaService {
 
       final metaUrl = Uri.parse('$baseUrl/Users/$userId/Items/$cleanId?Fields=SeriesId,ParentId&api_key=$token');
 
-      final metaRes = await http.get(metaUrl, headers: _headers);
+      final metaRes = await _client.get(metaUrl, headers: _headers);
 
       if (metaRes.statusCode == 200) {
 
@@ -986,7 +985,7 @@ class JellyfinMediaService {
 
     try {
 
-      final response = await http.post(url, headers: _headers);
+      final response = await _client.post(url, headers: _headers);
 
       return response.statusCode == 200 || response.statusCode == 204;
 
@@ -1010,7 +1009,7 @@ class JellyfinMediaService {
 
       final metaUrl = Uri.parse('$baseUrl/Users/$userId/Items/$cleanId?Fields=SeriesId,ParentId&api_key=$token');
 
-      final metaRes = await http.get(metaUrl, headers: _headers);
+      final metaRes = await _client.get(metaUrl, headers: _headers);
 
       if (metaRes.statusCode == 200) {
 
@@ -1040,7 +1039,7 @@ class JellyfinMediaService {
 
     try {
 
-      final response = await http.delete(url, headers: _headers);
+      final response = await _client.delete(url, headers: _headers);
 
       return response.statusCode == 200 || response.statusCode == 204;
 
@@ -1070,7 +1069,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) return [];
 
@@ -1122,7 +1121,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) return [];
 
@@ -1150,7 +1149,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) {
 
@@ -1178,7 +1177,7 @@ class JellyfinMediaService {
 
       final imagesUrl = Uri.parse('$baseUrl/Items/$targetLogoId/Images');
 
-      final imgRes = await http.get(imagesUrl, headers: _headers);
+      final imgRes = await _client.get(imagesUrl, headers: _headers);
 
       if (imgRes.statusCode == 200) {
 
@@ -1232,7 +1231,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) return [];
 
@@ -1266,7 +1265,7 @@ class JellyfinMediaService {
 
       final url = Uri.parse(endpoint);
 
-      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) return [];
 
@@ -1452,7 +1451,7 @@ class JellyfinMediaService {
 
       try {
 
-        final response = await http.get(url, headers: _headers);
+        final response = await _client.get(url, headers: _headers);
 
         if (response.statusCode != 200) return;
 
@@ -1632,7 +1631,7 @@ class JellyfinMediaService {
 
       final url = Uri.parse('$baseUrl/Users/$userId/Items/${person.id}?Fields=Overview,ImageTags');
 
-      final response = await http.get(url, headers: _headers);
+      final response = await _client.get(url, headers: _headers);
 
       if (response.statusCode == 200) {
 
@@ -1682,7 +1681,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) return [];
 
@@ -1710,7 +1709,7 @@ class JellyfinMediaService {
 
     try {
 
-      final response = await http.post(url, headers: _headers);
+      final response = await _client.post(url, headers: _headers);
 
       return response.statusCode == 200;
 
@@ -1730,7 +1729,7 @@ class JellyfinMediaService {
 
     try {
 
-      final response = await http.delete(url, headers: _headers);
+      final response = await _client.delete(url, headers: _headers);
 
       return response.statusCode == 200;
 
@@ -1752,7 +1751,7 @@ class JellyfinMediaService {
 
     );
 
-    final response = await http.get(url, headers: _headers);
+    final response = await _client.get(url, headers: _headers);
 
     if (response.statusCode != 200) return [];
 
@@ -2074,7 +2073,7 @@ class JellyfinMediaService {
           final path = streamKey.startsWith('/') ? streamKey : '/$streamKey';
           url = Uri.parse('$baseUrl$path${sep}api_key=$token');
         }
-        final response = await http.get(url, headers: textHeaders);
+        final response = await _client.get(url, headers: textHeaders);
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
           final body = decodeSubtitleBytes(response.bodyBytes);
           if (body.isNotEmpty && !body.trim().startsWith('{')) {
@@ -2109,7 +2108,7 @@ class JellyfinMediaService {
 
         final url = Uri.parse(cand);
 
-        final response = await http.get(url, headers: textHeaders);
+        final response = await _client.get(url, headers: textHeaders);
 
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
           final body = decodeSubtitleBytes(response.bodyBytes);
@@ -2193,7 +2192,7 @@ class JellyfinMediaService {
 
         final url = Uri.parse(urlStr);
 
-        final response = await http.get(url, headers: _headers);
+        final response = await _client.get(url, headers: _headers);
 
         if (response.statusCode == 200) {
 
@@ -2247,7 +2246,7 @@ class JellyfinMediaService {
 
       final metaUrl = Uri.parse('$baseUrl/Items/$itemId?Fields=ProviderIds,SeriesId,ParentId&api_key=$token');
 
-      final metaResp = await http.get(metaUrl, headers: _headers);
+      final metaResp = await _client.get(metaUrl, headers: _headers);
 
       if (metaResp.statusCode == 200) {
 
@@ -2267,7 +2266,7 @@ class JellyfinMediaService {
 
             final parentUrl = Uri.parse('$baseUrl/Items/$parentId?Fields=ProviderIds&api_key=$token');
 
-            final pResp = await http.get(parentUrl, headers: _headers);
+            final pResp = await _client.get(parentUrl, headers: _headers);
 
             if (pResp.statusCode == 200) {
 
@@ -2363,7 +2362,7 @@ class JellyfinMediaService {
 
       final url = Uri.parse('$baseUrl/Items/$cleanId/RemoteSearch/Subtitles/$lang3?isPerfectMatch=false&api_key=$token');
 
-      var response = await http.get(url, headers: _headers);
+      var response = await _client.get(url, headers: _headers);
 
 
 
@@ -2375,7 +2374,7 @@ class JellyfinMediaService {
 
           final fallbackUrl = Uri.parse('$baseUrl/Items/$cleanId/RemoteSearch/Subtitles/$language?isPerfectMatch=false&api_key=$token');
 
-          final fallbackResp = await http.get(fallbackUrl, headers: _headers);
+          final fallbackResp = await _client.get(fallbackUrl, headers: _headers);
 
           if (fallbackResp.statusCode == 200 && fallbackResp.body.trim() != '[]') {
 
@@ -2395,7 +2394,7 @@ class JellyfinMediaService {
 
         final plainUrl = Uri.parse('$baseUrl/Items/$cleanId/RemoteSearch/Subtitles/$lang3?api_key=$token');
 
-        final plainResp = await http.get(plainUrl, headers: _headers);
+        final plainResp = await _client.get(plainUrl, headers: _headers);
 
         if (plainResp.statusCode == 200 && plainResp.body.trim() != '[]') {
 
@@ -2449,7 +2448,7 @@ class JellyfinMediaService {
 
       final url = Uri.parse('$baseUrl/Items/$cleanId/RemoteSearch/Subtitles/$subtitleId?api_key=$token');
 
-      final response = await http.post(url, headers: _headers);
+      final response = await _client.post(url, headers: _headers);
 
       return response.statusCode == 200 || response.statusCode == 204;
 

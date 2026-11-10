@@ -156,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _fetchHeroFullMetadata(PlexMediaItem currentHeroItem) {
     _heroMetadataDebounceTimer?.cancel();
+    _heroDebounceTimer?.cancel();
     final isSeasonTarget = currentHeroItem.targetType == 'season';
     final fetchKey = isSeasonTarget ? currentHeroItem.ratingKey : (currentHeroItem.targetRatingKey ?? currentHeroItem.ratingKey);
     if (fetchKey.isEmpty) return;

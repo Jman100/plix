@@ -5707,7 +5707,6 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    final episodeKey = _currentItem.ratingKey;
 
 
 
