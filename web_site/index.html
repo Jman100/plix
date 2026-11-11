@@ -152,24 +152,11 @@
     <div class="max-w-7xl mx-auto px-5 sm:px-8 py-3.5 flex items-center justify-between">
       
       <!-- Brand Logo -->
-      <a href="#" class="flex items-center gap-3.5 group">
-        <div class="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-purple-600 to-cyan-400 p-[1.5px] shadow-lg shadow-black/50 group-hover:scale-105 transition-transform">
-          <div class="w-full h-full bg-[#0A0D15] rounded-[10px] flex items-center justify-center">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M5 4L18 12L5 20V4Z" fill="url(#plix-nav-logo)" />
-              <defs>
-                <linearGradient id="plix-nav-logo" x1="5" y1="4" x2="18" y2="20" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#E5A00D" />
-                  <stop offset="0.6" stop-color="#A259FF" />
-                  <stop offset="1" stop-color="#00C7FF" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-        </div>
+      <a href="#" class="flex items-center gap-3 group">
+        <img src="app_icon.png" alt="Plix Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-black/50 group-hover:scale-105 transition-transform border border-white/10 object-contain" />
         <div class="flex flex-col">
           <div class="flex items-center gap-2">
-            <span class="text-xl font-black tracking-tight text-white">PLIX</span>
+            <span class="text-xl font-black tracking-tight text-white">pli<span class="text-brand-gold">x</span></span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
               v1.8.7
             </span>
@@ -393,23 +380,102 @@
     </section>
 
     <!-- UI Screenshot & App Showcase -->
-    <section id="showcase" class="max-w-6xl mx-auto px-5 sm:px-8 py-10">
+    <section id="showcase" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
       <div class="text-center mb-8">
-        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Modern Interface</h2>
-        <p class="text-2xl sm:text-4xl font-extrabold text-white">Built for the Living Room &amp; Desktop.</p>
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Interface Showcase</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold text-white">Built for the Living Room, Desktop &amp; Mobile.</p>
+        <p class="mt-3 text-sm text-neutral-400 max-w-2xl mx-auto">
+          Explore the modern, responsive interface designed from the ground up for big-screen TV remotes and desktop environments.
+        </p>
       </div>
 
-      <!-- App Preview Frame with Real Interface Screenshot -->
-      <div class="relative mx-auto rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden group">
-        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#080B13] aspect-[1024/609]">
-          <img src="app_preview.png" 
-               alt="Plix Application Interface" 
-               class="w-full h-full object-cover rounded-2xl block transition-transform duration-500 group-hover:scale-[1.01]" />
+      <!-- Experience Filter Tabs -->
+      <div class="flex items-center justify-center gap-3 mb-6">
+        <button id="showcaseTabTv" onclick="switchShowcaseCategory('tv')" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+          <span>Living Room TV (Android TV)</span>
+        </button>
+        <button id="showcaseTabDesktop" onclick="switchShowcaseCategory('desktop')" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+          <span>Desktop &amp; Playback</span>
+        </button>
+      </div>
+
+      <!-- Main Featured Frame -->
+      <div class="relative mx-auto rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden">
+        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#080B13] aspect-[16/9]">
+          <img id="showcaseMainImg" 
+               src="screenshots/android_tv_movies_library_page.png" 
+               alt="Plix Interface Preview" 
+               class="w-full h-full object-cover rounded-2xl block transition-opacity duration-300" />
+          
+          <!-- Image Title Caption Overlay -->
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 pt-12 flex flex-col sm:flex-row sm:items-end justify-between gap-2 pointer-events-none">
+            <div>
+              <span id="showcaseBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-brand-gold/20 text-brand-gold border border-brand-gold/40 mb-1.5 inline-block">Android TV</span>
+              <h3 id="showcaseTitle" class="text-base sm:text-xl font-bold text-white tracking-tight">Movies Library &amp; Alphabet Jump Rail</h3>
+              <p id="showcaseDesc" class="text-xs sm:text-sm text-neutral-300 mt-0.5">Title article sorting with right-hand jump rail letter previews for rapid browsing.</p>
+            </div>
+            <span class="text-[11px] text-neutral-400 font-mono hidden sm:block">Click thumbnails below to switch</span>
+          </div>
         </div>
+      </div>
+
+      <!-- Interactive Thumbnail Carousel -->
+      <div id="showcaseThumbs" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-2.5 sm:gap-3 mt-4">
+        <!-- Living Room TV Thumbnails -->
+        <button onclick="selectShowcase('screenshots/android_tv_movies_library_page.png', 'Movies Library & Alphabet Jump Rail', 'Title article sorting with right-hand jump rail letter previews for rapid browsing.', 'Android TV', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border-2 border-brand-gold ring-2 ring-brand-gold/30 transition-all focus:outline-none" data-cat="tv">
+          <img src="screenshots/android_tv_movies_library_page.png" alt="Movies Library" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/android_tv_episode_detail.png', 'Episode Details & Clearlogo Title Art', 'High-res official title art, ambient backdrops, season pickers, and credits markers.', 'Android TV', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+          <img src="screenshots/android_tv_episode_detail.png" alt="Episode Details" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/android_tv_theme_page.png', 'Atmosphere & Theme Customizer', '16+ built-in atmospheric styles, custom RGB palettes, and ambient theme music.', 'Android TV', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+          <img src="screenshots/android_tv_theme_page.png" alt="Theme Customizer" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/android_tv_watchlist.png', 'Universal Watchlist', 'Directly synced across your Plex and Jellyfin servers with 1-click series bookmarking.', 'Android TV', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+          <img src="screenshots/android_tv_watchlist.png" alt="Watchlist" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/android_tv_search_page.png', 'Normalized Search & Article Queries', 'Fast multi-server search executing on Enter/Submit with zero TV typing lag.', 'Android TV', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+          <img src="screenshots/android_tv_search_page.png" alt="Search Interface" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <!-- Desktop & Playback Thumbnails -->
+        <button onclick="selectShowcase('screenshots/desktop_home_page.png', 'Unified Multi-Server Home Screen', 'Multi-server favorite library blending and global chronological continue watching.', 'Desktop', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+          <img src="screenshots/desktop_home_page.png" alt="Desktop Home Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/desktop_playback_overlay.png', 'Direct Play Engine & Audio Tracks', 'Hardware accelerated 4K playback, subtitle tracks, audio pass-through, and cast row.', 'Playback', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+          <img src="screenshots/desktop_playback_overlay.png" alt="Playback Overlay" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
+
+        <button onclick="selectShowcase('screenshots/desktop_show_page.png', 'Series Page & Ambient Backdrops', 'Comprehensive episode browser with ambient backdrop art and theme music.', 'Desktop', this)" 
+                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+          <img src="screenshots/desktop_show_page.png" alt="Desktop Show Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+        </button>
       </div>
     </section>
 
-    <!-- Core Features Grid -->
+    <!-- Core Features Grid (3x3 Layout) -->
     <section id="features" class="max-w-6xl mx-auto px-5 sm:px-8 py-16">
       <div class="text-center mb-14">
         <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Designed Without Compromise</h2>
@@ -418,112 +484,159 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
-        <!-- Feature 1 -->
+        <!-- Card 1: Multi-Server -->
         <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
               <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M4 6h16V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">Plex &amp; Jellyfin Dual Server Support</h3>
+            <h3 class="text-xl font-bold text-white mb-2">Unified Multi-Server &amp; Library Blending</h3>
             <p class="text-sm text-neutral-300 leading-relaxed">
-              Connect to your home Plex server, remote Jellyfin instance, or friends' shares. Switch between them instantly with 3-wide server grids, custom server pinning, and automatic LAN detection.
+              Connect to multiple Plex and Jellyfin servers simultaneously. Blend your favorite Movie, TV, Anime, and 4K libraries from your owned servers, shared servers, and friends' instances into a single, cohesive home screen.
             </p>
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
-            <span>Seamless Multi-Server</span>
+            <span>One Screen, All Your Servers</span>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>
         </div>
 
-        <!-- Feature 2 -->
+        <!-- Card 2: Continue Watching -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-brand-cyan flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Global Continue Watching</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Continue Watching merges your ongoing movies and shows across all connected Plex and Jellyfin servers into one unified row on your home screen.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
+            <span>Real-time sync &amp; clear labeling</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Card 3: Direct Play -->
         <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-brand-purple flex items-center justify-center mb-5">
               <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">Pure Direct Play (libmpv)</h3>
+            <h3 class="text-xl font-bold text-white mb-2">Pure Direct Play &amp; High-Fidelity Audio</h3>
             <p class="text-sm text-neutral-300 leading-relaxed">
-              Never let your server choke on unnecessary transcoding. Native libmpv backend delivers direct hardware-accelerated playback of 4K UHD, HEVC, AV1, Dolby Vision, HDR10+, and lossless audio.
+              Powered by a native <code class="text-xs font-mono px-1 rounded bg-white/10 text-purple-300">libmpv</code> backend and hardware-accelerated video pipelines. Delivers pure direct play for 4K UHD, HEVC/H.265, AV1, Dolby Vision, HDR10, and HDR10+ with lossless audio pass-through.
             </p>
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
-            <span>Zero Quality Loss</span>
+            <span>TrueHD, DTS-HD MA, EAC3/Atmos &amp; FLAC</span>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>
         </div>
 
-        <!-- Feature 3 -->
+        <!-- Card 4: Title Art -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Official-Style Title Art &amp; Dynamic Backdrops</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Replaces generic plain text headers with official, high-resolution clearlogo title art rendered directly over edge-to-edge cinematic backdrops for every movie and series in your collection.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
+            <span>Cinematic Presentation</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Card 5: Search & Sort -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Fast Search &amp; Smart Library Sorting</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Effortlessly navigate vast collections with intelligent title sorting that ignores leading articles, paired with responsive alphabet jump rails and fast, relevance-ranked search across all your media.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
+            <span>Browse &amp; Find Instantly</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Card 6: TV Experience -->
         <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-brand-cyan flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Living Room Remote-First TV Experience</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Engineered specifically for D-Pad navigation. Features high-contrast glowing focus rings, modal cursor trapping, automatic row navigation, system sound effects, and zero mouse dependency on Android TV, Google TV, and living room PCs.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
+            <span>Built for Television Remotes</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Card 7: Mobile Edition -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-brand-purple flex items-center justify-center mb-5">
               <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="7" y="2" width="10" height="20" rx="2" ry="2"></rect>
                 <circle cx="12" cy="14" r="1"></circle>
                 <line x1="12" y1="6" x2="12.01" y2="6"></line>
               </svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">Remote-First TV Experience</h3>
+            <h3 class="text-xl font-bold text-white mb-2">Touch-Optimized Mobile Edition</h3>
             <p class="text-sm text-neutral-300 leading-relaxed">
-              Engineered exclusively for D-Pad traversal with high-contrast active outlines, seamless scrolling, modal cursor locking, and fluid transitions that feel right at home on television remotes.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
-            <span>Living Room Optimized</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </div>
-        </div>
-
-        <!-- Feature 4 -->
-        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
-              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2">Ambient Series Theme Music</h3>
-            <p class="text-sm text-neutral-300 leading-relaxed">
-              Immerse yourself as you browse. Series themes play smoothly as you explore show and episode pages, seamlessly continuing across transitions and fading out gently when navigating away.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
-            <span>Cinematic Immersion</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </div>
-        </div>
-
-        <!-- Feature 5 -->
-        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-brand-purple flex items-center justify-center mb-5">
-              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2">Universal Watchlist Sync</h3>
-            <p class="text-sm text-neutral-300 leading-relaxed">
-              Bookmark shows or movies directly to your Plex or Jellyfin Watchlist. Pressing "Add to Watchlist" on any episode automatically adds the whole series so your queue stays effortlessly synchronized.
+              A dedicated mobile interface featuring persistent bottom navigation, responsive library grids, swipe-to-adjust volume and brightness gestures, background audio playback, and floating Picture-in-Picture (PiP) mode on phones and tablets.
             </p>
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
-            <span>Always in Sync</span>
+            <span>Your Media On the Go</span>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>
         </div>
 
-        <!-- Feature 6 -->
+        <!-- Card 8: Theme Customization -->
+        <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-brand-gold flex items-center justify-center mb-5">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.23 19.59 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Atmosphere &amp; Theme Customization</h3>
+            <p class="text-sm text-neutral-300 leading-relaxed">
+              Personalize your interface with a rich theme customization engine. Choose from built-in atmospheric styles like Cyberpunk, Deep Space, Midnight Violet, Obsidian, Cinema Gold, and Sunset Blaze, or design your own custom accent palette.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
+            <span>Tailored Aesthetics</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Card 9: Privacy & Quick Connect -->
         <div class="glass-card rounded-2xl p-7 flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
-              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 11a9 9 0 0 1 9 9"></path>
-                <path d="M4 4a16 16 0 0 1 16 16"></path>
-                <circle cx="5" cy="19" r="1"></circle>
-              </svg>
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">Frictionless Quick Connect</h3>
+            <h3 class="text-xl font-bold text-white mb-2">100% Private, Zero Tracking &amp; Seamless Sign-In</h3>
             <p class="text-sm text-neutral-300 leading-relaxed">
-              No more painful password typing on television remotes. Sign in to Jellyfin using Quick Connect codes on your phone, or link your Plex account in seconds via a 4-digit code.
+              Sign in to Jellyfin using Quick Connect codes from your phone, or link your Plex account in seconds via a 4-digit code. Plix is completely private and open: there is no tracking, no data collection, no telemetry, and no spying at all in this app.
             </p>
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
-            <span>Zero Remote Typing</span>
+            <span>Zero Remote Typing • Automatic Updates</span>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>
         </div>
@@ -753,12 +866,10 @@
       
       <!-- Logo & Copyright -->
       <div class="flex items-center gap-3">
-        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-purple-600 p-[1px] flex items-center justify-center">
-          <span class="text-xs font-black text-white">P</span>
-        </div>
+        <img src="app_icon.png" alt="Plix Logo" class="w-8 h-8 rounded-lg shadow-md border border-white/10 object-contain" />
         <div>
-          <span class="text-white font-bold text-sm tracking-tight">PLIX</span>
-          <span class="text-neutral-500 text-xs ml-1.5">© 2026. All rights reserved.</span>
+          <span class="text-white font-black text-base tracking-tight">pli<span class="text-brand-gold">x</span></span>
+          <span class="text-neutral-500 text-xs ml-2">© 2026. All rights reserved.</span>
         </div>
       </div>
 
@@ -919,6 +1030,52 @@
         return div.innerHTML;
       }
     })();
+
+    // Interactive Showcase Gallery Controller
+    function selectShowcase(src, title, desc, badge, btnEl) {
+      const img = document.getElementById('showcaseMainImg');
+      const titleEl = document.getElementById('showcaseTitle');
+      const descEl = document.getElementById('showcaseDesc');
+      const badgeEl = document.getElementById('showcaseBadge');
+
+      if (!img) return;
+
+      img.style.opacity = '0';
+      setTimeout(() => {
+        img.src = src;
+        if (titleEl) titleEl.textContent = title;
+        if (descEl) descEl.textContent = desc;
+        if (badgeEl) badgeEl.textContent = badge;
+        img.style.opacity = '1';
+      }, 150);
+
+      const thumbs = document.querySelectorAll('.showcase-thumb');
+      thumbs.forEach(t => {
+        t.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100';
+      });
+      if (btnEl) {
+        btnEl.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border-2 border-brand-gold ring-2 ring-brand-gold/30 transition-all focus:outline-none opacity-100';
+      }
+    }
+
+    function switchShowcaseCategory(cat) {
+      const btnTv = document.getElementById('showcaseTabTv');
+      const btnDesktop = document.getElementById('showcaseTabDesktop');
+
+      if (cat === 'tv') {
+        if (btnTv) btnTv.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2';
+        if (btnDesktop) btnDesktop.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2';
+        
+        const firstTv = document.querySelector('.showcase-thumb[data-cat="tv"]');
+        if (firstTv) firstTv.click();
+      } else {
+        if (btnDesktop) btnDesktop.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2';
+        if (btnTv) btnTv.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2';
+        
+        const firstDesktop = document.querySelector('.showcase-thumb[data-cat="desktop"]');
+        if (firstDesktop) firstDesktop.click();
+      }
+    }
   </script>
 
 </body>
