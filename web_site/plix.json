@@ -3,7 +3,7 @@
     "versionCode": 47,
     "releaseNotes": "- Alphabet Jump Rail Selection & Navigation: Seeking now only triggers upon pressing Select/Enter on a letter with active bubble preview; blur/left navigation smoothly restores grid focus without seeking; fixed cursor getting stuck on letters T-Z; clamped bottom at 'Z' and dismissed bubble when navigating to toolbar\n- Top Toolbar Navigation Safety: Clamped upward navigation on all top buttons (Back, Categories, Sort, Refresh), preventing unintended focus escape into the grid content rows\n- Arch Linux Auto-Updater Relaunch: Enhanced the Linux update script to reliably relaunch /usr/bin/plix upon completion using desktop session launchers (gtk-launch, gio) and systemd user scopes\n- Memory & Performance Optimizations: Bounded image cache and pooled connections preventing low-memory crashes when rapidly scrolling large libraries\n- App Version Bump: v1.8.5 (versionCode 47)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256": "f386cf436b1e38263150382e9dce73b56b93a8c45542fbb5ff0c1e09e4683b61",
+    "apkSha256": "a4cbaff67085fdf4af99636a73ec0b75278fdc8bc19595949a8704ccd7ddc94c",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "2eca9b586b841ed63c16c708efb7fe232321a97f3985fb53ae7169d49419e72a",
