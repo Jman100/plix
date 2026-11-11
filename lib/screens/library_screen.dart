@@ -146,7 +146,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   static String _getItemLetter(PlexMediaItem item) {
-    final title = item.title.trimLeft();
+    final title = item.sortTitle.trimLeft();
     if (title.isEmpty) return '#';
     final first = title[0].toUpperCase();
     if (first.compareTo('A') >= 0 && first.compareTo('Z') <= 0) {
@@ -423,10 +423,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() {
       switch (_sortOption) {
         case _LibrarySortOption.nameAsc:
-          _items.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+          _items.sort((a, b) => a.sortTitle.toLowerCase().compareTo(b.sortTitle.toLowerCase()));
           break;
         case _LibrarySortOption.nameDesc:
-          _items.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+          _items.sort((a, b) => b.sortTitle.toLowerCase().compareTo(a.sortTitle.toLowerCase()));
           break;
         case _LibrarySortOption.yearDesc:
           _items.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));

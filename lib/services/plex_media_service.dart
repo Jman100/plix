@@ -2620,6 +2620,8 @@ class PlexMediaService {
     if (effectiveBase.isEmpty) return [];
 
     final encoded = Uri.encodeComponent(q);
+    final strippedQ = PlexMediaItem.normalizeSortTitle(q);
+    final encodedStripped = Uri.encodeComponent(strippedQ);
     final tokenParam = token.isNotEmpty ? '&X-Plex-Token=${Uri.encodeComponent(token)}' : '';
 
     List<dynamic> extractList(dynamic container, List<String> candidateKeys) {
@@ -2655,6 +2657,24 @@ class PlexMediaService {
     // 1. Query /hubs/search (handles case-insensitive 'Hub' / 'hub', 'Metadata' / 'Video' / 'Directory')
     try {
       final uri = Uri.parse('$effectiveBase/hubs/search?query=$encoded&limit=50&includeStreams=1$tokenParam');
+      if (strippedQ != q) {
+        try {
+          final strippedUri = Uri.parse('$effectiveBase/hubs/search?query=$encodedStripped&limit=50&includeStreams=1$tokenParam');
+          final sResp = await _client.get(strippedUri, headers: _headers).timeout(const Duration(seconds: 7));
+          if (sResp.statusCode == 200) {
+            final sData = json.decode(sResp.body) as Map<String, dynamic>;
+            final sMc = sData['MediaContainer'] ?? sData['mediaContainer'];
+            if (sMc is Map) {
+              final sHubs = extractList(sMc, ['Hub', 'hub', 'hubs', 'Hubs']);
+              for (final h in sHubs) {
+                if (h is! Map) continue;
+                final items = extractList(h, ['Metadata', 'metadata', 'Video', 'video', 'Directory', 'directory', 'Item', 'item']);
+                parseAndAddItems(items);
+              }
+            }
+          }
+        } catch (_) {}
+      }
       final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -2713,13 +2733,25 @@ class PlexMediaService {
           }
           final sectionFutures = sectionKeys.map((secKey) async {
             try {
-              final secSearchUri = Uri.parse('$effectiveBase/library/sections/$secKey/all?title=$encoded$tokenParam');
-              final r = await _client.get(secSearchUri, headers: _headers).timeout(const Duration(seconds: 5));
-              if (r.statusCode == 200) {
-                final d = json.decode(r.body) as Map<String, dynamic>;
-                final c = d['MediaContainer'] ?? d['mediaContainer'];
-                return extractList(c, ['Metadata', 'metadata', 'Video', 'video']);
+              final candidates = <String>[encoded];
+              if (strippedQ != q) {
+                candidates.add(encodedStripped);
+              } else if (!q.toLowerCase().startsWith('the ')) {
+                candidates.add(Uri.encodeComponent('The $q'));
               }
+              final collected = <dynamic>[];
+              for (final cand in candidates) {
+                try {
+                  final secSearchUri = Uri.parse('$effectiveBase/library/sections/$secKey/all?title=$cand$tokenParam');
+                  final r = await _client.get(secSearchUri, headers: _headers).timeout(const Duration(seconds: 5));
+                  if (r.statusCode == 200) {
+                    final d = json.decode(r.body) as Map<String, dynamic>;
+                    final c = d['MediaContainer'] ?? d['mediaContainer'];
+                    collected.addAll(extractList(c, ['Metadata', 'metadata', 'Video', 'video']));
+                  }
+                } catch (_) {}
+              }
+              return collected;
             } catch (_) {}
             return [];
           });
@@ -2747,9 +2779,13 @@ class PlexMediaService {
 
       // If item is an episode, check both episode title and show/season title
       if (it.isEpisode || it.type == 'episode') {
-        final titleMatch = it.title.toLowerCase().contains(lowerQ);
-        final gpMatch = it.grandparentTitle?.toLowerCase().contains(lowerQ) ?? false;
-        final pMatch = it.parentTitle?.toLowerCase().contains(lowerQ) ?? false;
+        final lowerStrippedQ = strippedQ.toLowerCase();
+        final titleMatch = it.title.toLowerCase().contains(lowerQ) ||
+                           it.sortTitle.toLowerCase().contains(lowerStrippedQ);
+        final gpMatch = (it.grandparentTitle?.toLowerCase().contains(lowerQ) ?? false) ||
+                        (PlexMediaItem.normalizeSortTitle(it.grandparentTitle ?? '').toLowerCase().contains(lowerStrippedQ));
+        final pMatch = (it.parentTitle?.toLowerCase().contains(lowerQ) ?? false) ||
+                       (PlexMediaItem.normalizeSortTitle(it.parentTitle ?? '').toLowerCase().contains(lowerStrippedQ));
         if (!titleMatch && !gpMatch && !pMatch) {
           continue;
         }

@@ -34,6 +34,40 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  int _searchScore(PlexMediaItem item, String query) {
+    final normQ = query.trim().toLowerCase();
+    final strippedQ = PlexMediaItem.normalizeSortTitle(normQ).toLowerCase();
+    final title = item.title.trim().toLowerCase();
+    final sortTitle = item.sortTitle.trim().toLowerCase();
+    final series = (item.grandparentTitle ?? '').trim().toLowerCase();
+    final seriesSort = PlexMediaItem.normalizeSortTitle(series).toLowerCase();
+
+    // Exact matches (ignoring or including "the")
+    if (sortTitle == strippedQ || title == normQ || title == strippedQ || sortTitle == normQ) {
+      return (item.isMovie || item.isShow) ? 0 : 1;
+    }
+    // Starts with query
+    if (sortTitle.startsWith(strippedQ) || title.startsWith(normQ) || title.startsWith(strippedQ)) {
+      return (item.isMovie || item.isShow) ? 2 : 3;
+    }
+    // Series title exact match (for episodes/seasons)
+    if (seriesSort == strippedQ || series == normQ || series == strippedQ) {
+      return 4;
+    }
+    // Series title starts with query
+    if (seriesSort.startsWith(strippedQ) || series.startsWith(normQ) || series.startsWith(strippedQ)) {
+      return 5;
+    }
+    // Contains query
+    if (sortTitle.contains(strippedQ) || title.contains(normQ) || title.contains(strippedQ)) {
+      return (item.isMovie || item.isShow) ? 6 : 7;
+    }
+    if (seriesSort.contains(strippedQ) || series.contains(normQ) || series.contains(strippedQ)) {
+      return 8;
+    }
+    return 10;
+  }
+
   late PlexMediaService _mediaService;
   final NativePlayerService _playerService = NativePlayerService();
 
@@ -192,6 +226,13 @@ class _SearchScreenState extends State<SearchScreen> {
           }
         }
       }
+
+      items.sort((a, b) {
+        final scoreA = _searchScore(a, queryText);
+        final scoreB = _searchScore(b, queryText);
+        if (scoreA != scoreB) return scoreA.compareTo(scoreB);
+        return a.sortTitle.toLowerCase().compareTo(b.sortTitle.toLowerCase());
+      });
 
       if (mounted && generation == _searchGeneration) {
         for (final node in _resultFocusNodes) {

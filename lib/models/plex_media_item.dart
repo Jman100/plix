@@ -207,6 +207,7 @@ class PlexMediaItem {
   final String ratingKey;
   final String key;
   final String title;
+  final String? titleSort;
   final String type; // 'movie', 'show', 'season', 'episode'
   final String summary;
   final int? year;
@@ -281,6 +282,7 @@ class PlexMediaItem {
     required this.ratingKey,
     required this.key,
     required this.title,
+    this.titleSort,
     required this.type,
     this.summary = '',
     this.year,
@@ -550,6 +552,38 @@ class PlexMediaItem {
     if (duration == null || duration == 0 || viewOffset == null) return 0.0;
     return (viewOffset! / duration!).clamp(0.0, 1.0);
   }
+
+  static String normalizeSortTitle(String title, [String? titleSort]) {
+    String candidate = (titleSort != null && titleSort.trim().isNotEmpty)
+        ? titleSort.trim()
+        : title.trim();
+
+    while ((candidate.startsWith('"') && candidate.endsWith('"')) ||
+           (candidate.startsWith("'") && candidate.endsWith("'"))) {
+      candidate = candidate.substring(1, candidate.length - 1).trim();
+    }
+    while (candidate.startsWith('"') || candidate.startsWith("'")) {
+      candidate = candidate.substring(1).trimLeft();
+    }
+
+    final commaTheMatch = RegExp(r'^(.*),\s+(the|a|an)$', caseSensitive: false).firstMatch(candidate);
+    if (commaTheMatch != null) {
+      candidate = commaTheMatch.group(1)!.trim();
+    }
+
+    final lower = candidate.toLowerCase();
+    if (lower.startsWith('the ') && candidate.length > 4) {
+      candidate = candidate.substring(4).trimLeft();
+    } else if (lower.startsWith('a ') && candidate.length > 2) {
+      candidate = candidate.substring(2).trimLeft();
+    } else if (lower.startsWith('an ') && candidate.length > 3) {
+      candidate = candidate.substring(3).trimLeft();
+    }
+
+    return candidate;
+  }
+
+  String get sortTitle => normalizeSortTitle(title, titleSort);
 
   String? get heroTopTitle {
     if (isEpisode) {
@@ -1116,6 +1150,10 @@ class PlexMediaItem {
       ratingKey: parsedRatingKey,
       key: parsedKey,
       title: json['title'] as String? ?? 'Untitled',
+      titleSort: json['titleSort']?.toString() ??
+          json['sortTitle']?.toString() ??
+          json['SortName']?.toString() ??
+          json['sortName']?.toString(),
       type: json['type'] as String? ?? 'movie',
       summary: json['summary'] as String? ?? '',
       year: (json['year'] is num)
@@ -1210,6 +1248,7 @@ class PlexMediaItem {
   PlexMediaItem copyWith({
     String? ratingKey,
     String? title,
+    String? titleSort,
     String? type,
     String? summary,
     int? year,
@@ -1284,6 +1323,7 @@ class PlexMediaItem {
       ratingKey: ratingKey ?? this.ratingKey,
       key: key,
       title: title ?? this.title,
+      titleSort: titleSort ?? this.titleSort,
       type: type ?? this.type,
       summary: summary ?? this.summary,
       year: year ?? this.year,

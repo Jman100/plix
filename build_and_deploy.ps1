@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.8.5"
-$versionCode = 47
+$version = "1.8.6"
+$versionCode = 48
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"

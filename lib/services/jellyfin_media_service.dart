@@ -581,6 +581,8 @@ class JellyfinMediaService {
 
       title: name,
 
+      titleSort: json['SortName']?.toString() ?? json['sortName']?.toString(),
+
       type: type,
 
       summary: json['Overview']?.toString() ?? '',
@@ -1438,6 +1440,8 @@ class JellyfinMediaService {
     if (cleanQuery.isEmpty) return [];
 
     final normalizedQuery = cleanQuery.toLowerCase();
+    final strippedQuery = PlexMediaItem.normalizeSortTitle(cleanQuery);
+    final normalizedStripped = strippedQuery.toLowerCase();
 
 
 
@@ -1494,18 +1498,31 @@ class JellyfinMediaService {
 
 
     // Jellyfin's full-text search can miss exact title prefixes. Merge in a
-
     // NameStartsWith pass, which is more reliable for short/partial queries.
-
     await fetch(Uri.parse(
-
       '$baseUrl/Users/$userId/Items?NameStartsWith=${Uri.encodeComponent(cleanQuery)}'
-
       '&IncludeItemTypes=Movie,Series&Recursive=true&Limit=60'
-
       '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
-
     ));
+
+    if (strippedQuery != cleanQuery) {
+      await fetch(Uri.parse(
+        '$baseUrl/Users/$userId/Items?searchTerm=${Uri.encodeComponent(strippedQuery)}'
+        '&IncludeItemTypes=Movie,Series,Episode&Recursive=true&Limit=100'
+        '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
+      ));
+      await fetch(Uri.parse(
+        '$baseUrl/Users/$userId/Items?NameStartsWith=${Uri.encodeComponent(strippedQuery)}'
+        '&IncludeItemTypes=Movie,Series&Recursive=true&Limit=60'
+        '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
+      ));
+    } else if (!cleanQuery.toLowerCase().startsWith('the ')) {
+      await fetch(Uri.parse(
+        '$baseUrl/Users/$userId/Items?NameStartsWith=${Uri.encodeComponent("The $cleanQuery")}'
+        '&IncludeItemTypes=Movie,Series&Recursive=true&Limit=60'
+        '&Fields=$_itemFields&SortBy=SortName&SortOrder=Ascending&EnableTotalRecordCount=false',
+      ));
+    }
 
 
 
@@ -1530,25 +1547,20 @@ class JellyfinMediaService {
 
 
     int score(PlexMediaItem item) {
-
       final title = item.title.toLowerCase();
-
+      final sortTitle = item.sortTitle.toLowerCase();
       final series = (item.grandparentTitle ?? '').toLowerCase();
+      final seriesSort = PlexMediaItem.normalizeSortTitle(series).toLowerCase();
+      final q = normalizedQuery;
+      final sq = normalizedStripped;
 
-      if (title == normalizedQuery) return 0;
-
-      if (title.startsWith(normalizedQuery)) return 1;
-
-      if (title.contains(normalizedQuery)) return 2;
-
-      if (series == normalizedQuery) return 3;
-
-      if (series.startsWith(normalizedQuery)) return 4;
-
-      if (series.contains(normalizedQuery)) return 5;
-
+      if (title == q || sortTitle == sq || title == sq || sortTitle == q) return 0;
+      if (title.startsWith(q) || sortTitle.startsWith(sq) || title.startsWith(sq)) return 1;
+      if (title.contains(q) || sortTitle.contains(sq) || title.contains(sq)) return 2;
+      if (series == q || seriesSort == sq || series == sq) return 3;
+      if (series.startsWith(q) || seriesSort.startsWith(sq) || series.startsWith(sq)) return 4;
+      if (series.contains(q) || seriesSort.contains(sq) || series.contains(sq)) return 5;
       return 10;
-
     }
 
 
@@ -1565,7 +1577,7 @@ class JellyfinMediaService {
 
         if (byScore != 0) return byScore;
 
-        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        return a.sortTitle.toLowerCase().compareTo(b.sortTitle.toLowerCase());
 
       });
 
@@ -1609,7 +1621,7 @@ class JellyfinMediaService {
 
         if (byScore != 0) return byScore;
 
-        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        return a.sortTitle.toLowerCase().compareTo(b.sortTitle.toLowerCase());
 
       });
 
