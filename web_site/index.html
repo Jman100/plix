@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark scroll-smooth">
+<html lang="en" class="dark scroll-smooth" style="scroll-padding-top: 100px;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,6 +60,9 @@
   </script>
 
   <style>
+    html {
+      scroll-padding-top: 100px;
+    }
     body {
       background-color: #06080D;
       color: #E2E8F0;
@@ -222,7 +225,7 @@
       </p>
 
       <!-- Direct Download Action Cards -->
-      <div id="downloads" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-5 mb-14">
+      <div id="downloads" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-5 mb-14 scroll-mt-28">
         
         <!-- Windows Download Card -->
         <div class="glass-card rounded-2xl p-6 text-left relative overflow-hidden group border-amber-500/20 hover:border-amber-400/50">
@@ -380,103 +383,88 @@
     </section>
 
     <!-- UI Screenshot & App Showcase -->
-    <section id="showcase" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+    <section id="showcase" class="max-w-6xl mx-auto px-5 sm:px-8 py-14 scroll-mt-28">
       <div class="text-center mb-8">
         <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Interface Showcase</h2>
         <p class="text-2xl sm:text-4xl font-extrabold text-white">Built for the Living Room, Desktop &amp; Mobile.</p>
         <p class="mt-3 text-sm text-neutral-400 max-w-2xl mx-auto">
-          Explore the modern, responsive interface designed from the ground up for big-screen TV remotes and desktop environments.
+          Explore the modern, responsive interface designed from the ground up for big-screen TV remotes, desktop environments, and mobile touch.
         </p>
-      </div>
-
-      <!-- Experience Filter Tabs -->
-      <div class="flex items-center justify-center gap-3 mb-6">
-        <button id="showcaseTabTv" onclick="switchShowcaseCategory('tv')" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
-          <span>Living Room TV (Android TV)</span>
-        </button>
-        <button id="showcaseTabDesktop" onclick="switchShowcaseCategory('desktop')" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
-          <span>Desktop &amp; Playback</span>
-        </button>
       </div>
 
       <!-- Main Featured Frame -->
       <div class="relative mx-auto rounded-3xl p-2 sm:p-3 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden">
-        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#080B13] aspect-[16/9]">
-          <img id="showcaseMainImg" 
-               src="screenshots/android_tv_movies_library_page.png" 
-               alt="Plix Interface Preview" 
-               class="w-full h-full object-cover rounded-2xl block transition-opacity duration-300" />
+        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#07090E] flex flex-col">
+          <!-- Image Viewport: generous 16/10 aspect ratio and object-contain ensures zero cropping for all screenshots, especially playback overlay -->
+          <div class="relative w-full aspect-[16/10] sm:aspect-[16/9.5] md:aspect-[16/9.2] bg-[#05070D] flex items-center justify-center p-1 sm:p-2">
+            <img id="showcaseMainImg" 
+                 src="screenshots/android_tv_movies_library_page.png" 
+                 alt="Movies Library & Alphabet Jump Rail" 
+                 class="w-full h-full object-contain rounded-xl block transition-opacity duration-200" />
+          </div>
           
-          <!-- Image Title Caption Overlay -->
-          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 pt-12 flex flex-col sm:flex-row sm:items-end justify-between gap-2 pointer-events-none">
+          <!-- Image Title Caption Bar below image (clean presentation, never covers controls) -->
+          <div class="p-4 sm:p-5 bg-[#0A0E17]/95 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span id="showcaseBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-brand-gold/20 text-brand-gold border border-brand-gold/40 mb-1.5 inline-block">Android TV</span>
               <h3 id="showcaseTitle" class="text-base sm:text-xl font-bold text-white tracking-tight">Movies Library &amp; Alphabet Jump Rail</h3>
               <p id="showcaseDesc" class="text-xs sm:text-sm text-neutral-300 mt-0.5">Title article sorting with right-hand jump rail letter previews for rapid browsing.</p>
             </div>
-            <span class="text-[11px] text-neutral-400 font-mono hidden sm:block">Click thumbnails below to switch</span>
+            <div class="flex items-center gap-2 text-xs text-neutral-400 font-mono">
+              <span id="showcaseCounter">1 / 8</span>
+              <span class="text-neutral-600">•</span>
+              <span class="text-neutral-400 text-[11px]">Cycles every 5s</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Interactive Thumbnail Carousel -->
-      <div id="showcaseThumbs" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-2.5 sm:gap-3 mt-4">
-        <!-- Living Room TV Thumbnails -->
-        <button onclick="selectShowcase('screenshots/android_tv_movies_library_page.png', 'Movies Library & Alphabet Jump Rail', 'Title article sorting with right-hand jump rail letter previews for rapid browsing.', 'Android TV', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border-2 border-brand-gold ring-2 ring-brand-gold/30 transition-all focus:outline-none" data-cat="tv">
+      <!-- Interactive Thumbnail Carousel (8 thumbnails) -->
+      <div id="showcaseThumbs" class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3 mt-4">
+        <button onclick="selectShowcaseIndex(0)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border-2 border-brand-gold ring-2 ring-brand-gold/40 transition-all focus:outline-none opacity-100 scale-[1.02] shadow-lg shadow-amber-500/20" title="Movies Library & Alphabet Jump Rail">
           <img src="screenshots/android_tv_movies_library_page.png" alt="Movies Library" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/android_tv_episode_detail.png', 'Episode Details & Clearlogo Title Art', 'High-res official title art, ambient backdrops, season pickers, and credits markers.', 'Android TV', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+        <button onclick="selectShowcaseIndex(1)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Episode Details & Clearlogo Title Art">
           <img src="screenshots/android_tv_episode_detail.png" alt="Episode Details" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/android_tv_theme_page.png', 'Atmosphere & Theme Customizer', '16+ built-in atmospheric styles, custom RGB palettes, and ambient theme music.', 'Android TV', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+        <button onclick="selectShowcaseIndex(2)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Atmosphere & Theme Customizer">
           <img src="screenshots/android_tv_theme_page.png" alt="Theme Customizer" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/android_tv_watchlist.png', 'Universal Watchlist', 'Directly synced across your Plex and Jellyfin servers with 1-click series bookmarking.', 'Android TV', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+        <button onclick="selectShowcaseIndex(3)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Universal Watchlist">
           <img src="screenshots/android_tv_watchlist.png" alt="Watchlist" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/android_tv_search_page.png', 'Normalized Search & Article Queries', 'Fast multi-server search executing on Enter/Submit with zero TV typing lag.', 'Android TV', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="tv">
+        <button onclick="selectShowcaseIndex(4)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Normalized Search & Article Queries">
           <img src="screenshots/android_tv_search_page.png" alt="Search Interface" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <!-- Desktop & Playback Thumbnails -->
-        <button onclick="selectShowcase('screenshots/desktop_home_page.png', 'Unified Multi-Server Home Screen', 'Multi-server favorite library blending and global chronological continue watching.', 'Desktop', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+        <button onclick="selectShowcaseIndex(5)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Unified Multi-Server Home Screen">
           <img src="screenshots/desktop_home_page.png" alt="Desktop Home Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/desktop_playback_overlay.png', 'Direct Play Engine & Audio Tracks', 'Hardware accelerated 4K playback, subtitle tracks, audio pass-through, and cast row.', 'Playback', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+        <button onclick="selectShowcaseIndex(6)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Direct Play Engine & Audio Tracks">
           <img src="screenshots/desktop_playback_overlay.png" alt="Playback Overlay" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcase('screenshots/desktop_show_page.png', 'Series Page & Ambient Backdrops', 'Comprehensive episode browser with ambient backdrop art and theme music.', 'Desktop', this)" 
-                class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100" data-cat="desktop">
+        <button onclick="selectShowcaseIndex(7)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Series Page & Ambient Backdrops">
           <img src="screenshots/desktop_show_page.png" alt="Desktop Show Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          <span class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></span>
+          <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
       </div>
     </section>
 
     <!-- Core Features Grid (3x3 Layout) -->
-    <section id="features" class="max-w-6xl mx-auto px-5 sm:px-8 py-16">
+    <section id="features" class="max-w-6xl mx-auto px-5 sm:px-8 py-16 scroll-mt-28">
       <div class="text-center mb-14">
         <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Designed Without Compromise</h2>
         <p class="text-3xl sm:text-4xl font-extrabold text-white">Why Media Enthusiasts Choose Plix.</p>
@@ -497,7 +485,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
             <span>One Screen, All Your Servers</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -514,7 +502,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
             <span>Real-time sync &amp; clear labeling</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -531,7 +519,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
             <span>TrueHD, DTS-HD MA, EAC3/Atmos &amp; FLAC</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -548,7 +536,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
             <span>Cinematic Presentation</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -565,7 +553,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
             <span>Browse &amp; Find Instantly</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -582,7 +570,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-cyan-400">
             <span>Built for Television Remotes</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -603,7 +591,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-purple-400">
             <span>Your Media On the Go</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -620,7 +608,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-amber-400">
             <span>Tailored Aesthetics</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -637,7 +625,7 @@
           </div>
           <div class="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
             <span>Zero Remote Typing • Automatic Updates</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            
           </div>
         </div>
 
@@ -645,7 +633,7 @@
     </section>
 
     <!-- Latest Release & Changelog Section (Live from plix.json) -->
-    <section id="changelog" class="max-w-5xl mx-auto px-5 sm:px-8 py-14">
+    <section id="changelog" class="max-w-5xl mx-auto px-5 sm:px-8 py-14 scroll-mt-28">
       <div class="glass-card rounded-3xl p-6 sm:p-10 border-brand-gold/30 relative overflow-hidden">
         
         <!-- Header -->
@@ -711,7 +699,7 @@
     </section>
 
     <!-- Installation Guide Section -->
-    <section id="install" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+    <section id="install" class="max-w-6xl mx-auto px-5 sm:px-8 py-14 scroll-mt-28">
       <div class="text-center mb-12">
         <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Getting Started</h2>
         <p class="text-3xl sm:text-4xl font-extrabold text-white">How to Install Plix</p>
@@ -807,7 +795,7 @@
     </section>
 
     <!-- FAQ Section -->
-    <section id="faq" class="max-w-4xl mx-auto px-5 sm:px-8 py-14">
+    <section id="faq" class="max-w-4xl mx-auto px-5 sm:px-8 py-14 scroll-mt-28">
       <div class="text-center mb-12">
         <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Got Questions?</h2>
         <p class="text-3xl sm:text-4xl font-extrabold text-white">Frequently Asked Questions</p>
@@ -1032,50 +1020,109 @@
     })();
 
     // Interactive Showcase Gallery Controller
-    function selectShowcase(src, title, desc, badge, btnEl) {
+    const showcaseData = [
+      {
+        src: 'screenshots/android_tv_movies_library_page.png',
+        title: 'Movies Library & Alphabet Jump Rail',
+        desc: 'Title article sorting with right-hand jump rail letter previews for rapid browsing.',
+        badge: 'Android TV'
+      },
+      {
+        src: 'screenshots/android_tv_episode_detail.png',
+        title: 'Episode Details & Clearlogo Title Art',
+        desc: 'High-res official title art, ambient backdrops, season pickers, and credits markers.',
+        badge: 'Android TV'
+      },
+      {
+        src: 'screenshots/android_tv_theme_page.png',
+        title: 'Atmosphere & Theme Customizer',
+        desc: '16+ built-in atmospheric styles, custom RGB palettes, and ambient theme music.',
+        badge: 'Android TV'
+      },
+      {
+        src: 'screenshots/android_tv_watchlist.png',
+        title: 'Universal Watchlist',
+        desc: 'Directly synced across your Plex and Jellyfin servers with 1-click series bookmarking.',
+        badge: 'Android TV'
+      },
+      {
+        src: 'screenshots/android_tv_search_page.png',
+        title: 'Normalized Search & Article Queries',
+        desc: 'Fast multi-server search executing on Enter/Submit with zero TV typing lag.',
+        badge: 'Android TV'
+      },
+      {
+        src: 'screenshots/desktop_home_page.png',
+        title: 'Unified Multi-Server Home Screen',
+        desc: 'Multi-server favorite library blending and global chronological continue watching.',
+        badge: 'Desktop'
+      },
+      {
+        src: 'screenshots/desktop_playback_overlay.png',
+        title: 'Direct Play Engine & Audio Tracks',
+        desc: 'Hardware accelerated 4K playback, subtitle tracks, audio pass-through, and cast row.',
+        badge: 'Playback Overlay'
+      },
+      {
+        src: 'screenshots/desktop_show_page.png',
+        title: 'Series Page & Ambient Backdrops',
+        desc: 'Comprehensive episode browser with ambient backdrop art and theme music.',
+        badge: 'Desktop'
+      }
+    ];
+
+    let currentShowcaseIndex = 0;
+    let showcaseTimer = null;
+
+    function renderShowcase(index) {
+      const item = showcaseData[index];
+      if (!item) return;
+
       const img = document.getElementById('showcaseMainImg');
       const titleEl = document.getElementById('showcaseTitle');
       const descEl = document.getElementById('showcaseDesc');
       const badgeEl = document.getElementById('showcaseBadge');
+      const counterEl = document.getElementById('showcaseCounter');
 
-      if (!img) return;
-
-      img.style.opacity = '0';
-      setTimeout(() => {
-        img.src = src;
-        if (titleEl) titleEl.textContent = title;
-        if (descEl) descEl.textContent = desc;
-        if (badgeEl) badgeEl.textContent = badge;
-        img.style.opacity = '1';
-      }, 150);
+      if (img) {
+        img.style.opacity = '0';
+        setTimeout(() => {
+          img.src = item.src;
+          img.alt = item.title;
+          if (titleEl) titleEl.textContent = item.title;
+          if (descEl) descEl.textContent = item.desc;
+          if (badgeEl) badgeEl.textContent = item.badge;
+          if (counterEl) counterEl.textContent = `${index + 1} / ${showcaseData.length}`;
+          img.style.opacity = '1';
+        }, 150);
+      }
 
       const thumbs = document.querySelectorAll('.showcase-thumb');
-      thumbs.forEach(t => {
-        t.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-70 hover:opacity-100';
+      thumbs.forEach((t, i) => {
+        if (i === index) {
+          t.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border-2 border-brand-gold ring-2 ring-brand-gold/40 transition-all focus:outline-none opacity-100 scale-[1.02] shadow-lg shadow-amber-500/20';
+        } else {
+          t.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100';
+        }
       });
-      if (btnEl) {
-        btnEl.className = 'showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/9] border-2 border-brand-gold ring-2 ring-brand-gold/30 transition-all focus:outline-none opacity-100';
-      }
     }
 
-    function switchShowcaseCategory(cat) {
-      const btnTv = document.getElementById('showcaseTabTv');
-      const btnDesktop = document.getElementById('showcaseTabDesktop');
-
-      if (cat === 'tv') {
-        if (btnTv) btnTv.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2';
-        if (btnDesktop) btnDesktop.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2';
-        
-        const firstTv = document.querySelector('.showcase-thumb[data-cat="tv"]');
-        if (firstTv) firstTv.click();
-      } else {
-        if (btnDesktop) btnDesktop.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-amber-500/20 text-brand-gold border border-brand-gold/40 shadow-lg shadow-amber-500/10 flex items-center gap-2';
-        if (btnTv) btnTv.className = 'px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white/5 text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 flex items-center gap-2';
-        
-        const firstDesktop = document.querySelector('.showcase-thumb[data-cat="desktop"]');
-        if (firstDesktop) firstDesktop.click();
-      }
+    function startShowcaseTimer() {
+      if (showcaseTimer) clearInterval(showcaseTimer);
+      showcaseTimer = setInterval(() => {
+        currentShowcaseIndex = (currentShowcaseIndex + 1) % showcaseData.length;
+        renderShowcase(currentShowcaseIndex);
+      }, 5000);
     }
+
+    function selectShowcaseIndex(index) {
+      currentShowcaseIndex = index;
+      renderShowcase(index);
+      startShowcaseTimer(); // Restarts the 5-second timer on user interaction
+    }
+
+    // Initialize 5-second auto-cycle timer on load
+    startShowcaseTimer();
   </script>
 
 </body>
