@@ -3,15 +3,15 @@
     "versionCode": 48,
     "releaseNotes": "- Title & Article Sorting: Media library sorting and the alphabet jump rail now ignore leading articles ('The', 'A', 'An') and sort by the title's second word, mirroring official Plex behavior (e.g. 'The Matrix' sorts under 'M' rather than clustering under 'T')\n- Search Relevance & Query Normalization: Searching without leading articles (e.g. 'matrix') directly matches and prioritizes titles with articles ('The Matrix') as top results; searching 'the matrix' matches both 'The Matrix' and 'Matrix'\n- Android Production Release Signing: Embedded official production keystore in automated release pipelines, ensuring seamless in-place updates without package signature conflicts\n- App Version Bump: v1.8.6 (versionCode 48)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256": "a4cbaff67085fdf4af99636a73ec0b75278fdc8bc19595949a8704ccd7ddc94c",
+    "apkSha256": "c1ee1fd24c5818dc3d4f2189ada62b14478007eed5df5056f83088925186c280",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsSha256": "2eca9b586b841ed63c16c708efb7fe232321a97f3985fb53ae7169d49419e72a",
+    "windowsSha256": "5b512ee6ee0f99f3aff017238a004b3b419b009133d13f40a4d3715ee3fe5c2b",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "releaseDate": "2026-11-10",
-    "linuxSha256": "8d7e4b410cdd3b8c2e56328859a658a8d474ba57ed8382a6ecc8d0adc6cfbd14",
-    "linuxArchSha256": "878397b9faf0c88f57184891d61910f27d3909b9230a7ccc764ed9d34c6c4457",
-    "linuxTarballSha256": "fd89f259747f7bc9339f5b9bf27176522cda0b43718bd26220dd839c7dcfcee9"
+    "linuxSha256": "ba05d04c092bb43085cbe8712f9e21b57938b20368c342e7f10c1a52f7368a68",
+    "linuxArchSha256": "3ed39a991c6bf5def2eb44aa1341631f45e93552fcc605a487cce207b5370821",
+    "linuxTarballSha256": "eb4434faf20e203e91b4aed64da2033eee78a0e8556c8095af0ec7a54de4d1e9"
 }
