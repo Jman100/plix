@@ -169,6 +169,14 @@ class JellyfinMediaService {
     final viewOffsetMs = positionTicks != null ? (positionTicks.toInt() ~/ 10000) : null;
 
     final isPlayed = userData['Played'] == true;
+    int? lastViewedAt;
+    final lastPlayedStr = userData['LastPlayedDate']?.toString();
+    if (lastPlayedStr != null && lastPlayedStr.isNotEmpty) {
+      final dt = DateTime.tryParse(lastPlayedStr);
+      if (dt != null) {
+        lastViewedAt = dt.millisecondsSinceEpoch ~/ 1000;
+      }
+    }
 
 
 
@@ -636,6 +644,7 @@ class JellyfinMediaService {
       viewCount: isPlayed ? 1 : 0,
 
       originallyAvailableAt: airDate,
+      lastViewedAt: lastViewedAt,
 
       subtitleStreams: subStreams,
 
@@ -1999,13 +2008,17 @@ class JellyfinMediaService {
 
       params.add('AllowAudioStreamCopy=false');
 
-      params.add('EnableAutoStreamCopy=false');
-
     }
 
     if (!directStreamVideo) {
 
       params.add('AllowVideoStreamCopy=false');
+
+      params.add('EnableAutoStreamCopy=false');
+
+    } else {
+
+      params.add('AllowVideoStreamCopy=true');
 
     }
 

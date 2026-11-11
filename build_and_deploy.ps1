@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.8.6"
-$versionCode = 48
+$version = "1.8.7"
+$versionCode = 49
 
 $toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,10 +45,11 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing
-- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders
-- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases
-- App Version Bump: v1.8.4 (versionCode 46)
+- Continue Watching Chronological Ordering: Continue Watching items across all connected Plex and Jellyfin servers now sort strictly by most recently watched (lastViewedAt descending), ensuring active titles appear first on both mobile and TV
+- 4K HDR Direct Stream Audio Transcode: Refined Plex client profile limits and transcode targets to preserve 4K HDR HEVC video untouched (directStream) when converting incompatible multi-channel audio tracks
+- Arch Linux Auto-Updater Relaunch: Hardened the Linux update script using systemd-run --user in app.slice with environment forwarding and signal-trapped double-fork fallbacks, ensuring Plix remains running when the terminal window closes
+- Updater Resilience: Added real-time manifest re-fetching on download retry to prevent stale checksum cache mismatches
+- App Version Bump: v1.8.7 (versionCode 49)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

@@ -1,7 +1,7 @@
 {
-    "version": "1.8.6",
-    "versionCode": 48,
-    "releaseNotes": "- Title & Article Sorting: Media library sorting and the alphabet jump rail now ignore leading articles ('The', 'A', 'An') and sort by the title's second word, mirroring official Plex behavior (e.g. 'The Matrix' sorts under 'M' rather than clustering under 'T')\n- Search Relevance & Query Normalization: Searching without leading articles (e.g. 'matrix') directly matches and prioritizes titles with articles ('The Matrix') as top results; searching 'the matrix' matches both 'The Matrix' and 'Matrix'\n- Android Production Release Signing: Embedded official production keystore in automated release pipelines, ensuring seamless in-place updates without package signature conflicts\n- App Version Bump: v1.8.6 (versionCode 48)",
+    "version": "1.8.7",
+    "versionCode": 49,
+    "releaseNotes": "- Continue Watching Chronological Ordering: Continue Watching items across all connected Plex and Jellyfin servers now sort strictly by most recently watched (lastViewedAt descending), ensuring active titles appear first on both mobile and TV\n- 4K HDR Direct Stream Audio Transcode: Refined Plex client profile limits and transcode targets to preserve 4K HDR HEVC video untouched (directStream) when converting incompatible multi-channel audio tracks\n- Arch Linux Auto-Updater Relaunch: Hardened the Linux update script using systemd-run --user in app.slice with environment forwarding and signal-trapped double-fork fallbacks, ensuring Plix remains running when the terminal window closes\n- Updater Resilience: Added real-time manifest re-fetching on download retry to prevent stale checksum cache mismatches\n- App Version Bump: v1.8.7 (versionCode 49)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "265886f76111f2ee246c8044a2cfe765926f193556769aa12e6342c16b4f2e21",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -10,7 +10,7 @@
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseDate": "2026-11-10",
+    "releaseDate": "2026-11-11",
     "linuxSha256": "ba05d04c092bb43085cbe8712f9e21b57938b20368c342e7f10c1a52f7368a68",
     "linuxArchSha256": "3ed39a991c6bf5def2eb44aa1341631f45e93552fcc605a487cce207b5370821",
     "linuxTarballSha256": "eb4434faf20e203e91b4aed64da2033eee78a0e8556c8095af0ec7a54de4d1e9"

@@ -122,8 +122,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.8.6';
-  static int _currentVersionCode = 48;
+  static String _currentVersion = '1.8.7';
+  static int _currentVersionCode = 49;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -579,32 +579,53 @@ if [ \$INSTALL_SUCCESS -eq 0 ]; then
     fi
 
     RELAUNCHED=0
-    # 1. Desktop application launcher (safely integrates with systemd user session outside terminal scope)
-    if command -v gtk-launch >/dev/null 2>&1; then
-        gtk-launch plix >/dev/null 2>&1 && RELAUNCHED=1
+    # 1. Systemd user session transient unit (completely detached from terminal cgroup & slice)
+    if command -v systemd-run >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1; then
+        systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+        systemd-run --user --unit="plix-app-\$RANDOM" --slice=app.slice \
+            --setenv=DISPLAY="\${DISPLAY:-}" \
+            --setenv=WAYLAND_DISPLAY="\${WAYLAND_DISPLAY:-}" \
+            --setenv=XDG_CURRENT_DESKTOP="\${XDG_CURRENT_DESKTOP:-}" \
+            --setenv=XDG_SESSION_TYPE="\${XDG_SESSION_TYPE:-}" \
+            --setenv=XDG_RUNTIME_DIR="\${XDG_RUNTIME_DIR:-}" \
+            --setenv=DBUS_SESSION_BUS_ADDRESS="\${DBUS_SESSION_BUS_ADDRESS:-}" \
+            "\$PLIX_BIN" </dev/null >/dev/null 2>&1 && RELAUNCHED=1
     fi
+
+    # 2. Desktop launcher with double-fork, signal traps, and complete I/O detachment
+    if [ \$RELAUNCHED -eq 0 ] && command -v gtk-launch >/dev/null 2>&1; then
+        (
+            trap '' HUP PIPE INT TERM
+            nohup gtk-launch plix </dev/null >/dev/null 2>&1 &
+        ) </dev/null >/dev/null 2>&1 &
+        disown -a 2>/dev/null || true
+        RELAUNCHED=1
+    fi
+
+    # 3. Desktop file launch via gio with double-fork, signal traps, and complete I/O detachment
     if [ \$RELAUNCHED -eq 0 ] && command -v gio >/dev/null 2>&1; then
         if [ -f /usr/share/applications/plix.desktop ]; then
-            gio launch /usr/share/applications/plix.desktop >/dev/null 2>&1 && RELAUNCHED=1
+            (
+                trap '' HUP PIPE INT TERM
+                nohup gio launch /usr/share/applications/plix.desktop </dev/null >/dev/null 2>&1 &
+            ) </dev/null >/dev/null 2>&1 &
+            disown -a 2>/dev/null || true
+            RELAUNCHED=1
         fi
     fi
 
-    # 2. Systemd user session run (detached from terminal cgroup)
-    if [ \$RELAUNCHED -eq 0 ] && command -v systemd-run >/dev/null 2>&1; then
-        systemd-run --user "\$PLIX_BIN" >/dev/null 2>&1 && RELAUNCHED=1
-    fi
-
-    # 3. Direct execution with setsid, nohup, and disown
+    # 4. Direct setsid -f / nohup double-fork with SIGHUP & SIGPIPE traps
     if [ \$RELAUNCHED -eq 0 ]; then
-        if command -v setsid >/dev/null 2>&1; then
-            nohup setsid "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
-            disown -a 2>/dev/null || true
-            RELAUNCHED=1
-        else
-            nohup "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
-            disown -a 2>/dev/null || true
-            RELAUNCHED=1
-        fi
+        (
+            trap '' HUP PIPE INT TERM
+            if command -v setsid >/dev/null 2>&1; then
+                nohup setsid -f "\$PLIX_BIN" </dev/null >/dev/null 2>&1 || nohup setsid "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
+            else
+                nohup "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
+            fi
+        ) </dev/null >/dev/null 2>&1 &
+        disown -a 2>/dev/null || true
+        RELAUNCHED=1
     fi
 
     sleep 0.8

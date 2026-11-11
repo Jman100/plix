@@ -297,13 +297,15 @@ class PlexMediaService {
 
       'directPlay': '0',
 
-      'directStream': (directStreamVideo && !burnSubtitles && !forceAudioTranscode) ? '1' : '0',
+      'directStream': (directStreamVideo && !burnSubtitles) ? '1' : '0',
+
+      'directStreamAudio': forceAudioTranscode ? '0' : '1',
 
       if (forceAudioTranscode) 'audioCodec': 'aac',
 
-      if (forceAudioTranscode) 'videoCodec': 'h264',
-
       if (forceAudioTranscode) 'audioChannels': '2',
+
+      if (!directStreamVideo || burnSubtitles) 'videoCodec': 'h264',
 
       'subtitleSize': '100',
 
@@ -332,6 +334,12 @@ class PlexMediaService {
       'videoQuality': '100',
 
       'offset': '$offsetSeconds',
+
+      if (directStreamVideo && !burnSubtitles)
+        'X-Plex-Client-Profile-Extra':
+            'add-limitation(scope=videoCodec&scopeName=*&type=upperBound&name=video.width&value=4096&replace=true)'
+            '+add-limitation(scope=videoCodec&scopeName=*&type=upperBound&name=video.height&value=2160&replace=true)'
+            '+add-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=hevc)',
 
       'X-Plex-Client-Identifier': clientId,
 

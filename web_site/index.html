@@ -171,7 +171,7 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-black tracking-tight text-white">PLIX</span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
-              v1.8.6
+              v1.8.7
             </span>
           </div>
           <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
@@ -215,7 +215,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.8.6</strong> is now live</span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.8.7</strong> is now live</span>
         <span class="text-neutral-500">•</span>
         <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
           <span>Release Notes</span>
@@ -267,7 +267,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.8.6</span>
+            <span id="winVersionLabel">Version 1.8.7</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -304,7 +304,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.8.6</span>
+            <span id="androidVersionLabel">Version 1.8.7</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -363,7 +363,7 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
-            <span id="linuxVersionLabel">Version 1.8.6</span>
+            <span id="linuxVersionLabel">Version 1.8.7</span>
             <span>DEB • Arch • Portable</span>
           </div>
         </div>
@@ -543,7 +543,7 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.8.6</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.8.7</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
               <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 10, 2026</span></p>
@@ -573,23 +573,23 @@
                     <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Alphabet Jump Rail Selection &amp; Navigation:</strong> Seeking now only triggers upon pressing Select/Enter on a letter with active bubble preview; blur/left navigation smoothly restores grid focus without seeking; fixed cursor getting stuck on letters T-Z; clamped bottom at 'Z' and dismissed bubble when navigating to toolbar.</div>
+              <div><strong class="text-white">Continue Watching Chronological Ordering:</strong> Continue Watching items across all connected Plex and Jellyfin servers now sort strictly by most recently watched (<code class="text-xs font-mono px-1 rounded bg-white/10">lastViewedAt</code> descending), ensuring active titles appear first on both mobile and TV.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Top Toolbar Navigation Safety:</strong> Clamped upward navigation on all top buttons (Back, Categories, Sort, Refresh), preventing unintended focus escape into the grid content rows.</div>
+              <div><strong class="text-white">4K HDR Direct Stream Audio Transcode:</strong> Refined Plex client profile limits and transcode targets to preserve 4K HDR HEVC video untouched (<code class="text-xs font-mono px-1 rounded bg-white/10">directStream</code>) when converting incompatible multi-channel audio tracks.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Arch Linux Auto-Updater Relaunch:</strong> Enhanced the Linux update script to reliably relaunch <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">/usr/bin/plix</code> upon completion using desktop session launchers (<code class="text-xs font-mono px-1 rounded bg-white/10">gtk-launch</code>, <code class="text-xs font-mono px-1 rounded bg-white/10">gio</code>) and systemd user scopes.</div>
+              <div><strong class="text-white">Arch Linux Auto-Updater Relaunch:</strong> Hardened the Linux update script using <code class="text-xs font-mono px-1 rounded bg-white/10">systemd-run --user</code> in <code class="text-xs font-mono px-1 rounded bg-white/10">app.slice</code> with environment forwarding and signal-trapped double-fork fallbacks, ensuring Plix remains running when the terminal window closes.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Memory &amp; Performance Optimizations:</strong> Bounded image cache and pooled connections preventing low-memory crashes when rapidly scrolling large libraries.</div>
+              <div><strong class="text-white">Updater Resilience:</strong> Added real-time manifest re-fetching on download retry to prevent stale checksum cache mismatches.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.8.6 (versionCode 48).</div>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.8.7 (versionCode 49).</div>
             </li>
           </ul>
         </div>

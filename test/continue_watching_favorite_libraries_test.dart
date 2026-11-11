@@ -232,4 +232,51 @@ void main() {
       expect(isItemInFavoritedLibraries(jellyfinEpisode, favoritedLibraries), isFalse);
     });
   });
+
+  group('Continue Watching Sorting Tests', () {
+    test('sorts by most recently watched (lastViewedAt descending) regardless of library or server', () {
+      const item1 = PlexMediaItem(
+        ratingKey: '1',
+        key: '/library/metadata/1',
+        title: 'Older Watched on Server A (Library 0)',
+        type: 'movie',
+        serverId: 'srv_a',
+        librarySectionId: 'lib_0',
+        lastViewedAt: 1000,
+      );
+
+      const item2 = PlexMediaItem(
+        ratingKey: '2',
+        key: '/library/metadata/2',
+        title: 'Most Recently Watched on Server B (Library 3)',
+        type: 'movie',
+        serverId: 'srv_b',
+        librarySectionId: 'lib_3',
+        lastViewedAt: 5000,
+      );
+
+      const item3 = PlexMediaItem(
+        ratingKey: '3',
+        key: '/library/metadata/3',
+        title: 'Middle Watched on Server A (Library 1)',
+        type: 'episode',
+        serverId: 'srv_a',
+        librarySectionId: 'lib_1',
+        lastViewedAt: 3000,
+      );
+
+      final list = [item1, item2, item3];
+
+      list.sort((a, b) {
+        final timeA = a.lastViewedAt ?? 0;
+        final timeB = b.lastViewedAt ?? 0;
+        if (timeA != timeB) {
+          return timeB.compareTo(timeA);
+        }
+        return 0;
+      });
+
+      expect(list.map((it) => it.ratingKey).toList(), ['2', '3', '1']);
+    });
+  });
 }

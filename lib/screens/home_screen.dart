@@ -519,10 +519,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _sortContinueWatching(List<PlexMediaItem> list) {
     list.sort((a, b) {
+      final timeA = a.lastViewedAt ?? 0;
+      final timeB = b.lastViewedAt ?? 0;
+      if (timeA != timeB) {
+        return timeB.compareTo(timeA);
+      }
       final idxA = _getLibrarySortIndex(a);
       final idxB = _getLibrarySortIndex(b);
       if (idxA != idxB) return idxA.compareTo(idxB);
-      return (b.lastViewedAt ?? 0).compareTo(a.lastViewedAt ?? 0);
+      return (b.addedAt ?? 0).compareTo(a.addedAt ?? 0);
     });
   }
 
