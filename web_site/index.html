@@ -267,12 +267,8 @@
           <div class="absolute -right-12 -top-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
           
           <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center text-purple-400">
-              <svg class="w-6 h-6 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-              </svg>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/5 border border-purple-500/30 flex items-center justify-center text-purple-400 p-2.5">
+              <img src="android_icon.png" alt="Android Logo" class="w-7 h-7 object-contain" />
             </div>
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-purple-400/10 text-purple-300 border border-purple-400/20">
               Phones &amp; TV
@@ -280,9 +276,13 @@
           </div>
 
           <h3 class="text-xl font-bold text-white mb-1">Plix for Android</h3>
-          <p class="text-xs text-neutral-400 mb-6">
+          <p class="text-xs text-neutral-400 mb-4">
             Single unified APK for Android Phones, Tablets, and Android TV / Google TV. Remote &amp; touch-first UI, Picture-in-Picture, and 4K HDR direct play.
           </p>
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/15 border border-purple-400/30 text-xs mb-5">
+            <span class="text-neutral-400">Downloader Code:</span>
+            <code class="text-purple-200 font-mono font-bold tracking-wider">7850497</code>
+          </div>
 
           <a id="btnDownloadAndroid" 
              href="https://github.com/Jman100/plix/releases/latest/download/plix_android.apk" 
@@ -304,10 +304,8 @@
           <div class="absolute -right-12 -top-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all"></div>
           
           <div class="flex items-start justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2a4 4 0 0 0-4 4c0 .8.24 1.55.65 2.18C7.57 9.17 6.5 10.96 6.5 13c0 2.1.84 3.96 2.17 5.25L8 20.5a1.5 1.5 0 0 0 2.2 1.32L12 20.73l1.8 1.09A1.5 1.5 0 0 0 16 20.5l-.67-2.25C16.66 16.96 17.5 15.1 17.5 13c0-2.04-1.07-3.83-2.15-4.82.41-.63.65-1.38.65-2.18a4 4 0 0 0-4-4zm-1.5 5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-              </svg>
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/30 flex items-center justify-center text-cyan-400 p-2.5">
+              <img src="linux_icon.png" alt="Linux Tux Logo" class="w-7 h-7 object-contain" />
             </div>
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
               Debian • Arch • Portable
@@ -383,78 +381,94 @@
     </section>
 
     <!-- UI Screenshot & App Showcase -->
-    <section id="showcase" class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-10 scroll-mt-24">
-      <div class="text-center mb-6">
-        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-1.5">Interface Showcase</h2>
-        <p class="text-2xl sm:text-3xl font-extrabold text-white">Built for the Living Room, Desktop &amp; Mobile</p>
-        <p class="mt-2 text-xs sm:text-sm text-neutral-400 max-w-xl mx-auto">
+    <section id="showcase" class="max-w-5xl mx-auto px-5 sm:px-8 py-10 sm:py-12 scroll-mt-24">
+      <div class="text-center mb-7">
+        <h2 class="text-xs uppercase tracking-widest text-brand-gold font-bold mb-2">Interface Showcase</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold text-white">Built for the Living Room, Desktop &amp; Mobile</p>
+        <p class="mt-2.5 text-xs sm:text-sm text-neutral-400 max-w-2xl mx-auto">
           Explore the modern, responsive interface designed from the ground up for big-screen TV remotes, desktop environments, and mobile touch.
         </p>
       </div>
 
       <!-- Main Featured Frame (Fixed Height viewport so height never jumps) -->
-      <div class="relative mx-auto rounded-2xl p-1.5 sm:p-2 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden">
-        <div class="relative rounded-xl overflow-hidden border border-white/10 bg-[#07090E] flex flex-col">
+      <div class="relative mx-auto rounded-3xl p-2 sm:p-2.5 bg-gradient-to-b from-white/15 via-white/5 to-white/0 shadow-2xl shadow-purple-950/40 border border-white/10 overflow-hidden">
+        <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-[#07090E] flex flex-col">
           <!-- Fixed-height image viewport: black bars above/below shorter images, no size jumping -->
-          <div class="relative w-full h-[250px] sm:h-[340px] md:h-[400px] bg-[#05070D] flex items-center justify-center p-2 overflow-hidden">
+          <div class="relative w-full h-[300px] sm:h-[400px] md:h-[480px] lg:h-[510px] bg-[#05070D] flex items-center justify-center p-2 sm:p-3 overflow-hidden group">
             <img id="showcaseMainImg" 
                  src="screenshots/android_tv_movies_library_page.png" 
                  alt="Movies Library & Alphabet Jump Rail" 
-                 class="max-h-full max-w-full object-contain rounded-lg block transition-opacity duration-200" />
+                 class="max-h-full max-w-full object-contain rounded-xl block transition-opacity duration-200 cursor-pointer" 
+                 onclick="openShowcaseModal()" />
+
+            <!-- Corner Expand / Fullscreen Button -->
+            <button id="btnExpandShowcase" 
+                    onclick="openShowcaseModal()" 
+                    class="absolute top-3.5 right-3.5 z-20 p-2 sm:p-2.5 rounded-xl bg-black/70 hover:bg-black text-neutral-300 hover:text-white border border-white/20 backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 group focus:outline-none"
+                    title="Expand Fullscreen View">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </button>
           </div>
           
           <!-- Image Title Caption Bar below image -->
-          <div class="px-4 py-2.5 bg-[#0A0E17]/95 border-t border-white/10 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5 overflow-hidden">
-              <span id="showcaseBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-brand-gold/20 text-brand-gold border border-brand-gold/40 flex-shrink-0 inline-block">Android TV</span>
+          <div class="px-5 py-3.5 bg-[#0A0E17]/95 border-t border-white/10 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 overflow-hidden">
+              <span id="showcaseBadge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-brand-gold/20 text-brand-gold border border-brand-gold/40 flex-shrink-0 inline-block">Android TV</span>
               <div class="truncate">
-                <span id="showcaseTitle" class="text-xs sm:text-sm font-bold text-white tracking-tight mr-2">Movies Library &amp; Alphabet Jump Rail</span>
-                <span id="showcaseDesc" class="text-xs text-neutral-400 hidden sm:inline">Title article sorting with right-hand jump rail letter previews for rapid browsing.</span>
+                <span id="showcaseTitle" class="text-sm sm:text-base font-bold text-white tracking-tight mr-2">Movies Library &amp; Alphabet Jump Rail</span>
+                <span id="showcaseDesc" class="text-xs sm:text-sm text-neutral-400 hidden md:inline">Title article sorting with right-hand jump rail letter previews for rapid browsing.</span>
               </div>
             </div>
-            <span id="showcaseCounter" class="text-xs text-neutral-400 font-mono flex-shrink-0">1 / 8</span>
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <span id="showcaseCounter" class="text-xs sm:text-sm text-neutral-400 font-mono">1 / 8</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Interactive Thumbnail Carousel (8 thumbnails) -->
-      <div id="showcaseThumbs" class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 mt-3 max-w-4xl mx-auto">
-        <button onclick="selectShowcaseIndex(0)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border-2 border-brand-gold ring-2 ring-brand-gold/40 transition-all focus:outline-none opacity-100 scale-[1.02] shadow-md shadow-amber-500/20" title="Movies Library & Alphabet Jump Rail">
+      <div id="showcaseThumbs" class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2.5 mt-4 max-w-5xl mx-auto">
+        <button onclick="selectShowcaseIndex(0)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border-2 border-brand-gold ring-2 ring-brand-gold/40 transition-all focus:outline-none opacity-100 scale-[1.02] shadow-md shadow-amber-500/20" title="Movies Library & Alphabet Jump Rail">
           <img src="screenshots/android_tv_movies_library_page.png" alt="Movies Library" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(1)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Episode Details & Clearlogo Title Art">
+        <button onclick="selectShowcaseIndex(1)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Episode Details & Clearlogo Title Art">
           <img src="screenshots/android_tv_episode_detail.png" alt="Episode Details" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(2)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Atmosphere & Theme Customizer">
+        <button onclick="selectShowcaseIndex(2)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Atmosphere & Theme Customizer">
           <img src="screenshots/android_tv_theme_page.png" alt="Theme Customizer" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(3)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Universal Watchlist">
+        <button onclick="selectShowcaseIndex(3)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Universal Watchlist">
           <img src="screenshots/android_tv_watchlist.png" alt="Watchlist" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(4)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Normalized Search & Article Queries">
+        <button onclick="selectShowcaseIndex(4)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Normalized Search & Article Queries">
           <img src="screenshots/android_tv_search_page.png" alt="Search Interface" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(5)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Unified Multi-Server Home Screen">
+        <button onclick="selectShowcaseIndex(5)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Unified Multi-Server Home Screen">
           <img src="screenshots/desktop_home_page.png" alt="Desktop Home Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(6)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Direct Play Engine & Audio Tracks">
+        <button onclick="selectShowcaseIndex(6)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Direct Play Engine & Audio Tracks">
           <img src="screenshots/desktop_playback_overlay.png" alt="Playback Overlay" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
 
-        <button onclick="selectShowcaseIndex(7)" class="showcase-thumb group relative rounded-lg overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Series Page & Ambient Backdrops">
+        <button onclick="selectShowcaseIndex(7)" class="showcase-thumb group relative rounded-xl overflow-hidden aspect-[16/10] border border-white/10 hover:border-brand-gold/50 transition-all focus:outline-none opacity-60 hover:opacity-100" title="Series Page & Ambient Backdrops">
           <img src="screenshots/desktop_show_page.png" alt="Desktop Show Page" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           <span class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></span>
         </button>
@@ -738,12 +752,8 @@
         <!-- Android TV Guide -->
         <div class="glass-card rounded-2xl p-7 border-purple-500/20">
           <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-              <svg class="w-5 h-5 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-              </svg>
+            <div class="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center p-2">
+              <img src="android_icon.png" alt="Android" class="w-6 h-6 object-contain" />
             </div>
             <div>
               <h3 class="text-lg font-bold text-white">Installing on Android / TV</h3>
@@ -754,11 +764,11 @@
           <ol class="space-y-4 text-sm text-neutral-300">
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-              <div>On your TV or phone, open your browser or the <strong>Downloader</strong> app.</div>
+              <div>On your TV or streaming device, open the <strong>Downloader</strong> app (or your web browser).</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-              <div>Download the universal <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">plix_android.apk</code>.</div>
+              <div>Enter quick code <code class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40">7850497</code> into Downloader, or download <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">plix_android.apk</code> directly.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 rounded-full bg-white/10 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
@@ -770,10 +780,8 @@
         <!-- Linux Guide -->
         <div class="glass-card rounded-2xl p-7 border-cyan-500/20">
           <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center">
-              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2a4 4 0 0 0-4 4c0 .8.24 1.55.65 2.18C7.57 9.17 6.5 10.96 6.5 13c0 2.1.84 3.96 2.17 5.25L8 20.5a1.5 1.5 0 0 0 2.2 1.32L12 20.73l1.8 1.09A1.5 1.5 0 0 0 16 20.5l-.67-2.25C16.66 16.96 17.5 15.1 17.5 13c0-2.04-1.07-3.83-2.15-4.82.41-.63.65-1.38.65-2.18a4 4 0 0 0-4-4zm-1.5 5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm3 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-              </svg>
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center p-2">
+              <img src="linux_icon.png" alt="Linux" class="w-6 h-6 object-contain" />
             </div>
             <div>
               <h3 class="text-lg font-bold text-white">Installing on Linux</h3>
@@ -825,7 +833,7 @@
             <span class="transition-transform group-open:rotate-180 text-brand-gold font-mono">▼</span>
           </summary>
           <p class="mt-4 text-sm text-neutral-300 leading-relaxed border-t border-white/5 pt-4">
-            Yes! Plix is packaged as a universal Android APK designed specifically for television remotes and living-room displays (including Chromecast with Google TV, Fire TV, NVIDIA Shield, and Onn streaming boxes). You can sideload the APK using tools like the <strong class="text-white">Downloader</strong> app or ADB. It boots straight into a TV remote-friendly D-Pad interface with automatic row navigation and custom launcher banner support.
+            Yes! Plix is packaged as a universal Android APK designed specifically for television remotes and living-room displays (including Chromecast with Google TV, Fire TV, NVIDIA Shield, and Onn streaming boxes). The fastest way to install on your TV is via the free <strong class="text-white">Downloader</strong> app by entering code <code class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40">7850497</code>, or sideloading via ADB. It boots straight into a TV remote-friendly D-Pad interface with automatic row navigation and custom launcher banner support.
           </p>
         </details>
 
@@ -937,6 +945,49 @@
       Plix is an independent, third-party media client. It is not affiliated with, endorsed by, or sponsored by Plex Inc. or the Jellyfin project.
     </div>
   </footer>
+
+  <!-- Fullscreen Showcase Lightbox Modal -->
+  <div id="showcaseModal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-6 transition-opacity duration-300" onclick="handleModalBackdropClick(event)">
+    <!-- Top Bar: Title & Close -->
+    <div class="w-full max-w-7xl mx-auto flex items-center justify-between z-10 pb-3">
+      <div class="flex items-center gap-3">
+        <span id="modalBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-brand-gold/20 text-brand-gold border border-brand-gold/40">Android TV</span>
+        <h3 id="modalTitle" class="text-base sm:text-xl font-bold text-white tracking-tight">Movies Library</h3>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="modalCounter" class="text-xs sm:text-sm font-mono text-neutral-400">1 / 8</span>
+        <button onclick="closeShowcaseModal()" class="p-2 sm:p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white border border-white/10 transition-all focus:outline-none" title="Close (Esc)">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center Stage: Prev Arrow, Image, Next Arrow -->
+    <div class="relative flex-1 flex items-center justify-center w-full max-w-7xl mx-auto overflow-hidden my-auto">
+      <button onclick="prevShowcaseModal(event)" class="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white/80 hover:text-white border border-white/20 backdrop-blur-md transition-all hover:scale-110 active:scale-95 focus:outline-none" title="Previous Image (←)">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      <img id="modalMainImg" src="" alt="Fullscreen Preview" class="max-h-[82vh] max-w-[92vw] object-contain rounded-xl shadow-2xl transition-all duration-200" />
+
+      <button onclick="nextShowcaseModal(event)" class="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white/80 hover:text-white border border-white/20 backdrop-blur-md transition-all hover:scale-110 active:scale-95 focus:outline-none" title="Next Image (→)">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Bottom Bar: Description -->
+    <div class="w-full max-w-4xl mx-auto text-center pt-3 z-10">
+      <p id="modalDesc" class="text-xs sm:text-sm text-neutral-300"></p>
+    </div>
+  </div>
+
 
   <!-- Dynamic Release Metadata Reader Script -->
   <script>
@@ -1165,6 +1216,78 @@
       currentShowcaseIndex = index;
       renderShowcase(index);
       startShowcaseTimer(); // Restarts the 5-second timer on user interaction
+      if (!document.getElementById('showcaseModal').classList.contains('hidden')) {
+        updateModalContent(index);
+      }
+    }
+
+    // Fullscreen Showcase Lightbox Controller
+    function openShowcaseModal() {
+      const modal = document.getElementById('showcaseModal');
+      if (!modal) return;
+      updateModalContent(currentShowcaseIndex);
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      if (showcaseTimer) clearInterval(showcaseTimer);
+      window.addEventListener('keydown', handleModalKeyDown);
+    }
+
+    function closeShowcaseModal() {
+      const modal = document.getElementById('showcaseModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+      startShowcaseTimer();
+      window.removeEventListener('keydown', handleModalKeyDown);
+    }
+
+    function updateModalContent(index) {
+      const item = showcaseData[index];
+      if (!item) return;
+      const modalImg = document.getElementById('modalMainImg');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalDesc = document.getElementById('modalDesc');
+      const modalBadge = document.getElementById('modalBadge');
+      const modalCounter = document.getElementById('modalCounter');
+
+      if (modalImg) {
+        modalImg.style.opacity = '0';
+        setTimeout(() => {
+          modalImg.src = item.src;
+          modalImg.alt = item.title;
+          if (modalTitle) modalTitle.textContent = item.title;
+          if (modalDesc) modalDesc.textContent = item.desc;
+          if (modalBadge) modalBadge.textContent = item.badge;
+          if (modalCounter) modalCounter.textContent = `${index + 1} / ${showcaseData.length}`;
+          modalImg.style.opacity = '1';
+        }, 120);
+      }
+    }
+
+    function prevShowcaseModal(e) {
+      if (e) e.stopPropagation();
+      currentShowcaseIndex = (currentShowcaseIndex - 1 + showcaseData.length) % showcaseData.length;
+      renderShowcase(currentShowcaseIndex);
+      updateModalContent(currentShowcaseIndex);
+    }
+
+    function nextShowcaseModal(e) {
+      if (e) e.stopPropagation();
+      currentShowcaseIndex = (currentShowcaseIndex + 1) % showcaseData.length;
+      renderShowcase(currentShowcaseIndex);
+      updateModalContent(currentShowcaseIndex);
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target.id === 'showcaseModal' || e.target.id === 'modalMainImg') {
+        if (e.target.id === 'showcaseModal') closeShowcaseModal();
+      }
+    }
+
+    function handleModalKeyDown(e) {
+      if (e.key === 'Escape') closeShowcaseModal();
+      else if (e.key === 'ArrowLeft') prevShowcaseModal();
+      else if (e.key === 'ArrowRight') nextShowcaseModal();
     }
 
     // Initialize 5-second auto-cycle timer on load
