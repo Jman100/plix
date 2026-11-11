@@ -96,7 +96,29 @@ class UpdateInfo {
     final linuxArchSha = json['linuxArchSha256']?.toString() ?? '';
 
     final cmp = UpdateService.compareSemVer(v, currentVersion);
-    final hasUpdate = cmp > 0 || (cmp == 0 && vc > currentVersionCode);
+    var hasUpdate = cmp > 0 || (cmp == 0 && vc > currentVersionCode);
+
+    // Guard 1: Suppress update prompt if the release is explicitly marked as not ready
+    final readyVal = json['ready'];
+    if (readyVal == false || readyVal == 'false') {
+      hasUpdate = false;
+    }
+
+    // Guard 2: Platform-specific checksum readiness guard
+    // If the release manifest is missing a valid SHA-256 for the target platform,
+    // the build has not finished publishing yet. Suppress update prompt until verified.
+    if (hasUpdate) {
+      if (Platform.isAndroid && apkSha.trim().isEmpty && sha.trim().isEmpty) {
+        hasUpdate = false;
+      } else if (Platform.isWindows && winSha.trim().isEmpty && sha.trim().isEmpty) {
+        hasUpdate = false;
+      } else if (Platform.isLinux) {
+        final platformHash = isArch ? linuxArchSha : linuxSha;
+        if (platformHash.trim().isEmpty && sha.trim().isEmpty) {
+          hasUpdate = false;
+        }
+      }
+    }
 
     return UpdateInfo(
       version: v,

@@ -50,6 +50,38 @@ void main() {
       expect(info.getExpectedSha256ForTarget('plix_linux_arch.pkg.tar.zst'), equals('0987654321'));
     });
 
+    test('UpdateInfo suppresses update notification when not ready or missing platform hash', () {
+      final unreadyJson = {
+        'version': '2.0.0',
+        'versionCode': 50,
+        'ready': false,
+        'windowsSha256': 'a1b2c3',
+        'apkSha256': 'd4e5f6',
+      };
+      final unreadyInfo = UpdateInfo.fromJson(
+        unreadyJson,
+        currentVersion: '1.8.7',
+        currentVersionCode: 49,
+      );
+      expect(unreadyInfo.hasUpdate, isFalse, reason: 'Must not notify when release is marked ready: false');
+
+      final unhashedJson = {
+        'version': '2.0.0',
+        'versionCode': 50,
+        'ready': true,
+        'windowsSha256': '',
+        'apkSha256': '',
+        'linuxSha256': '',
+        'linuxArchSha256': '',
+      };
+      final unhashedInfo = UpdateInfo.fromJson(
+        unhashedJson,
+        currentVersion: '1.8.7',
+        currentVersionCode: 49,
+      );
+      expect(unhashedInfo.hasUpdate, isFalse, reason: 'Must not notify when target platform checksum is empty');
+    });
+
     test('isTrustedUpdateUri strictly validates schemes and hosts', () {
       expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe')), isTrue);
       expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://objects.githubusercontent.com/github-production-release-asset-2e65be/plix_windows.exe')), isTrue);
