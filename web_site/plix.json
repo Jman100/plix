@@ -3,15 +3,15 @@
     "versionCode": 47,
     "releaseNotes": "- Alphabet Jump Rail Selection & Navigation: Seeking now only triggers upon pressing Select/Enter on a letter with active bubble preview; blur/left navigation smoothly restores grid focus without seeking; fixed cursor getting stuck on letters T-Z; clamped bottom at 'Z' and dismissed bubble when navigating to toolbar\n- Top Toolbar Navigation Safety: Clamped upward navigation on all top buttons (Back, Categories, Sort, Refresh), preventing unintended focus escape into the grid content rows\n- Arch Linux Auto-Updater Relaunch: Enhanced the Linux update script to reliably relaunch /usr/bin/plix upon completion using desktop session launchers (gtk-launch, gio) and systemd user scopes\n- Memory & Performance Optimizations: Bounded image cache and pooled connections preventing low-memory crashes when rapidly scrolling large libraries\n- App Version Bump: v1.8.5 (versionCode 47)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256": "07fafc372e64d0e1b3ff9daf640dd00474ecf1b56861148e25184496dfed9667",
+    "apkSha256": "f386cf436b1e38263150382e9dce73b56b93a8c45542fbb5ff0c1e09e4683b61",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsSha256": "55bf8d75866db186b604b23bffa8063e5490794c49c518007ea02857061d0d76",
+    "windowsSha256": "2eca9b586b841ed63c16c708efb7fe232321a97f3985fb53ae7169d49419e72a",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "releaseDate": "2026-11-10",
-    "linuxSha256": "253875992a9b5531e39ebddf1f0562030124dc0343b8ecda28aaafa8525a00ba",
-    "linuxArchSha256": "66f9c8d3747b4e5b6ed83dfa678a07415272dfd141d09b5523dcbecb4cbf6afe",
-    "linuxTarballSha256": "e06e92aaee853f771c6532802a2e27e6f4ec98a49e3aceba01a5dc4e49728088"
+    "linuxSha256": "8d7e4b410cdd3b8c2e56328859a658a8d474ba57ed8382a6ecc8d0adc6cfbd14",
+    "linuxArchSha256": "878397b9faf0c88f57184891d61910f27d3909b9230a7ccc764ed9d34c6c4457",
+    "linuxTarballSha256": "fd89f259747f7bc9339f5b9bf27176522cda0b43718bd26220dd839c7dcfcee9"
 }
