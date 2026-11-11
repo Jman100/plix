@@ -66,12 +66,17 @@ jobs:
         run: flutter pub get
 
       - name: Configure Secure Keystore
-        if: "${{ secrets.KEYSTORE_BASE64 != '' }}"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        if: env.KEYSTORE_BASE64 != ''
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/plix_release_secure.keystore
-          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/plix_release_secure.keystore
+          echo "storePassword=$STORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
           echo "storeFile=plix_release_secure.keystore" >> android/key.properties
 
       - name: Build Android Release APK
