@@ -874,12 +874,20 @@ class _UpdateDialogState extends State<_UpdateDialog> {
     });
 
     try {
+      UpdateInfo effectiveInfo = widget.updateInfo;
+      try {
+        final fresh = await UpdateService.checkForUpdate();
+        if (fresh != null) {
+          effectiveInfo = fresh;
+        }
+      } catch (_) {}
+
       await UpdateService.downloadAndInstall(
-        apkUrl: widget.updateInfo.apkUrl,
-        windowsUrl: widget.updateInfo.windowsUrl,
-        linuxUrl: widget.updateInfo.linuxUrl,
-        linuxArchUrl: widget.updateInfo.linuxArchUrl,
-        updateInfo: widget.updateInfo,
+        apkUrl: effectiveInfo.apkUrl,
+        windowsUrl: effectiveInfo.windowsUrl,
+        linuxUrl: effectiveInfo.linuxUrl,
+        linuxArchUrl: effectiveInfo.linuxArchUrl,
+        updateInfo: effectiveInfo,
         onProgress: (p) {
           if (mounted) {
             setState(() {
