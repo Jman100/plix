@@ -1,7 +1,7 @@
 {
-    "version": "1.8.4",
-    "versionCode": 46,
-    "releaseNotes": "- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing\n- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders\n- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases\n- App Version Bump: v1.8.4 (versionCode 46)",
+    "version": "1.8.5",
+    "versionCode": 47,
+    "releaseNotes": "- Alphabet Jump Rail Selection & Navigation: Seeking now only triggers upon pressing Select/Enter on a letter with active bubble preview; blur/left navigation smoothly restores grid focus without seeking; fixed cursor getting stuck on letters T-Z; clamped bottom at 'Z' and dismissed bubble when navigating to toolbar\n- Top Toolbar Navigation Safety: Clamped upward navigation on all top buttons (Back, Categories, Sort, Refresh), preventing unintended focus escape into the grid content rows\n- Arch Linux Auto-Updater Relaunch: Enhanced the Linux update script to reliably relaunch /usr/bin/plix upon completion using desktop session launchers (gtk-launch, gio) and systemd user scopes\n- Memory & Performance Optimizations: Bounded image cache and pooled connections preventing low-memory crashes when rapidly scrolling large libraries\n- App Version Bump: v1.8.5 (versionCode 47)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "07fafc372e64d0e1b3ff9daf640dd00474ecf1b56861148e25184496dfed9667",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -10,7 +10,7 @@
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseDate": "2026-11-09",
+    "releaseDate": "2026-11-10",
     "linuxSha256": "253875992a9b5531e39ebddf1f0562030124dc0343b8ecda28aaafa8525a00ba",
     "linuxArchSha256": "66f9c8d3747b4e5b6ed83dfa678a07415272dfd141d09b5523dcbecb4cbf6afe",
     "linuxTarballSha256": "e06e92aaee853f771c6532802a2e27e6f4ec98a49e3aceba01a5dc4e49728088"

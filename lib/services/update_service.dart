@@ -122,8 +122,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.8.4';
-  static int _currentVersionCode = 46;
+  static String _currentVersion = '1.8.5';
+  static int _currentVersionCode = 47;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -566,13 +566,48 @@ if [ \$INSTALL_SUCCESS -eq 0 ]; then
     echo "  Restarting Plix..."
     echo "=========================================="
     sleep 1.2
-    if command -v plix >/dev/null 2>&1; then
-        nohup plix >/dev/null 2>&1 &
-    elif [ -f /usr/bin/plix ]; then
-        nohup /usr/bin/plix >/dev/null 2>&1 &
-    elif [ -f /opt/plix/plix ]; then
-        nohup /opt/plix/plix >/dev/null 2>&1 &
+    # Locate Plix binary, prioritizing /usr/bin/plix
+    PLIX_BIN="/usr/bin/plix"
+    if [ ! -x "\$PLIX_BIN" ]; then
+        if [ -x /usr/lib/plix/plix ]; then
+            PLIX_BIN="/usr/lib/plix/plix"
+        elif [ -x /opt/plix/plix ]; then
+            PLIX_BIN="/opt/plix/plix"
+        elif command -v plix >/dev/null 2>&1; then
+            PLIX_BIN="\$(command -v plix)"
+        fi
     fi
+
+    RELAUNCHED=0
+    # 1. Desktop application launcher (safely integrates with systemd user session outside terminal scope)
+    if command -v gtk-launch >/dev/null 2>&1; then
+        gtk-launch plix >/dev/null 2>&1 && RELAUNCHED=1
+    fi
+    if [ \$RELAUNCHED -eq 0 ] && command -v gio >/dev/null 2>&1; then
+        if [ -f /usr/share/applications/plix.desktop ]; then
+            gio launch /usr/share/applications/plix.desktop >/dev/null 2>&1 && RELAUNCHED=1
+        fi
+    fi
+
+    # 2. Systemd user session run (detached from terminal cgroup)
+    if [ \$RELAUNCHED -eq 0 ] && command -v systemd-run >/dev/null 2>&1; then
+        systemd-run --user "\$PLIX_BIN" >/dev/null 2>&1 && RELAUNCHED=1
+    fi
+
+    # 3. Direct execution with setsid, nohup, and disown
+    if [ \$RELAUNCHED -eq 0 ]; then
+        if command -v setsid >/dev/null 2>&1; then
+            nohup setsid "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
+            disown -a 2>/dev/null || true
+            RELAUNCHED=1
+        else
+            nohup "\$PLIX_BIN" </dev/null >/dev/null 2>&1 &
+            disown -a 2>/dev/null || true
+            RELAUNCHED=1
+        fi
+    fi
+
+    sleep 0.8
     exit 0
 else
     echo "=========================================="
@@ -588,13 +623,7 @@ fi
         await Process.run('chmod', ['+x', scriptFile.path]);
       } catch (_) {}
 
-      // Dedicated graphical package installer (e.g. Pamac on Manjaro / Arch)
-      if (isArch && File('/usr/bin/pamac-installer').existsSync()) {
-        try {
-          await Process.start('pamac-installer', [targetFile.path], mode: ProcessStartMode.detached);
-          opened = true;
-        } catch (_) {}
-      }
+      // Interactive terminal installer with automatic relaunch is used for all package types
 
       // Launch terminal emulator running our installation script
       if (!opened) {
