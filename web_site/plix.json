@@ -3,7 +3,7 @@
     "versionCode": 48,
     "releaseNotes": "- Title & Article Sorting: Media library sorting and the alphabet jump rail now ignore leading articles ('The', 'A', 'An') and sort by the title's second word, mirroring official Plex behavior (e.g. 'The Matrix' sorts under 'M' rather than clustering under 'T')\n- Search Relevance & Query Normalization: Searching without leading articles (e.g. 'matrix') directly matches and prioritizes titles with articles ('The Matrix') as top results; searching 'the matrix' matches both 'The Matrix' and 'Matrix'\n- Android Production Release Signing: Embedded official production keystore in automated release pipelines, ensuring seamless in-place updates without package signature conflicts\n- App Version Bump: v1.8.6 (versionCode 48)",
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256": "c1ee1fd24c5818dc3d4f2189ada62b14478007eed5df5056f83088925186c280",
+    "apkSha256": "265886f76111f2ee246c8044a2cfe765926f193556769aa12e6342c16b4f2e21",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "5b512ee6ee0f99f3aff017238a004b3b419b009133d13f40a4d3715ee3fe5c2b",
