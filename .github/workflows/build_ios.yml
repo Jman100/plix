@@ -3,9 +3,6 @@ name: Build iOS & iPadOS IPA
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - dev
     tags:
       - 'v*'
 
