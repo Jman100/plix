@@ -7,6 +7,7 @@ import '../app_theme.dart';
 import '../models/plex_pin.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
+import '../widgets/plix_back_button.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/brand_logo.dart';
 import '../services/plix_device_helper.dart';
@@ -14,11 +15,17 @@ import '../services/plix_device_helper.dart';
 class LoginScreen extends StatefulWidget {
   final PlexAuthService authService;
   final PlexServerService serverService;
+  final bool isCreatingProfile;
+  final String? draftProfileId;
+  final String? previousProfileId;
 
   const LoginScreen({
     super.key,
     required this.authService,
     required this.serverService,
+    this.isCreatingProfile = false,
+    this.draftProfileId,
+    this.previousProfileId,
   });
 
   @override
@@ -56,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _currentPin = pin;
         _isLoading = false;
       });
-      _pinExpiresAt = DateTime.now().add(Duration(seconds: pin.expiresIn > 0 ? pin.expiresIn : 900));
+      _pinExpiresAt = DateTime.now().add(Duration(seconds: pin.expiresIn > 0 ? pin.expiresIn : 900));
       _startPolling(pin);
     } catch (e) {
       if (!mounted) return;
@@ -159,7 +166,6 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-
             Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -546,7 +552,16 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-          ],
+      Positioned(
+        top: 16,
+        left: 20,
+        child: PlixBackButton(
+          focusNode: _backFocusNode,
+          onPressed: () => Navigator.of(context).pop(),
+          onDown: () => _getNewCodeFocusNode.requestFocus(),
+        ),
+      ),
+    ],
         ),
       ),
     );

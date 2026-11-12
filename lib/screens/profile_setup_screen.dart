@@ -206,6 +206,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           Navigator.of(context).pop(true);
         }
       } else {
+        final previousProfileId = ProfileService.instance.activeProfile?.id;
         final newProfile = await ProfileService.instance.createProfile(
           name: name,
           avatarId: _selectedAvatarId,
@@ -226,6 +227,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             builder: (_) => AuthChooserScreen(
               authService: widget.authService,
               serverService: widget.serverService,
+              isCreatingProfile: !widget.isInitialSetup,
+              draftProfileId: widget.isInitialSetup ? null : newProfile.id,
+              previousProfileId: previousProfileId,
             ),
           ),
         );
@@ -356,9 +360,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: PlixTheme.background,
-      body: SafeArea(
+    return PopScope(
+      canPop: !widget.isInitialSetup,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          await PlixTheme.loadSavedTheme();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: PlixTheme.background,
+        body: SafeArea(
         child: Column(
           children: [
             // Top Navigation Bar
@@ -976,6 +987,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

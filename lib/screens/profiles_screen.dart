@@ -211,11 +211,13 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     if (mounted) {
       _initFocusNodes();
       setState(() {});
-      if (result is String && _cardFocusNodes.containsKey(result)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _cardFocusNodes[result]?.requestFocus();
-        });
-      }
+      final active = ProfileService.instance.activeProfile;
+      final targetNode = (result is String && _cardFocusNodes.containsKey(result))
+          ? _cardFocusNodes[result]
+          : (active != null ? _cardFocusNodes[active.id] : null) ?? _addFocusNode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) targetNode?.requestFocus();
+      });
     }
   }
 

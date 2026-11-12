@@ -174,7 +174,7 @@ class ProfileService {
     final cleanPin = (pin != null && pin.trim().length == 4) ? pin.trim() : null;
 
     final newProfile = PlixProfile(
-      id: 'prof_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'prof_${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}',
       name: safeName,
       avatarId: avatarId,
       avatarColorId: avatarColorId,
@@ -229,6 +229,36 @@ class ProfileService {
 
     await _saveProfiles(prefs);
     return true;
+  }
+
+  Future<void> cancelProfileCreation(String draftProfileId, {String? restoreProfileId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    _profiles.removeWhere((p) => p.id == draftProfileId);
+
+    // Clean up scoped keys for the cancelled draft profile
+    final prefix = 'prof_${draftProfileId}_';
+    final allKeys = prefs.getKeys().toList();
+    for (final k in allKeys) {
+      if (k.startsWith(prefix)) {
+        await prefs.remove(k);
+      }
+    }
+
+    if (restoreProfileId != null && _profiles.any((p) => p.id == restoreProfileId)) {
+      _activeProfile = _profiles.firstWhere((p) => p.id == restoreProfileId);
+    } else if (_profiles.isNotEmpty) {
+      _activeProfile = _profiles.first;
+    } else {
+      _activeProfile = null;
+    }
+    activeProfileNotifier.value = _activeProfile;
+    if (_activeProfile != null) {
+      await prefs.setString(_prefActiveProfileIdKey, _activeProfile!.id);
+    } else {
+      await prefs.remove(_prefActiveProfileIdKey);
+    }
+
+    await _saveProfiles(prefs);
   }
 
   Future<void> setActiveProfile(String profileId) async {

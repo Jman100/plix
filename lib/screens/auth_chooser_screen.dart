@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
 import '../widgets/brand_logo.dart';
+import '../widgets/plix_back_button.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
+import '../services/profile_service.dart';
+import 'home_screen.dart';
 import 'jellyfin_connect_screen.dart';
 import 'login_screen.dart';
 import '../services/plix_device_helper.dart';
@@ -11,11 +14,17 @@ import '../services/plix_device_helper.dart';
 class AuthChooserScreen extends StatefulWidget {
   final PlexAuthService authService;
   final PlexServerService serverService;
+  final bool isCreatingProfile;
+  final String? draftProfileId;
+  final String? previousProfileId;
 
   const AuthChooserScreen({
     super.key,
     required this.authService,
     required this.serverService,
+    this.isCreatingProfile = false,
+    this.draftProfileId,
+    this.previousProfileId,
   });
 
   @override
@@ -25,6 +34,7 @@ class AuthChooserScreen extends StatefulWidget {
 class _AuthChooserScreenState extends State<AuthChooserScreen> {
   final FocusNode _plexFocusNode = FocusNode();
   final FocusNode _jellyfinFocusNode = FocusNode();
+  final FocusNode _backFocusNode = FocusNode();
   bool _isNavigating = false;
 
   @override
@@ -37,110 +47,167 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   void dispose() {
     _plexFocusNode.dispose();
     _jellyfinFocusNode.dispose();
+    _backFocusNode.dispose();
     super.dispose();
   }
 
-  void _choosePlex() {
+  Future<void> _cancelCreation() async {
+    if (widget.draftProfileId != null) {
+      await ProfileService.instance.cancelProfileCreation(
+        widget.draftProfileId!,
+        restoreProfileId: widget.previousProfileId,
+      );
+    } else if (widget.previousProfileId != null) {
+      await ProfileService.instance.setActiveProfile(widget.previousProfileId!);
+    }
+    widget.authService.clearCache();
+    HomeScreen.clearMemoryCaches();
+    await PlixTheme.loadSavedTheme();
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(false);
+    }
+  }
+
+  void _choosePlex() async {
     if (_isNavigating) return;
     _isNavigating = true;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LoginScreen(
           authService: widget.authService,
           serverService: widget.serverService,
+          isCreatingProfile: widget.isCreatingProfile,
+          draftProfileId: widget.draftProfileId,
+          previousProfileId: widget.previousProfileId,
         ),
       ),
     );
+    if (mounted) {
+      setState(() {
+        _isNavigating = false;
+      });
+    }
   }
 
-  void _chooseJellyfin() {
+  void _chooseJellyfin() async {
     if (_isNavigating) return;
     _isNavigating = true;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => JellyfinConnectScreen(
           authService: widget.authService,
           serverService: widget.serverService,
+          isCreatingProfile: widget.isCreatingProfile,
+          draftProfileId: widget.draftProfileId,
+          previousProfileId: widget.previousProfileId,
         ),
       ),
     );
+    if (mounted) {
+      setState(() {
+        _isNavigating = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
-    return Scaffold(
-      backgroundColor: PlixTheme.background,
-      body: Center(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 20 : 30),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  PlixAppLogo(
-                    size: 48,
-                    showWordmark: false,
-                    borderRadius: 12,
-                    glow: true,
-                  ),
-                  SizedBox(width: 14),
-                  PlixWordmark(fontSize: 34),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Welcome to Plix',
-                style: TextStyle(
-                  color: PlixTheme.textPrimary,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Choose your media provider to get started.',
-                style: TextStyle(
-                  color: PlixTheme.textSecondary,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 40),
+    return PopScope(
+      canPop: !widget.isCreatingProfile,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _cancelCreation();
+      },
+      child: Scaffold(
+        backgroundColor: PlixTheme.background,
+        body: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 40, vertical: isCompact ? 20 : 30),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        PlixAppLogo(
+                          size: 48,
+                          showWordmark: false,
+                          borderRadius: 12,
+                          glow: true,
+                        ),
+                        SizedBox(width: 14),
+                        PlixWordmark(fontSize: 34),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Welcome to Plix',
+                      style: TextStyle(
+                        color: PlixTheme.textPrimary,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Choose your media provider to get started.',
+                      style: TextStyle(
+                        color: PlixTheme.textSecondary,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
 
-              // Provider Cards
-              Wrap(
-                spacing: 28,
-                runSpacing: 24,
-                alignment: WrapAlignment.center,
-                children: [
-                  _ProviderCard(
-                    focusNode: _plexFocusNode,
-                    autofocus: true,
-                    title: 'Plex',
-                    subtitle: 'Connect using your Plex account and link code.',
-                    logoWidget: PlexLogo(size: 34, color: PlixTheme.plexGold),
-                    accentColor: PlixTheme.plexGold,
-                    onTap: _choosePlex,
-                    onRight: () => _jellyfinFocusNode.requestFocus(),
-                  ),
-                  _ProviderCard(
-                    focusNode: _jellyfinFocusNode,
-                    autofocus: false,
-                    title: 'Jellyfin',
-                    subtitle: 'Connect using your Jellyfin server and Quick Connect.',
-                    logoWidget: const JellyfinLogo(size: 34, color: Color(0xFF8E51DC)),
-                    accentColor: const Color(0xFF8E51DC),
-                    onTap: _chooseJellyfin,
-                    onLeft: () => _plexFocusNode.requestFocus(),
-                  ),
-                ],
+                    // Provider Cards
+                    Wrap(
+                      spacing: 28,
+                      runSpacing: 24,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _ProviderCard(
+                          focusNode: _plexFocusNode,
+                          autofocus: true,
+                          title: 'Plex',
+                          subtitle: 'Connect using your Plex account and link code.',
+                          logoWidget: PlexLogo(size: 34, color: PlixTheme.plexGold),
+                          accentColor: PlixTheme.plexGold,
+                          onTap: _choosePlex,
+                          onRight: () => _jellyfinFocusNode.requestFocus(),
+                          onUp: widget.isCreatingProfile ? () => _backFocusNode.requestFocus() : null,
+                        ),
+                        _ProviderCard(
+                          focusNode: _jellyfinFocusNode,
+                          autofocus: false,
+                          title: 'Jellyfin',
+                          subtitle: 'Connect using your Jellyfin server and Quick Connect.',
+                          logoWidget: const JellyfinLogo(size: 34, color: Color(0xFF8E51DC)),
+                          accentColor: const Color(0xFF8E51DC),
+                          onTap: _chooseJellyfin,
+                          onLeft: () => _plexFocusNode.requestFocus(),
+                          onUp: widget.isCreatingProfile ? () => _backFocusNode.requestFocus() : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+            if (widget.isCreatingProfile)
+              Positioned(
+                top: 16,
+                left: 20,
+                child: PlixBackButton(
+                  focusNode: _backFocusNode,
+                  onPressed: _cancelCreation,
+                  onDown: () => _plexFocusNode.requestFocus(),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -157,6 +224,7 @@ class _ProviderCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onLeft;
   final VoidCallback? onRight;
+  final VoidCallback? onUp;
 
   const _ProviderCard({
     required this.focusNode,
@@ -168,6 +236,7 @@ class _ProviderCard extends StatefulWidget {
     required this.onTap,
     this.onLeft,
     this.onRight,
+    this.onUp,
   });
 
   @override
@@ -207,6 +276,10 @@ class _ProviderCardState extends State<_ProviderCard> {
       autofocus: widget.autofocus,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+            widget.onUp!();
+            return KeyEventResult.handled;
+          }
           if (event.logicalKey == LogicalKeyboardKey.arrowLeft && widget.onLeft != null) {
             widget.onLeft!();
             return KeyEventResult.handled;

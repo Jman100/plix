@@ -17,11 +17,17 @@ import '../widgets/plix_home_button.dart';
 class JellyfinConnectScreen extends StatefulWidget {
   final PlexAuthService authService;
   final PlexServerService serverService;
+  final bool isCreatingProfile;
+  final String? draftProfileId;
+  final String? previousProfileId;
 
   const JellyfinConnectScreen({
     super.key,
     required this.authService,
     required this.serverService,
+    this.isCreatingProfile = false,
+    this.draftProfileId,
+    this.previousProfileId,
   });
 
   @override
@@ -266,15 +272,17 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                   children: [
                     PlixBackButton(
                       focusNode: _backBtnFocusNode,
-                      onRight: () => _homeBtnFocusNode.requestFocus(),
+                      onRight: widget.isCreatingProfile ? null : () => _homeBtnFocusNode.requestFocus(),
                       onDown: () => _isStep2QuickConnect ? _cancelBtnFocusNode.requestFocus() : _urlFocusNode.requestFocus(),
                     ),
-                    const SizedBox(width: 10),
-                    PlixHomeButton(
-                      focusNode: _homeBtnFocusNode,
-                      onLeft: () => _backBtnFocusNode.requestFocus(),
-                      onDown: () => _isStep2QuickConnect ? _cancelBtnFocusNode.requestFocus() : _urlFocusNode.requestFocus(),
-                    ),
+                    if (!widget.isCreatingProfile) ...[
+                      const SizedBox(width: 10),
+                      PlixHomeButton(
+                        focusNode: _homeBtnFocusNode,
+                        onLeft: () => _backBtnFocusNode.requestFocus(),
+                        onDown: () => _isStep2QuickConnect ? _cancelBtnFocusNode.requestFocus() : _urlFocusNode.requestFocus(),
+                      ),
+                    ],
                   ],
                 ),
               ),
