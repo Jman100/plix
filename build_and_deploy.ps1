@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.8.7"
-$versionCode = 49
+$version = "1.9.0"
+$versionCode = 50
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,11 +45,11 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Continue Watching Chronological Ordering: Continue Watching items across all connected Plex and Jellyfin servers now sort strictly by most recently watched (lastViewedAt descending), ensuring active titles appear first on both mobile and TV
-- 4K HDR Direct Stream Audio Transcode: Refined Plex client profile limits and transcode targets to preserve 4K HDR HEVC video untouched (directStream) when converting incompatible multi-channel audio tracks
-- Arch Linux Auto-Updater Relaunch: Hardened the Linux update script using systemd-run --user in app.slice with environment forwarding and signal-trapped double-fork fallbacks, ensuring Plix remains running when the terminal window closes
-- Updater Resilience: Added real-time manifest re-fetching on download retry to prevent stale checksum cache mismatches
-- App Version Bump: v1.8.7 (versionCode 49)
+- Multi-User Profiles & Server Isolation: Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and PIN protection
+- Custom Profile Avatars & Image Downloader: Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation
+- New Avatar Icons: Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients
+- TV & Mobile Dialog Polish: Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup
+- App Version Bump: v1.9.0 (versionCode 50)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

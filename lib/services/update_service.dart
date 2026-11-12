@@ -144,8 +144,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.8.7';
-  static int _currentVersionCode = 49;
+  static String _currentVersion = '1.9.0';
+  static int _currentVersionCode = 50;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;

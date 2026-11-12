@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.8.7"
-$versionCode = 49
+$version = "1.9.0"
+$versionCode = 50
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
