@@ -2,7 +2,7 @@
     "version": "1.9.0",
     "versionCode": 50,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256": "4e48cf9871da0261901d92b273c91e5134ff5b7a627ede50f51fc501faafe4e9",
+    "apkSha256": "202f848785e1dae14d75a9f10b84863a69f9ee3f5b5ed648c7d8dcd7e3c9eb9c",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "70213e14a218b248de7004481044355dd48699434d63e966ba5be76593fb817b",
