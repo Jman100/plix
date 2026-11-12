@@ -11,6 +11,7 @@ import 'services/plex_auth_service.dart';
 import 'services/plex_server_service.dart';
 import 'services/plix_device_helper.dart';
 import 'services/plix_image_cache.dart';
+import 'services/profile_service.dart';
 import 'services/tv_sound_service.dart';
 import 'services/update_service.dart';
 
@@ -37,6 +38,7 @@ void main() async {
     }
   }
 
+  await ProfileService.instance.init();
   await PlixTheme.loadSavedTheme();
 
   // Set system UI overlay style for immersive dark experience

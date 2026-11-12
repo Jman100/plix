@@ -1,3 +1,5 @@
+import 'profiles_screen.dart';
+import '../services/profile_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +37,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _appearanceTileFocusNode = FocusNode();
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _homeButtonFocusNode = FocusNode();
+
+  // Profiles settings state
+  bool _alwaysAskProfile = false;
+  final FocusNode _alwaysAskProfileFocusNode = FocusNode();
+  final FocusNode _editProfilesFocusNode = FocusNode();
 
   // Playback settings state
   bool _autoplayNextEpisode = true;
@@ -145,15 +152,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _autoCheckUpdates = autoCheck;
-        _autoplayNextEpisode = prefs.getBool('autoplay_next_episode') ?? true;
-        _autoplayTriggerSeconds = prefs.getInt('autoplay_trigger_seconds') ?? 20;
-        _autoSkipIntro = prefs.getBool('auto_skip_intro') ?? false;
-        _playTvThemes = prefs.getBool('play_tv_show_themes') ?? true;
-        _continuePlaybackScreenOff = prefs.getBool('continue_playback_screen_off') ?? false;
-        _showTvCastCrew = prefs.getBool('tv_player_cast_crew') ?? false;
+        _autoplayNextEpisode = prefs.getBool(ProfileService.key('autoplay_next_episode')) ?? prefs.getBool('autoplay_next_episode') ?? true;
+        _autoplayTriggerSeconds = prefs.getInt(ProfileService.key('autoplay_trigger_seconds')) ?? prefs.getInt('autoplay_trigger_seconds') ?? 20;
+        _autoSkipIntro = prefs.getBool(ProfileService.key('auto_skip_intro')) ?? prefs.getBool('auto_skip_intro') ?? false;
+        _playTvThemes = prefs.getBool(ProfileService.key('play_tv_show_themes')) ?? prefs.getBool('play_tv_show_themes') ?? true;
+        _continuePlaybackScreenOff = prefs.getBool(ProfileService.key('continue_playback_screen_off')) ?? prefs.getBool('continue_playback_screen_off') ?? false;
+        _showTvCastCrew = prefs.getBool(ProfileService.key('tv_player_cast_crew')) ?? prefs.getBool('tv_player_cast_crew') ?? false;
         _hwdecMode = prefs.getString('desktop_hwdec_mode') ?? NativePlayerService.hwdecMode;
-        _quickRewindSeconds = prefs.getInt('quick_rewind_seconds') ?? 10;
-        _skipAheadSeconds = prefs.getInt('skip_ahead_seconds') ?? 30;
+        _quickRewindSeconds = prefs.getInt(ProfileService.key('quick_rewind_seconds')) ?? prefs.getInt('quick_rewind_seconds') ?? 10;
+        _skipAheadSeconds = prefs.getInt(ProfileService.key('skip_ahead_seconds')) ?? prefs.getInt('skip_ahead_seconds') ?? 30;
       });
     }
   }
@@ -168,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newVal = !_playTvThemes;
     setState(() => _playTvThemes = newVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('play_tv_show_themes', newVal);
+    await prefs.setBool(ProfileService.key('play_tv_show_themes'), newVal);
   }
 
   String get _hwdecLabel {
@@ -298,11 +305,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _toggleAlwaysAskProfile() async {
+    final newVal = !_alwaysAskProfile;
+    setState(() => _alwaysAskProfile = newVal);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('plix_always_ask_profile', newVal);
+  }
+
+  void _openProfilesScreen() {
+    final authService = PlexAuthService();
+    final serverService = PlexServerService(authService: authService);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfilesScreen(
+          authService: authService,
+          serverService: serverService,
+        ),
+      ),
+    );
+  }
+
   Future<void> _toggleAutoplay() async {
     final newVal = !_autoplayNextEpisode;
     setState(() => _autoplayNextEpisode = newVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('autoplay_next_episode', newVal);
+    await prefs.setBool(ProfileService.key('autoplay_next_episode'), newVal);
   }
 
   Future<void> _cycleAutoplayTriggerSeconds() async {
@@ -311,21 +338,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final nextVal = currentIdx == -1 ? 20 : options[(currentIdx + 1) % options.length];
     setState(() => _autoplayTriggerSeconds = nextVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('autoplay_trigger_seconds', nextVal);
+    await prefs.setInt(ProfileService.key('autoplay_trigger_seconds'), nextVal);
   }
 
   Future<void> _toggleAutoSkipIntro() async {
     final newVal = !_autoSkipIntro;
     setState(() => _autoSkipIntro = newVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('auto_skip_intro', newVal);
+    await prefs.setBool(ProfileService.key('auto_skip_intro'), newVal);
   }
 
   Future<void> _toggleContinuePlaybackScreenOff() async {
     final newVal = !_continuePlaybackScreenOff;
     setState(() => _continuePlaybackScreenOff = newVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('continue_playback_screen_off', newVal);
+    await prefs.setBool(ProfileService.key('continue_playback_screen_off'), newVal);
     try {
       await NativePlayerService().setScreenOffPlayback(newVal);
     } catch (_) {}
@@ -335,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newVal = !_showTvCastCrew;
     setState(() => _showTvCastCrew = newVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('tv_player_cast_crew', newVal);
+    await prefs.setBool(ProfileService.key('tv_player_cast_crew'), newVal);
   }
 
   Future<void> _cycleRewind() async {
@@ -344,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final nextVal = options[(currentIdx + 1) % options.length];
     setState(() => _quickRewindSeconds = nextVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('quick_rewind_seconds', nextVal);
+    await prefs.setInt(ProfileService.key('quick_rewind_seconds'), nextVal);
   }
 
   Future<void> _cycleSkip() async {
@@ -353,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final nextVal = options[(currentIdx + 1) % options.length];
     setState(() => _skipAheadSeconds = nextVal);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('skip_ahead_seconds', nextVal);
+    await prefs.setInt(ProfileService.key('skip_ahead_seconds'), nextVal);
   }
 
   void _openAppearanceScreen() {
@@ -376,6 +403,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _appearanceTileFocusNode.dispose();
     _backButtonFocusNode.dispose();
     _homeButtonFocusNode.dispose();
+    _alwaysAskProfileFocusNode.dispose();
+    _editProfilesFocusNode.dispose();
     _autoplayFocusNode.dispose();
     _autoplayTriggerFocusNode.dispose();
     _skipIntroFocusNode.dispose();
@@ -479,8 +508,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _AppearanceHeroTile(
                     focusNode: _appearanceTileFocusNode,
                     onUp: () => _backButtonFocusNode.requestFocus(),
-                    onDown: () => _autoplayFocusNode.requestFocus(),
+                    onDown: () => _alwaysAskProfileFocusNode.requestFocus(),
                     onSelect: _openAppearanceScreen,
+                  ),
+
+                  const SizedBox(height: 28),
+                  Divider(color: PlixTheme.cardBorder),
+                  const SizedBox(height: 20),
+
+                  // Section: Profiles
+                  Row(
+                    children: [
+                      Icon(Icons.manage_accounts_rounded, color: PlixTheme.plexGold, size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Profiles',
+                        style: TextStyle(
+                          color: PlixTheme.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  _SettingsActionTile(
+                    focusNode: _alwaysAskProfileFocusNode,
+                    onUp: () => _appearanceTileFocusNode.requestFocus(),
+                    onDown: () => _editProfilesFocusNode.requestFocus(),
+                    title: "Always ask who's watching on app open",
+                    subtitle: "Show the profile selection screen whenever Plix starts",
+                    trailing: _alwaysAskProfile ? 'Enabled' : 'Disabled',
+                    isInteractive: true,
+                    onTap: _toggleAlwaysAskProfile,
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsActionTile(
+                    focusNode: _editProfilesFocusNode,
+                    onUp: () => _alwaysAskProfileFocusNode.requestFocus(),
+                    onDown: () => _autoplayFocusNode.requestFocus(),
+                    title: 'Edit Profiles',
+                    subtitle: "Open Who's Watching to switch profiles, edit names, or customize PINs",
+                    trailing: 'Manage',
+                    isInteractive: true,
+                    onTap: _openProfilesScreen,
                   ),
 
                   const SizedBox(height: 28),
@@ -506,7 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoplayFocusNode,
-                    onUp: () => _appearanceTileFocusNode.requestFocus(),
+                    onUp: () => _editProfilesFocusNode.requestFocus(),
                     onDown: () => _autoplayNextEpisode
                         ? _autoplayTriggerFocusNode.requestFocus()
                         : _skipIntroFocusNode.requestFocus(),

@@ -55,6 +55,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   @override
   void initState() {
     super.initState();
+    PlixTheme.resetToDefaultModern();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _connectBtnFocusNode.canRequestFocus) {
         _connectBtnFocusNode.requestFocus();
@@ -246,8 +247,12 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = bottomInset > 0;
+
     return Scaffold(
       backgroundColor: PlixTheme.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Stack(
           children: [
@@ -256,7 +261,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
               left: 0,
               right: 0,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 16),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 12),
                 child: Row(
                   children: [
                     PlixBackButton(
@@ -275,19 +280,24 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
               ),
             ),
             Center(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                padding: EdgeInsets.only(
-                  left: isCompact ? 16 : 40,
-                  right: isCompact ? 16 : 40,
-                  top: isCompact ? 70 : 80,
-                  bottom: isCompact ? 20 : 30,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 580),
-                  child: _isStep2QuickConnect
-                      ? _buildStep2QuickConnect()
-                      : _buildStep1ServerInput(),
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.only(bottom: isKeyboardOpen ? (bottomInset * 0.4) : 0),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  padding: EdgeInsets.only(
+                    left: isCompact ? 16 : 40,
+                    right: isCompact ? 16 : 40,
+                    top: isKeyboardOpen ? 40 : (isCompact ? 50 : 60),
+                    bottom: isCompact ? 16 : 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 580),
+                    child: _isStep2QuickConnect
+                        ? _buildStep2QuickConnect()
+                        : _buildStep1ServerInput(isKeyboardOpen: isKeyboardOpen),
+                  ),
                 ),
               ),
             ),
@@ -297,42 +307,46 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
     );
   }
 
-  Widget _buildStep1ServerInput() {
+  Widget _buildStep1ServerInput({bool isKeyboardOpen = false}) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: const Color(0xFF8E51DC).withOpacity(0.15),
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF8E51DC), width: 1.5),
+        if (!isKeyboardOpen) ...[
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8E51DC).withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF8E51DC), width: 1.5),
+            ),
+            child: const Center(
+              child: JellyfinLogo(color: Color(0xFF8E51DC), size: 28),
+            ),
           ),
-          child: const Center(
-            child: JellyfinLogo(color: Color(0xFF8E51DC), size: 32),
-          ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 12),
+        ],
         const Text(
           'Connect to Jellyfin',
           style: TextStyle(
             color: PlixTheme.textPrimary,
-            fontSize: 26,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Enter your Jellyfin server address or choose a detected server below.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: PlixTheme.textSecondary,
-            fontSize: 14,
+        if (!isKeyboardOpen) ...[
+          const SizedBox(height: 6),
+          const Text(
+            'Enter your Jellyfin server address or choose a detected server below.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: PlixTheme.textSecondary,
+              fontSize: 13,
+            ),
           ),
-        ),
-        const SizedBox(height: 28),
+        ],
+        const SizedBox(height: 16),
 
         if (_errorMessage != null) ...[
           Container(
@@ -406,6 +420,8 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                   controller: _urlController,
                   focusNode: _urlFocusNode,
                   keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                   decoration: const InputDecoration(
                     hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',

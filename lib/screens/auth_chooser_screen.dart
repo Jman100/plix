@@ -28,6 +28,12 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   bool _isNavigating = false;
 
   @override
+  void initState() {
+    super.initState();
+    PlixTheme.resetToDefaultModern();
+  }
+
+  @override
   void dispose() {
     _plexFocusNode.dispose();
     _jellyfinFocusNode.dispose();

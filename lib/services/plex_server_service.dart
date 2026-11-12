@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plex_server.dart';
 import '../models/plex_library.dart';
 import 'plex_auth_service.dart';
+import 'profile_service.dart';
 
 class PlexServerService {
   final PlexAuthService authService;
@@ -19,30 +20,33 @@ class PlexServerService {
 
   Future<List<String>> getServerAddedOrder() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+    final pKey = ProfileService.key(_prefServerAddedOrderKey);
+    return prefs.getStringList(pKey) ?? [];
   }
 
   Future<void> recordServersAdded(List<String> serverIds) async {
     if (serverIds.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+    final pKey = ProfileService.key(_prefServerAddedOrderKey);
+    final current = prefs.getStringList(pKey) ?? [];
     current.removeWhere((id) => serverIds.contains(id));
     current.insertAll(0, serverIds);
-    await prefs.setStringList(_prefServerAddedOrderKey, current);
+    await prefs.setStringList(pKey, current);
   }
 
   Future<void> clearAllServers() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefSavedJellyfinServersKey);
-    await prefs.remove(_prefFavoriteLibrariesKey);
-    await prefs.remove(_prefPinnedServersKey);
-    await prefs.remove(_prefActiveServerIdKey);
-    await prefs.remove(_prefServerAddedOrderKey);
+    await prefs.remove(ProfileService.key(_prefSavedJellyfinServersKey));
+    await prefs.remove(ProfileService.key(_prefFavoriteLibrariesKey));
+    await prefs.remove(ProfileService.key(_prefPinnedServersKey));
+    await prefs.remove(ProfileService.key(_prefActiveServerIdKey));
+    await prefs.remove(ProfileService.key(_prefServerAddedOrderKey));
   }
 
   Future<List<PlexServer>> getSavedJellyfinServers() async {
     final prefs = await SharedPreferences.getInstance();
-    final rawList = prefs.getStringList(_prefSavedJellyfinServersKey) ?? [];
+    final pKey = ProfileService.key(_prefSavedJellyfinServersKey);
+    final rawList = prefs.getStringList(pKey) ?? [];
     final List<PlexServer> list = [];
     final pinnedIds = await getPinnedServerIds();
     for (final raw in rawList) {
@@ -62,7 +66,7 @@ class PlexServerService {
     existing.removeWhere((s) => s.clientIdentifier == server.clientIdentifier);
     existing.insert(0, server);
     final rawList = existing.map((s) => jsonEncode(s.toJson())).toList();
-    await prefs.setStringList(_prefSavedJellyfinServersKey, rawList);
+    await prefs.setStringList(ProfileService.key(_prefSavedJellyfinServersKey), rawList);
     await recordServersAdded([server.clientIdentifier]);
   }
 
@@ -71,11 +75,12 @@ class PlexServerService {
     final existing = await getSavedJellyfinServers();
     existing.removeWhere((s) => s.clientIdentifier == clientIdentifier);
     final rawList = existing.map((s) => jsonEncode(s.toJson())).toList();
-    await prefs.setStringList(_prefSavedJellyfinServersKey, rawList);
-    final order = prefs.getStringList(_prefServerAddedOrderKey) ?? [];
+    await prefs.setStringList(ProfileService.key(_prefSavedJellyfinServersKey), rawList);
+    final pKey = ProfileService.key(_prefServerAddedOrderKey);
+    final order = prefs.getStringList(pKey) ?? [];
     if (order.contains(clientIdentifier)) {
       order.remove(clientIdentifier);
-      await prefs.setStringList(_prefServerAddedOrderKey, order);
+      await prefs.setStringList(pKey, order);
     }
   }
 
@@ -267,13 +272,14 @@ class PlexServerService {
 
   Future<Set<String>> getPinnedServerIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList(_prefPinnedServersKey) ?? [];
+    final pKey = ProfileService.key(_prefPinnedServersKey);
+    final list = prefs.getStringList(pKey) ?? [];
     return list.toSet();
   }
 
   Future<void> savePinnedServers(Set<String> serverIds) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_prefPinnedServersKey, serverIds.toList());
+    await prefs.setStringList(ProfileService.key(_prefPinnedServersKey), serverIds.toList());
   }
 
   Future<void> togglePinServer(String serverId, bool pin) async {
@@ -288,41 +294,44 @@ class PlexServerService {
 
   Future<String?> getActiveServerId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_prefActiveServerIdKey);
+    final pKey = ProfileService.key(_prefActiveServerIdKey);
+    return prefs.getString(pKey);
   }
 
   Future<void> setActiveServerId(String serverId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefActiveServerIdKey, serverId);
+    await prefs.setString(ProfileService.key(_prefActiveServerIdKey), serverId);
   }
 
   Future<List<String>?> getFavoriteLibraryIds() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_prefFavoriteLibrariesKey);
+    final pKey = ProfileService.key(_prefFavoriteLibrariesKey);
+    return prefs.getStringList(pKey);
   }
 
   Future<void> saveFavoriteLibraryIds(List<String> compositeIds) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_prefFavoriteLibrariesKey, compositeIds);
+    await prefs.setStringList(ProfileService.key(_prefFavoriteLibrariesKey), compositeIds);
   }
 
   Future<bool> hasSavedFavorites() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_prefFavoriteLibrariesKey);
+    final pKey = ProfileService.key(_prefFavoriteLibrariesKey);
+    return prefs.containsKey(pKey);
   }
 
   Future<void> cacheServerLibraries(String serverId, List<PlexLibrary> libraries) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonList = libraries.map((lib) => jsonEncode(lib.toJson())).toList();
-      await prefs.setStringList('$_prefCachedLibrariesPrefix$serverId', jsonList);
+      await prefs.setStringList(ProfileService.key('$_prefCachedLibrariesPrefix$serverId'), jsonList);
     } catch (_) {}
   }
 
   Future<List<PlexLibrary>> getCachedServerLibraries(String serverId, PlexServer server) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rawList = prefs.getStringList('$_prefCachedLibrariesPrefix$serverId') ?? [];
+      final rawList = prefs.getStringList(ProfileService.key('$_prefCachedLibrariesPrefix$serverId')) ?? [];
       final List<PlexLibrary> result = [];
       for (final raw in rawList) {
         try {

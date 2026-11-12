@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'services/profile_service.dart';
 class ThemeColorOption {
   final String id;
   final String name;
@@ -517,35 +517,47 @@ class PlixTheme {
     );
   }
 
+  static void resetToDefaultModern() {
+    currentPreset.value = presetOptions[0]; // Plix Modern
+    currentThemeOption.value = colorOptions[1]; // Classic Gold
+    _customBackground = const Color(0xFF121316);
+    _customSurface = const Color(0xFF1B1D22);
+    _customCard = const Color(0xFF22252C);
+    _customBorder = const Color(0xFF333742);
+    themeRevision.value++;
+  }
+
   static Future<void> loadSavedTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load Custom Theme Colors
-      final customBgVal = prefs.getInt('app_theme_custom_bg');
-      if (customBgVal != null) _customBackground = Color(customBgVal);
-      final customSurfVal = prefs.getInt('app_theme_custom_surf');
-      if (customSurfVal != null) _customSurface = Color(customSurfVal);
-      final customCardVal = prefs.getInt('app_theme_custom_card');
-      if (customCardVal != null) _customCard = Color(customCardVal);
-      final customBorderVal = prefs.getInt('app_theme_custom_border');
-      if (customBorderVal != null) _customBorder = Color(customBorderVal);
-
-      // Load Base Preset
-      final savedPresetId = prefs.getString('app_theme_preset_id');
+      final pKeyPreset = ProfileService.key('app_theme_preset_id');
+      final savedPresetId = prefs.getString(pKeyPreset);
       if (savedPresetId != null) {
         final matchPreset = presetOptions.firstWhere(
           (p) => p.id == savedPresetId,
           orElse: () => presetOptions[0],
         );
         currentPreset.value = matchPreset;
+      } else {
+        currentPreset.value = presetOptions[0]; // Plix Modern
       }
 
+      // Load Custom Theme Colors
+      final customBgVal = prefs.getInt(ProfileService.key('app_theme_custom_bg'));
+      if (customBgVal != null) _customBackground = Color(customBgVal);
+      final customSurfVal = prefs.getInt(ProfileService.key('app_theme_custom_surf'));
+      if (customSurfVal != null) _customSurface = Color(customSurfVal);
+      final customCardVal = prefs.getInt(ProfileService.key('app_theme_custom_card'));
+      if (customCardVal != null) _customCard = Color(customCardVal);
+      final customBorderVal = prefs.getInt(ProfileService.key('app_theme_custom_border'));
+      if (customBorderVal != null) _customBorder = Color(customBorderVal);
+
       // Load Accent Color
-      final savedColorId = prefs.getString('app_theme_color_id');
+      final savedColorId = prefs.getString(ProfileService.key('app_theme_color_id'));
       if (savedColorId != null) {
         if (savedColorId.startsWith('custom_')) {
-          final customVal = prefs.getInt('app_theme_custom_color_val');
+          final customVal = prefs.getInt(ProfileService.key('app_theme_custom_color_val'));
           if (customVal != null) {
             final col = Color(customVal);
             currentThemeOption.value = ThemeColorOption(
@@ -562,6 +574,8 @@ class PlixTheme {
           );
           currentThemeOption.value = match;
         }
+      } else {
+        currentThemeOption.value = colorOptions[1]; // Classic Gold default
       }
       themeRevision.value++;
     } catch (_) {}
@@ -579,14 +593,14 @@ class PlixTheme {
       currentThemeOption.value = defaultAccent;
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('app_theme_color_id', defaultAccent.id);
+        await prefs.setString(ProfileService.key('app_theme_color_id'), defaultAccent.id);
       } catch (_) {}
     }
 
     themeRevision.value++;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('app_theme_preset_id', preset.id);
+      await prefs.setString(ProfileService.key('app_theme_preset_id'), preset.id);
     } catch (_) {}
   }
 
@@ -603,10 +617,10 @@ class PlixTheme {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (background != null) await prefs.setInt('app_theme_custom_bg', background.value);
-      if (surface != null) await prefs.setInt('app_theme_custom_surf', surface.value);
-      if (card != null) await prefs.setInt('app_theme_custom_card', card.value);
-      if (border != null) await prefs.setInt('app_theme_custom_border', border.value);
+      if (background != null) await prefs.setInt(ProfileService.key('app_theme_custom_bg'), background.value);
+      if (surface != null) await prefs.setInt(ProfileService.key('app_theme_custom_surf'), surface.value);
+      if (card != null) await prefs.setInt(ProfileService.key('app_theme_custom_card'), card.value);
+      if (border != null) await prefs.setInt(ProfileService.key('app_theme_custom_border'), border.value);
     } catch (_) {}
 
     // Ensure Custom Preset is active
@@ -623,7 +637,7 @@ class PlixTheme {
     themeRevision.value++;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('app_theme_color_id', option.id);
+      await prefs.setString(ProfileService.key('app_theme_color_id'), option.id);
     } catch (_) {}
   }
 
@@ -638,8 +652,8 @@ class PlixTheme {
     themeRevision.value++;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('app_theme_color_id', customOpt.id);
-      await prefs.setInt('app_theme_custom_color_val', color.value);
+      await prefs.setString(ProfileService.key('app_theme_color_id'), customOpt.id);
+      await prefs.setInt(ProfileService.key('app_theme_custom_color_val'), color.value);
     } catch (_) {}
   }
 

@@ -1,4 +1,6 @@
-import 'brand_logo.dart';
+import '../services/profile_service.dart';
+import '../models/plix_profile.dart';
+import 'profile_avatar_widget.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -36,6 +38,7 @@ class SidebarNav extends StatefulWidget {
   final ValueChanged<bool>? onFocusChange;
 
   final ValueChanged<List<PlexLibrary>>? onLibrariesReordered;
+  final VoidCallback? onOpenProfiles;
 
   const SidebarNav({
     super.key,
@@ -55,6 +58,7 @@ class SidebarNav extends StatefulWidget {
     this.signOutFocusNode,
     this.onFocusChange,
     this.onLibrariesReordered,
+    this.onOpenProfiles,
   });
 
   @override
@@ -80,6 +84,7 @@ class _SidebarNavState extends State<SidebarNav> {
   final FocusNode _signOutFocusNode = FocusNode();
   FocusNode get _effectiveSignOutFocusNode => widget.signOutFocusNode ?? _signOutFocusNode;
   final FocusNode _reorderToggleFocusNode = FocusNode();
+  final FocusNode _profileFocusNode = FocusNode();
   final GlobalKey _listViewKey = GlobalKey();
 
   void _scrollToTop() {
@@ -139,6 +144,9 @@ class _SidebarNavState extends State<SidebarNav> {
     });
   }
 
+  void _handleProfileFocusChange() {
+    if (mounted) setState(() {});
+  }
   void _handleReorderFocusChange() {
     if (_reorderToggleFocusNode.hasFocus) {
       _ensureItemVisible(_reorderToggleFocusNode);
@@ -174,6 +182,7 @@ class _SidebarNavState extends State<SidebarNav> {
   @override
   void initState() {
     super.initState();
+    _profileFocusNode.addListener(_handleProfileFocusChange);
     _reorderToggleFocusNode.addListener(_handleReorderFocusChange);
     _syncLibraries(widget.libraries);
   }
@@ -200,6 +209,8 @@ class _SidebarNavState extends State<SidebarNav> {
     _signOutFocusNode.dispose();
     _reorderToggleFocusNode.removeListener(_handleReorderFocusChange);
     _reorderToggleFocusNode.dispose();
+    _profileFocusNode.removeListener(_handleProfileFocusChange);
+    _profileFocusNode.dispose();
     for (final node in _itemFocusNodes.values) {
       node.dispose();
     }
@@ -315,7 +326,7 @@ class _SidebarNavState extends State<SidebarNav> {
     final isReorderGripEnabled = !PlixDeviceHelper.isTelevision &&
         ((Platform.isWindows || Platform.isLinux) || currentOrientation == Orientation.landscape);
     final effectiveExpanded = isMobileLandscape ? _mobileLandscapeExpanded : _isExpanded;
-    final width = effectiveExpanded ? 245.0 : 72.0;
+    final width = effectiveExpanded ? 270.0 : 72.0;
 
     return MouseRegion(
       onEnter: (_) {
@@ -400,83 +411,139 @@ class _SidebarNavState extends State<SidebarNav> {
             // Header / Logo with Server Name beside it when expanded
             if (PlixDeviceHelper.isTelevision && !effectiveExpanded)
               Container(
-                height: 64,
+                height: 72,
                 width: 72.0,
                 alignment: Alignment.center,
-                child: const PlixAppLogo(
-                  size: 38,
-                  showWordmark: false,
-                  borderRadius: 10,
-                  glow: false,
+                child: ValueListenableBuilder<PlixProfile?>(
+                  valueListenable: ProfileService.instance.activeProfileNotifier,
+                  builder: (context, activeProf, _) {
+                    return ProfileAvatarWidget(
+                      avatarId: activeProf?.avatarId ?? 'avatar_default',
+                      avatarColorId: activeProf?.avatarColorId,
+                      size: 44,
+                      glow: false,
+                    );
+                  },
                 ),
               )
             else
               Container(
-                height: 64,
+                height: 72,
                 padding: EdgeInsets.symmetric(horizontal: effectiveExpanded ? 14 : 10),
               alignment: Alignment.centerLeft,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
                 child: SizedBox(
-                  width: effectiveExpanded ? (245.0 - 28.0) : (72.0 - 20.0),
+                  width: effectiveExpanded ? (270.0 - 28.0) : (72.0 - 20.0),
                   child: Row(
                     children: [
                       if (!effectiveExpanded) ...[
-                        if (isMobileLandscape)
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                setState(() {
-                                  _mobileLandscapeExpanded = true;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
+                        ValueListenableBuilder<PlixProfile?>(
+                          valueListenable: ProfileService.instance.activeProfileNotifier,
+                          builder: (context, activeProf, _) {
+                            final avatarId = activeProf?.avatarId ?? 'avatar_default';
+                            if (isMobileLandscape) {
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: PlixTheme.plexGold.withOpacity(0.4),
-                                    width: 1.0,
+                                  onTap: () {
+                                    setState(() {
+                                      _mobileLandscapeExpanded = true;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: PlixTheme.plexGold.withOpacity(0.4),
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ProfileAvatarWidget(
+                                          avatarId: avatarId,
+                                          avatarColorId: activeProf?.avatarColorId,
+                                          size: 28,
+                                          glow: false,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18,
+                                          color: PlixTheme.plexGold,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const PlixAppLogo(
-                                      size: 22,
-                                      showWordmark: false,
-                                      borderRadius: 6,
-                                      glow: false,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: PlixTheme.plexGold,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          const PlixAppLogo(
-                            size: 38,
-                            showWordmark: false,
-                            borderRadius: 10,
-                            glow: false,
-                          ),
+                              );
+                            }
+                            return ProfileAvatarWidget(
+                              avatarId: avatarId,
+                              avatarColorId: activeProf?.avatarColorId,
+                              size: 38,
+                              borderRadius: 10,
+                              glow: false,
+                            );
+                          },
+                        ),
                       ],
                       if (effectiveExpanded) ...[
-                        const PlixAppLogo(
-                          size: 30,
-                          showWordmark: false,
-                          borderRadius: 8,
-                          glow: false,
+                        ValueListenableBuilder<PlixProfile?>(
+                          valueListenable: ProfileService.instance.activeProfileNotifier,
+                          builder: (context, activeProf, _) {
+                            final avatarId = activeProf?.avatarId ?? 'avatar_default';
+                            final isFocused = _profileFocusNode.hasFocus;
+                            return Focus(
+                              focusNode: _profileFocusNode,
+                              onKeyEvent: (node, event) {
+                                if (event is KeyDownEvent) {
+                                  final key = event.logicalKey;
+                                  if (key == LogicalKeyboardKey.arrowDown) {
+                                    (widget.homeFocusNode ?? _itemFocusNodes['home'])?.requestFocus();
+                                    return KeyEventResult.handled;
+                                  }
+                                  if (key == LogicalKeyboardKey.arrowRight) {
+                                    _handleNavigateRight();
+                                    return KeyEventResult.handled;
+                                  }
+                                  if (key == LogicalKeyboardKey.select ||
+                                      key == LogicalKeyboardKey.enter ||
+                                      key == LogicalKeyboardKey.space ||
+                                      key == LogicalKeyboardKey.gameButtonA ||
+                                      key == LogicalKeyboardKey.numpadEnter) {
+                                    widget.onOpenProfiles?.call();
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: Tooltip(
+                                message: 'Profiles (${activeProf?.name ?? "Switch Profile"})',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    canRequestFocus: false,
+                                    onTap: widget.onOpenProfiles,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: ProfileAvatarWidget(
+                                      avatarId: avatarId,
+                                      avatarColorId: activeProf?.avatarColorId,
+                                      size: 42,
+                                      isFocused: isFocused,
+                                      glow: isFocused,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(width: 8),
                         RichText(
@@ -496,7 +563,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                 text: 'x',
                                 style: TextStyle(
                                   color: PlixTheme.plexGold,
-                                  fontSize: 20,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w900,
                                   fontFamily: 'Roboto',
                                   letterSpacing: 0.5,
@@ -505,81 +572,39 @@ class _SidebarNavState extends State<SidebarNav> {
                             ],
                           ),
                         ),
-                        Builder(builder: (context) {
-                          final distinctServers = _orderedLibraries
-                              .map((l) => (l.serverName != null && l.serverName!.isNotEmpty) ? l.serverName! : l.serverId)
-                              .where((n) => n != null && n.isNotEmpty)
-                              .toSet();
-                          if (distinctServers.length > 1) {
+                        ValueListenableBuilder<PlixProfile?>(
+                          valueListenable: ProfileService.instance.activeProfileNotifier,
+                          builder: (context, activeProf, _) {
+                            final profName = activeProf?.name ?? 'Profile';
                             return Expanded(
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const SizedBox(width: 6),
                                   Container(
-                                    width: 1,
-                                    height: 14,
+                                    width: 1.5,
+                                    height: 18,
                                     color: PlixTheme.cardBorder,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Icon(Icons.dns_rounded, size: 13, color: PlixTheme.plexGold),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      '${distinctServers.length} Servers',
+                                      profName,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        color: PlixTheme.textSecondary,
-                                        fontSize: 11,
+                                        color: PlixTheme.textPrimary,
+                                        fontSize: 14.5,
                                         fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.2,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             );
-                          }
-                          final singleServerName = distinctServers.isNotEmpty
-                              ? distinctServers.first
-                              : widget.currentServer?.name;
-                          if (singleServerName != null && singleServerName.isNotEmpty) {
-                            final isJf = _orderedLibraries.isNotEmpty
-                                ? _orderedLibraries.first.isJellyfin
-                                : (widget.currentServer?.isJellyfin ?? false);
-                            return Expanded(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    width: 1,
-                                    height: 14,
-                                    color: PlixTheme.cardBorder,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  isJf
-                                      ? const JellyfinLogo(size: 13, color: Color(0xFF8E51DC))
-                                      : const PlexLogo(size: 13, color: Color(0xFFE5A00D)),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      singleServerName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: PlixTheme.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        }),
+                          },
+                        ),
                         if (isMobileLandscape) ...[
                           const SizedBox(width: 4),
                           Material(
@@ -632,7 +657,11 @@ class _SidebarNavState extends State<SidebarNav> {
                     label: 'Home',
                     isSelected: widget.activeDestination == NavDestination.home,
                     isExpanded: effectiveExpanded,
-                    blockUp: true,
+                    onUp: () {
+                      if (effectiveExpanded) {
+                        _profileFocusNode.requestFocus();
+                      }
+                    },
                     onDown: () => _searchFocusNode.requestFocus(),
                     onFocusChange: (focused) {
                       if (focused) _scrollToTop();
@@ -946,7 +975,6 @@ class _NavItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onNavigateRight;
   final FocusNode? focusNode;
-  final bool blockUp;
   final bool blockDown;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
@@ -966,7 +994,6 @@ class _NavItem extends StatefulWidget {
     required this.onTap,
     this.onNavigateRight,
     this.focusNode,
-    this.blockUp = false,
     this.blockDown = false,
     this.onUp,
     this.onDown,
@@ -1116,9 +1143,6 @@ class _NavItemState extends State<_NavItem> {
               if (key == LogicalKeyboardKey.arrowUp) {
                 if (widget.onUp != null) {
                   widget.onUp!();
-                  return KeyEventResult.handled;
-                }
-                if (widget.blockUp) {
                   return KeyEventResult.handled;
                 }
               }

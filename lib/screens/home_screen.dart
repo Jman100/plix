@@ -1,3 +1,7 @@
+import '../models/plix_profile.dart';
+import '../services/profile_service.dart';
+import '../widgets/profile_avatar_widget.dart';
+import 'profiles_screen.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -44,6 +48,12 @@ class HomeScreen extends StatefulWidget {
     required this.serverService,
   });
 
+  static void clearMemoryCaches() {
+    _HomeScreenState._cachedRecentlyAdded.clear();
+    _HomeScreenState._cachedContinueWatching.clear();
+    _HomeScreenState._cachedForProfileId = null;
+  }
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -51,6 +61,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static final Map<String, List<PlexMediaItem>> _cachedRecentlyAdded = {};
   static List<PlexMediaItem> _cachedContinueWatching = [];
+  static String? _cachedForProfileId;
 
   late PlexMediaService _mediaService;
   bool _isNavigating = false;
@@ -572,6 +583,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         } catch (_) {}
       }));
       _activeServers = activeServers;
+
+      final activeProfileId = ProfileService.instance.activeProfile?.id;
+      if (_cachedForProfileId != activeProfileId) {
+        _cachedContinueWatching.clear();
+        _cachedRecentlyAdded.clear();
+        _cachedForProfileId = activeProfileId;
+      }
 
       // First, quickly display cached items if available so the UI renders immediately!
       if (_cachedContinueWatching.isNotEmpty && _continueWatching.isEmpty) {
@@ -1300,6 +1318,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  void _openProfilesScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfilesScreen(
+          authService: widget.authService,
+          serverService: widget.serverService,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   void _openSettings() {
     if (_isNavigating) return;
     _isNavigating = true;
@@ -1329,7 +1360,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       color: PlixTheme.background,
       child: Row(
         children: [
-          const PlixAppLogo(size: 32, glow: true),
+          ValueListenableBuilder<PlixProfile?>(
+            valueListenable: ProfileService.instance.activeProfileNotifier,
+            builder: (context, activeProf, _) {
+              return InkWell(
+                onTap: _openProfilesScreen,
+                customBorder: const CircleBorder(),
+                child: ProfileAvatarWidget(
+                  avatarId: activeProf?.avatarId ?? 'avatar_default',
+                  size: 36,
+                  glow: true,
+                ),
+              );
+            },
+          ),
           const SizedBox(width: 8),
           const PlixWordmark(fontSize: 20),
           const Spacer(),
@@ -2267,6 +2311,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onLibrariesReordered: _saveLibraryOrder,
                     onFocusChange: (focused) => _isSidebarFocused = focused,
                     onOpenSettings: _openSettings,
+                    onOpenProfiles: _openProfilesScreen,
                     onDestinationSelected: (dest) {
                       if (dest == NavDestination.home) {
                         _refreshContinueWatching(forceFocusFirst: false);

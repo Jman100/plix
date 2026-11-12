@@ -1,3 +1,4 @@
+import 'profiles_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/brand_logo.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,8 @@ import '../services/plex_server_service.dart';
 import 'auth_chooser_screen.dart';
 import 'home_screen.dart';
 import 'favorite_libraries_screen.dart';
+import '../services/profile_service.dart';
+import 'profile_setup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -49,7 +52,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
 
+    await ProfileService.instance.init();
+    if (!mounted) return;
+
+    if (ProfileService.instance.profiles.isEmpty) {
+      _navigateToProfileSetup();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
+    final alwaysAskProfile = prefs.getBool('plix_always_ask_profile') ?? false;
+    if (alwaysAskProfile && ProfileService.instance.profiles.isNotEmpty) {
+      _navigateToProfiles();
+      return;
+    }
     final token = await widget.authService.getSavedToken();
     final jfServers = await widget.serverService.getSavedJellyfinServers();
     final hasSavedToken = token != null && token.isNotEmpty;
@@ -130,6 +146,29 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _navigateToAuthChooser();
       }
     }
+  }
+
+  void _navigateToProfiles() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ProfilesScreen(
+          authService: widget.authService,
+          serverService: widget.serverService,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToProfileSetup() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ProfileSetupScreen(
+          authService: widget.authService,
+          serverService: widget.serverService,
+          isInitialSetup: true,
+        ),
+      ),
+    );
   }
 
   void _navigateToAuthChooser() {

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/plex_pin.dart';
 import '../models/plex_user.dart';
 import 'plix_device_helper.dart';
+import 'profile_service.dart';
 import 'update_service.dart';
 
 class PlexAuthService {
@@ -99,12 +100,17 @@ class PlexAuthService {
     return null;
   }
 
+  void clearCache() {
+    _cachedToken = null;
+    _cachedUser = null;
+  }
+
   Future<void> saveSession(String token, PlexUser? user) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefTokenKey, token);
+    await prefs.setString(ProfileService.key(_prefTokenKey), token);
     _cachedToken = token;
     if (user != null) {
-      await prefs.setString(_prefUserKey, jsonEncode(user.toJson()));
+      await prefs.setString(ProfileService.key(_prefUserKey), jsonEncode(user.toJson()));
       _cachedUser = user;
     }
   }
@@ -112,14 +118,16 @@ class PlexAuthService {
   Future<String?> getSavedToken() async {
     if (_cachedToken != null) return _cachedToken;
     final prefs = await SharedPreferences.getInstance();
-    _cachedToken = prefs.getString(_prefTokenKey);
+    final pKey = ProfileService.key(_prefTokenKey);
+    _cachedToken = prefs.getString(pKey);
     return _cachedToken;
   }
 
   Future<PlexUser?> getSavedUser() async {
     if (_cachedUser != null) return _cachedUser;
     final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString(_prefUserKey);
+    final pKey = ProfileService.key(_prefUserKey);
+    final userJson = prefs.getString(pKey);
     if (userJson != null) {
       try {
         _cachedUser = PlexUser.fromJson(jsonDecode(userJson) as Map<String, dynamic>);
@@ -130,10 +138,10 @@ class PlexAuthService {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefTokenKey);
-    await prefs.remove(_prefUserKey);
-    await prefs.remove('plix_pinned_servers');
-    await prefs.remove('plix_active_server');
+    await prefs.remove(ProfileService.key(_prefTokenKey));
+    await prefs.remove(ProfileService.key(_prefUserKey));
+    await prefs.remove(ProfileService.key('plix_pinned_servers'));
+    await prefs.remove(ProfileService.key('plix_active_server'));
     _cachedToken = null;
     _cachedUser = null;
   }
