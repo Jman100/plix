@@ -45,6 +45,7 @@ void main() {
         'version': '1.7.1',
         'versionCode': 42,
         'apkUrl': 'https://github.com/Jman100/plix/releases/download/v1.7.1/plix_android.apk',
+        'sha256': 'mocksha256hashvaluefortest1234567890',
       };
 
       final info = UpdateInfo.fromJson(

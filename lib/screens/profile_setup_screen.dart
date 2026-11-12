@@ -5,10 +5,12 @@ import '../models/plix_profile.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/profile_service.dart';
+import '../services/custom_avatar_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/profile_avatar_widget.dart';
 import '../widgets/pin_dialog.dart';
+import '../widgets/custom_avatar_upload_dialog.dart';
 import 'auth_chooser_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -45,6 +47,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final FocusNode _saveFocusNode = FocusNode();
   final FocusNode _deleteFocusNode = FocusNode();
 
+  final List<AvatarOption> _avatarOptions = [];
+  final FocusNode _uploadAvatarFocusNode = FocusNode();
   final Map<String, FocusNode> _avatarFocusNodes = {};
   late final ScrollController _avatarScrollController;
 
@@ -99,13 +103,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       },
     );
 
-    for (final avatar in PlixProfile.availableAvatars) {
+    _avatarOptions.addAll(PlixProfile.availableAvatars);
+    for (final avatar in _avatarOptions) {
       _avatarFocusNodes[avatar.id] = FocusNode();
     }
 
     for (final grad in ProfileGradientOption.availableGradients) {
       _colorFocusNodes[grad.id] = FocusNode();
     }
+
+    _loadCustomAvatars();
 
     // Default focus to name box without automatically showing keyboard
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -134,6 +141,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _pinToggleFocusNode.dispose();
     _saveFocusNode.dispose();
     _deleteFocusNode.dispose();
+    _uploadAvatarFocusNode.dispose();
     for (final node in _avatarFocusNodes.values) {
       node.dispose();
     }
@@ -143,6 +151,65 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
     _colorScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCustomAvatars() async {
+    final customAvatars = await CustomAvatarService.getSavedCustomAvatars();
+    if (!mounted) return;
+    setState(() {
+      for (final ca in customAvatars) {
+        if (!_avatarOptions.any((a) => a.id == ca.id)) {
+          _avatarOptions.add(ca);
+          _avatarFocusNodes[ca.id] = FocusNode();
+        }
+      }
+      if (widget.profileToEdit != null &&
+          CustomAvatarService.isCustomAvatar(widget.profileToEdit!.avatarId) &&
+          !_avatarOptions.any((a) => a.id == widget.profileToEdit!.avatarId)) {
+        final missing = AvatarOption(
+          id: widget.profileToEdit!.avatarId,
+          label: 'Custom',
+          assetPath: widget.profileToEdit!.avatarId,
+        );
+        _avatarOptions.add(missing);
+        _avatarFocusNodes[missing.id] = FocusNode();
+      }
+    });
+
+    final selectedIdx = _avatarOptions.indexWhere((a) => a.id == _selectedAvatarId);
+    if (selectedIdx > 0 && _avatarScrollController.hasClients) {
+      final double targetOffset = ((selectedIdx * 82.0) - 180.0).clamp(0.0, _avatarScrollController.position.maxScrollExtent);
+      _avatarScrollController.jumpTo(targetOffset);
+    }
+  }
+
+  Future<void> _openUploadModal() async {
+    final newAvatar = await CustomAvatarUploadDialog.show(context);
+    if (newAvatar != null && mounted) {
+      setState(() {
+        if (!_avatarOptions.any((a) => a.id == newAvatar.id)) {
+          _avatarOptions.add(newAvatar);
+          _avatarFocusNodes[newAvatar.id] = FocusNode();
+        }
+        _selectedAvatarId = newAvatar.id;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final index = _avatarOptions.indexWhere((a) => a.id == newAvatar.id);
+        if (index >= 0) {
+          if (_avatarScrollController.hasClients) {
+            final targetOffset = ((index * 82.0) - 180.0).clamp(0.0, _avatarScrollController.position.maxScrollExtent);
+            _avatarScrollController.animateTo(
+              targetOffset,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+            );
+          }
+          _avatarFocusNodes[newAvatar.id]?.requestFocus();
+        }
+      });
+    }
   }
 
   Future<void> _togglePin() async {
@@ -578,12 +645,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         clipBehavior: Clip.none,
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                         physics: const BouncingScrollPhysics(),
-                        itemCount: PlixProfile.availableAvatars.length,
+                        itemCount: _avatarOptions.length + 1,
                         separatorBuilder: (_, __) => const SizedBox(width: 14),
                         itemBuilder: (context, index) {
-                          final avatar = PlixProfile.availableAvatars[index];
+                          if (index == _avatarOptions.length) {
+                            return _buildUploadAvatarButton();
+                          }
+
+                          final avatar = _avatarOptions[index];
                           final isSelected = _selectedAvatarId == avatar.id;
-                          final focusNode = _avatarFocusNodes[avatar.id]!;
+                          final focusNode = _avatarFocusNodes.putIfAbsent(avatar.id, () => FocusNode());
 
                           return Focus(
                             focusNode: focusNode,
@@ -604,7 +675,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 if (key == LogicalKeyboardKey.arrowLeft && index == 0) {
                                   return KeyEventResult.handled;
                                 }
-                                if (key == LogicalKeyboardKey.arrowRight && index == PlixProfile.availableAvatars.length - 1) {
+                                if (key == LogicalKeyboardKey.arrowRight && index == _avatarOptions.length - 1) {
+                                  _uploadAvatarFocusNode.requestFocus();
                                   return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.arrowDown) {
@@ -988,6 +1060,122 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         ),
       ),
     ),
+    );
+  }
+
+  Widget _buildUploadAvatarButton() {
+    return Focus(
+      focusNode: _uploadAvatarFocusNode,
+      onFocusChange: (hasF) {
+        if (hasF) {
+          final targetOffset = (_avatarOptions.length * 82.0) - 180.0;
+          _avatarScrollController.animateTo(
+            targetOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        setState(() {});
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowLeft) {
+            if (_avatarOptions.isNotEmpty) {
+              final lastId = _avatarOptions.last.id;
+              _avatarFocusNodes[lastId]?.requestFocus();
+            }
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowRight) {
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowDown) {
+            final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
+            colTarget.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowUp) {
+            _nameBoxFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.select ||
+              key == LogicalKeyboardKey.enter ||
+              key == LogicalKeyboardKey.space ||
+              key == LogicalKeyboardKey.gameButtonA) {
+            _openUploadModal();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final isUploadFocused = Focus.of(context).hasFocus;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              canRequestFocus: false,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              onTap: _openUploadModal,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isUploadFocused
+                            ? PlixTheme.plexGold.withOpacity(0.2)
+                            : PlixTheme.surface.withOpacity(0.8),
+                        border: Border.all(
+                          color: isUploadFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.25),
+                          width: isUploadFocused ? 2.5 : 1.2,
+                        ),
+                        boxShadow: isUploadFocused
+                            ? [
+                                BoxShadow(
+                                  color: PlixTheme.plexGold.withOpacity(0.65),
+                                  blurRadius: 18,
+                                  spreadRadius: 2.5,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 30,
+                        color: isUploadFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.85),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 76,
+                      child: Text(
+                        'Upload',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isUploadFocused ? PlixTheme.plexGold : PlixTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: isUploadFocused ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

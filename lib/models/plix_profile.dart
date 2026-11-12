@@ -162,6 +162,8 @@ class PlixProfile {
 
   static const List<AvatarOption> availableAvatars = [
     AvatarOption(id: 'avatar_default', label: 'Default', assetPath: 'assets/avatars/avatar_default.png'),
+    AvatarOption(id: 'avatar_plex', label: 'Plex', assetPath: 'assets/avatars/avatar_plex.png'),
+    AvatarOption(id: 'avatar_jellyfin', label: 'Jellyfin', assetPath: 'assets/avatars/avatar_jellyfin.png'),
     AvatarOption(id: 'avatar_windows', label: 'Windows', assetPath: 'assets/avatars/avatar_windows.png'),
     AvatarOption(id: 'avatar_android', label: 'Android', assetPath: 'assets/avatars/avatar_android.png'),
     AvatarOption(id: 'avatar_linux', label: 'Linux', assetPath: 'assets/avatars/avatar_linux.png'),

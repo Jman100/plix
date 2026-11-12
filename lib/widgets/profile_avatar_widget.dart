@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plix_profile.dart';
+import '../services/custom_avatar_service.dart';
 
 class ProfileAvatarWidget extends StatelessWidget {
   final String avatarId;
@@ -51,8 +53,54 @@ class ProfileAvatarWidget extends StatelessWidget {
       );
     }
 
-    final Widget innerIcon = Center(
-      child: Image.asset(
+    final bool isCustom = CustomAvatarService.isCustomAvatar(avatarId);
+    final File? customFile = isCustom ? CustomAvatarService.getCustomAvatarFileSync(avatarId) : null;
+
+    Widget innerIcon;
+    if (isCustom) {
+      if (customFile != null && customFile.existsSync()) {
+        innerIcon = Image.file(
+          customFile,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.person_rounded,
+              size: size * 0.65,
+              color: Colors.white,
+            );
+          },
+        );
+      } else {
+        innerIcon = FutureBuilder<File?>(
+          future: CustomAvatarService.getCustomAvatarFile(avatarId),
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data != null && snapshot.data!.existsSync()) {
+              return Image.file(
+                snapshot.data!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.person_rounded,
+                    size: size * 0.65,
+                    color: Colors.white,
+                  );
+                },
+              );
+            }
+            return Icon(
+              Icons.person_rounded,
+              size: size * 0.65,
+              color: Colors.white,
+            );
+          },
+        );
+      }
+    } else {
+      innerIcon = Image.asset(
         assetPath,
         width: size * 0.82,
         height: size * 0.82,
@@ -64,8 +112,8 @@ class ProfileAvatarWidget extends StatelessWidget {
             color: Colors.white,
           );
         },
-      ),
-    );
+      );
+    }
 
     Widget content = Container(
       width: size,
@@ -85,8 +133,8 @@ class ProfileAvatarWidget extends StatelessWidget {
         ),
       ),
       child: isCircular
-          ? ClipOval(child: innerIcon)
-          : ClipRRect(borderRadius: BorderRadius.circular(effectiveRadius), child: innerIcon),
+          ? ClipOval(child: Center(child: innerIcon))
+          : ClipRRect(borderRadius: BorderRadius.circular(effectiveRadius), child: Center(child: innerIcon)),
     );
 
     if (onTap != null) {

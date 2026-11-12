@@ -1,3 +1,4 @@
+import 'services/custom_avatar_service.dart';
 import 'services/iphone_duo_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -39,6 +40,7 @@ void main() async {
   }
 
   await ProfileService.instance.init();
+  await CustomAvatarService.init();
   await PlixTheme.loadSavedTheme();
 
   // Set system UI overlay style for immersive dark experience
