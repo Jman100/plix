@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $version = "1.8.7"
 $versionCode = 49
 
-$toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
+$toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
 $env:ANDROID_HOME = "$toolsDir\android-sdk"
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:PATH"
@@ -24,7 +24,7 @@ if (-not (Test-Path $apkSource)) {
 }
 
 # Build Windows Release Installer
-$innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
+$innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 if (Test-Path $innoCompiler) {
     Write-Host "`n=== Building Stable Windows Release (v$version) ===" -ForegroundColor Cyan
     & "$toolsDir\flutter\bin\flutter.bat" build windows --release --build-name=$version --build-number=$versionCode

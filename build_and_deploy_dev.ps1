@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
+$toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
 $env:ANDROID_HOME = "$toolsDir\android-sdk"
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:PATH"
@@ -31,7 +31,7 @@ if (Test-Path $networkPlixDir) {
 }
 
 # Also build Windows Dev installer
-$innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
+$innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 if (Test-Path $innoCompiler) {
     Write-Host "=== Building Windows Release for Dev ===" -ForegroundColor Cyan
     & "$toolsDir\flutter\bin\flutter.bat" build windows --release

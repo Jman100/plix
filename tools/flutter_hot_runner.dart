@@ -18,8 +18,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-const String _flutterBat =
-    r'C:\Users\joshc\Documents\AISTUFF\tools\flutter\bin\flutter.bat';
+final String _flutterBat = Platform.environment.containsKey('USERPROFILE')
+    ? '${Platform.environment['USERPROFILE']}\\Documents\\AISTUFF\\tools\\flutter\\bin\\flutter.bat'
+    : 'flutter';
 final String _defaultDevice = Platform.environment['ADB_DEVICE'] ?? '';
 
 late final File _logFile;

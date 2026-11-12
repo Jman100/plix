@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $version = "1.8.7"
 $versionCode = 49
-$toolsDir = "C:\Users\joshc\Documents\AISTUFF\tools"
-$innoCompiler = "C:\Users\joshc\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
+$toolsDir = "$HOME\Documents\AISTUFF\tools"
+$innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
 $env:PATH = "$toolsDir\flutter\bin;$toolsDir\flutter\bin\cache\dart-sdk\bin;$toolsDir\git\cmd;$env:PATH"
 

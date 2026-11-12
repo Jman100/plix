@@ -517,7 +517,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                                 fontWeight: FontWeight.w600,
                                               ),
                                               decoration: const InputDecoration(
-                                                hintText: 'Enter name (e.g. Living Room, Josh)',
+                                                hintText: 'Enter name (e.g. Living Room, Bedroom)',
                                                 hintStyle: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
                                                 counterText: '',
                                                 border: InputBorder.none,
