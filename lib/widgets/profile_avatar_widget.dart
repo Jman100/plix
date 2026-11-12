@@ -54,13 +54,13 @@ class ProfileAvatarWidget extends StatelessWidget {
     final Widget innerIcon = Center(
       child: Image.asset(
         assetPath,
-        width: size * 0.68,
-        height: size * 0.68,
+        width: size * 0.82,
+        height: size * 0.82,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return Icon(
             Icons.person_rounded,
-            size: size * 0.55,
+            size: size * 0.65,
             color: Colors.white,
           );
         },

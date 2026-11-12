@@ -422,7 +422,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     // 1. Chosen Avatar Preview on Left + Profile Name Box on Right (Centered)
                     Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
+                        constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Row(
@@ -431,10 +431,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ProfileAvatarWidget(
                                 avatarId: _selectedAvatarId,
                                 avatarColorId: _selectedColorId,
-                                size: 80,
+                                size: 68,
                                 glow: true,
                               ),
-                              const SizedBox(width: 18),
+                              const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +492,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                           return Container(
                                             decoration: BoxDecoration(
                                               color: isBoxFocused ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7),
-                                              borderRadius: BorderRadius.circular(14),
+                                              borderRadius: BorderRadius.circular(12),
                                               border: Border.all(
                                                 color: isBoxFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
                                                 width: isBoxFocused ? 2.5 : 1.0,
@@ -521,7 +521,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                                 hintStyle: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
                                                 counterText: '',
                                                 border: InputBorder.none,
-                                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                               ),
                                               onSubmitted: (_) {
                                                 _nameBoxFocusNode.requestFocus();
@@ -540,9 +540,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // 2. Avatar Icon Picker (Full width, larger 78px images, no clipping)
+                    // 2. Avatar Icon Picker (Full width, larger 68px images, no clipping)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24),
                       child: Align(
@@ -560,12 +560,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 4),
                     SizedBox(
-                      height: 122,
+                      height: 104,
                       child: ListView.separated(
                         controller: _avatarScrollController,
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                         physics: const BouncingScrollPhysics(),
                         itemCount: PlixProfile.availableAvatars.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 14),
@@ -578,7 +578,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             focusNode: focusNode,
                             onFocusChange: (hasF) {
                               if (hasF) {
-                                final targetOffset = (index * 92.0) - 180.0;
+                                final targetOffset = (index * 82.0) - 180.0;
                                 _avatarScrollController.animateTo(
                                   targetOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
                                   duration: const Duration(milliseconds: 180),
@@ -618,36 +618,45 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: Builder(
                               builder: (context) {
                                 final isAvatarFocused = Focus.of(context).hasFocus;
-                                return InkWell(
-                                  onTap: () => setState(() => _selectedAvatarId = avatar.id),
-                                  customBorder: const CircleBorder(),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ProfileAvatarWidget(
-                                        avatarId: avatar.id,
-                                        avatarColorId: _selectedColorId,
-                                        size: 76,
-                                        isSelected: isSelected,
-                                        isFocused: isAvatarFocused,
-                                        glow: isAvatarFocused || isSelected,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        width: 80,
-                                        child: Text(
-                                          avatar.label,
-                                          textAlign: TextAlign.center,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary,
-                                            fontSize: 11,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    canRequestFocus: false,
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
+                                    focusColor: Colors.transparent,
+                                    onTap: () => setState(() => _selectedAvatarId = avatar.id),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ProfileAvatarWidget(
+                                            avatarId: avatar.id,
+                                            avatarColorId: _selectedColorId,
+                                            size: 68,
+                                            isSelected: isSelected,
+                                            isFocused: isAvatarFocused,
+                                            glow: isAvatarFocused || isSelected,
                                           ),
-                                        ),
+                                          const SizedBox(height: 4),
+                                          SizedBox(
+                                            width: 76,
+                                            child: Text(
+                                              avatar.label,
+                                              textAlign: TextAlign.center,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary,
+                                                fontSize: 11,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 );
                               },
@@ -659,11 +668,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                     const SizedBox(height: 8),
 
-                    // 3. Background Color Picker (Full width, gradient circles)
+                    // 3. Background Color Picker (Centered row with 3-tone gradients)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           'CHOOSE BACKGROUND COLOR',
                           style: TextStyle(
@@ -677,123 +685,33 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 4),
                     SizedBox(
-                      height: 76,
-                      child: ListView.separated(
-                        controller: _colorScrollController,
-                        scrollDirection: Axis.horizontal,
-                        clipBehavior: Clip.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: ProfileGradientOption.availableGradients.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 14),
-                        itemBuilder: (context, index) {
-                          final gradientOpt = ProfileGradientOption.availableGradients[index];
-                          final isSelected = _selectedColorId == gradientOpt.id;
-                          final focusNode = _colorFocusNodes[gradientOpt.id]!;
-
-                          return Focus(
-                            focusNode: focusNode,
-                            onFocusChange: (hasF) {
-                              if (hasF) {
-                                final targetOffset = (index * 62.0) - 140.0;
-                                _colorScrollController.animateTo(
-                                  targetOffset.clamp(0.0, _colorScrollController.position.maxScrollExtent),
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutCubic,
-                                );
-                              }
-                              setState(() {});
-                            },
-                            onKeyEvent: (node, event) {
-                              if (event is KeyDownEvent) {
-                                final key = event.logicalKey;
-                                if (key == LogicalKeyboardKey.arrowLeft && index == 0) {
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowRight && index == ProfileGradientOption.availableGradients.length - 1) {
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowDown) {
-                                  _pinToggleFocusNode.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowUp) {
-                                  final avTarget = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
-                                  avTarget.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.select ||
-                                    key == LogicalKeyboardKey.enter ||
-                                    key == LogicalKeyboardKey.space ||
-                                    key == LogicalKeyboardKey.gameButtonA) {
-                                  setState(() => _selectedColorId = gradientOpt.id);
-                                  return KeyEventResult.handled;
-                                }
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: Builder(
-                              builder: (context) {
-                                final isColorFocused = Focus.of(context).hasFocus;
-                                return InkWell(
-                                  onTap: () => setState(() => _selectedColorId = gradientOpt.id),
-                                  customBorder: const CircleBorder(),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: gradientOpt.gradient,
-                                          border: Border.all(
-                                            color: isColorFocused
-                                                ? PlixTheme.plexGold
-                                                : isSelected
-                                                    ? Colors.white
-                                                    : Colors.white.withOpacity(0.2),
-                                            width: isColorFocused ? 3.0 : (isSelected ? 2.5 : 1.2),
-                                          ),
-                                          boxShadow: isColorFocused
-                                              ? [
-                                                  BoxShadow(
-                                                    color: PlixTheme.plexGold.withOpacity(0.6),
-                                                    blurRadius: 14,
-                                                    spreadRadius: 2,
-                                                  ),
-                                                ]
-                                              : isSelected
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: Colors.white.withOpacity(0.35),
-                                                        blurRadius: 8,
-                                                      ),
-                                                    ]
-                                                  : null,
-                                        ),
-                                        child: isSelected
-                                            ? const Center(
-                                                child: Icon(Icons.check_rounded, color: Colors.white, size: 20),
-                                              )
-                                            : null,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        },
+                      height: 56,
+                      child: Center(
+                        child: SingleChildScrollView(
+                          controller: _colorScrollController,
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (int index = 0; index < ProfileGradientOption.availableGradients.length; index++) ...[
+                                if (index > 0) const SizedBox(width: 14),
+                                _buildColorItem(context, index, ProfileGradientOption.availableGradients[index]),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     // 4. PIN Lock Toggle (Centered)
                     Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
+                        constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Focus(
@@ -823,70 +741,78 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: Builder(
                               builder: (context) {
                                 final isToggleFocused = Focus.of(context).hasFocus;
-                                return InkWell(
-                                  onTap: _togglePin,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: isToggleFocused
-                                          ? PlixTheme.plexGold.withOpacity(0.15)
-                                          : PlixTheme.surface,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isToggleFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                                        width: isToggleFocused ? 2.5 : 1.0,
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    canRequestFocus: false,
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
+                                    focusColor: Colors.transparent,
+                                    onTap: _togglePin,
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: isToggleFocused
+                                            ? PlixTheme.plexGold.withOpacity(0.15)
+                                            : PlixTheme.surface,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: isToggleFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                                          width: isToggleFocused ? 2.5 : 1.0,
+                                        ),
+                                        boxShadow: isToggleFocused
+                                            ? [
+                                                BoxShadow(
+                                                  color: PlixTheme.plexGold.withOpacity(0.35),
+                                                  blurRadius: 12,
+                                                  spreadRadius: 1.5,
+                                                ),
+                                              ]
+                                            : null,
                                       ),
-                                      boxShadow: isToggleFocused
-                                          ? [
-                                              BoxShadow(
-                                                color: PlixTheme.plexGold.withOpacity(0.35),
-                                                blurRadius: 12,
-                                                spreadRadius: 1.5,
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.lock_rounded,
-                                          size: 18,
-                                          color: _enablePin ? PlixTheme.plexGold : PlixTheme.textMuted,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Require 4-Digit PIN Lock',
-                                                style: TextStyle(
-                                                  color: PlixTheme.textPrimary,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              Text(
-                                                _enablePin
-                                                    ? 'PIN is active (toggle off to remove or change)'
-                                                    : 'Prompt for PIN when switching to this profile',
-                                                style: TextStyle(
-                                                  color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary.withOpacity(0.8),
-                                                  fontSize: 11,
-                                                  fontWeight: _enablePin ? FontWeight.w600 : FontWeight.normal,
-                                                ),
-                                              ),
-                                            ],
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _enablePin ? Icons.lock_rounded : Icons.lock_open_rounded,
+                                            color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary,
+                                            size: 20,
                                           ),
-                                        ),
-                                        Switch(
-                                          value: _enablePin,
-                                          activeColor: PlixTheme.plexGold,
-                                          onChanged: (val) => _togglePin(),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Require 4-Digit PIN Lock',
+                                                  style: TextStyle(
+                                                    color: PlixTheme.textPrimary,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _enablePin
+                                                      ? 'PIN is active (toggle off to remove or change)'
+                                                      : 'Prompt for PIN when switching to this profile',
+                                                  style: TextStyle(
+                                                    color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary.withOpacity(0.8),
+                                                    fontSize: 11,
+                                                    fontWeight: _enablePin ? FontWeight.w600 : FontWeight.normal,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Switch(
+                                            value: _enablePin,
+                                            activeColor: PlixTheme.plexGold,
+                                            onChanged: (val) => _togglePin(),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
@@ -898,7 +824,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
 
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
@@ -920,11 +846,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ],
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                    // 5. Action Buttons: Save Changes FIRST, Delete Profile BELOW
+                    // 5. Action Buttons: Save Changes on Left, Delete Profile on Right
                     Center(
-                      child: Column(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Focus(
@@ -932,11 +858,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             onKeyEvent: (node, event) {
                               if (event is KeyDownEvent) {
                                 final key = event.logicalKey;
-                                if (key == LogicalKeyboardKey.arrowDown) {
-                                  if (isEditing && ProfileService.instance.profiles.length > 1) {
-                                    _deleteFocusNode.requestFocus();
-                                    return KeyEventResult.handled;
-                                  }
+                                if (key == LogicalKeyboardKey.arrowRight && isEditing && ProfileService.instance.profiles.length > 1) {
+                                  _deleteFocusNode.requestFocus();
+                                  return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.arrowUp) {
                                   _pinToggleFocusNode.requestFocus();
@@ -980,7 +904,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: PlixTheme.plexGold,
-                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 11),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       side: BorderSide(
@@ -997,14 +921,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           ),
 
                           if (isEditing && ProfileService.instance.profiles.length > 1) ...[
-                            const SizedBox(height: 10),
+                            const SizedBox(width: 14),
                             Focus(
                               focusNode: _deleteFocusNode,
                               onKeyEvent: (node, event) {
                                 if (event is KeyDownEvent) {
                                   final key = event.logicalKey;
-                                  if (key == LogicalKeyboardKey.arrowUp) {
+                                  if (key == LogicalKeyboardKey.arrowLeft) {
                                     _saveFocusNode.requestFocus();
+                                    return KeyEventResult.handled;
+                                  }
+                                  if (key == LogicalKeyboardKey.arrowUp) {
+                                    _pinToggleFocusNode.requestFocus();
                                     return KeyEventResult.handled;
                                   }
                                   if (key == LogicalKeyboardKey.select ||
@@ -1040,13 +968,116 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           ],
                         ],
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildColorItem(BuildContext context, int index, ProfileGradientOption gradientOpt) {
+    final isSelected = _selectedColorId == gradientOpt.id;
+    final focusNode = _colorFocusNodes[gradientOpt.id]!;
+
+    return Focus(
+      focusNode: focusNode,
+      onFocusChange: (hasF) {
+        if (hasF) {
+          final targetOffset = (index * 54.0) - 140.0;
+          _colorScrollController.animateTo(
+            targetOffset.clamp(0.0, _colorScrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        setState(() {});
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowLeft && index == 0) {
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowRight && index == ProfileGradientOption.availableGradients.length - 1) {
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowDown) {
+            _pinToggleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowUp) {
+            final avTarget = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
+            avTarget.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.select ||
+              key == LogicalKeyboardKey.enter ||
+              key == LogicalKeyboardKey.space ||
+              key == LogicalKeyboardKey.gameButtonA) {
+            setState(() => _selectedColorId = gradientOpt.id);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final isColorFocused = Focus.of(context).hasFocus;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              canRequestFocus: false,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              onTap: () => setState(() => _selectedColorId = gradientOpt.id),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: gradientOpt.gradient,
+                    border: Border.all(
+                      color: isColorFocused
+                          ? PlixTheme.plexGold
+                          : isSelected
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.2),
+                      width: isColorFocused ? 3.0 : (isSelected ? 2.5 : 1.2),
+                    ),
+                    boxShadow: isColorFocused
+                        ? [
+                            BoxShadow(
+                              color: PlixTheme.plexGold.withOpacity(0.65),
+                              blurRadius: 14,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : isSelected
+                            ? [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.35),
+                                  blurRadius: 8,
+                                ),
+                              ]
+                            : null,
+                  ),
+                  child: isSelected
+                      ? const Center(
+                          child: Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

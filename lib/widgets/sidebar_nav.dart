@@ -411,7 +411,7 @@ class _SidebarNavState extends State<SidebarNav> {
             // Header / Logo with Server Name beside it when expanded
             if (PlixDeviceHelper.isTelevision && !effectiveExpanded)
               Container(
-                height: 72,
+                height: 60,
                 width: 72.0,
                 alignment: Alignment.center,
                 child: ValueListenableBuilder<PlixProfile?>(
@@ -428,7 +428,7 @@ class _SidebarNavState extends State<SidebarNav> {
               )
             else
               Container(
-                height: 72,
+                height: 60,
                 padding: EdgeInsets.symmetric(horizontal: effectiveExpanded ? 14 : 10),
               alignment: Alignment.centerLeft,
               child: SingleChildScrollView(
@@ -563,7 +563,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                 text: 'x',
                                 style: TextStyle(
                                   color: PlixTheme.plexGold,
-                                  fontSize: 24,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   fontFamily: 'Roboto',
                                   letterSpacing: 0.5,
@@ -641,7 +641,6 @@ class _SidebarNavState extends State<SidebarNav> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
             Divider(color: PlixTheme.cardBorder, height: 1),
 
             // Navigation Items (Home, Search, Watchlist, Libraries, Settings, Switch Server, Sign Out)

@@ -177,7 +177,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       if (!unlocked) return;
     }
     if (!mounted) return;
-    final result = await Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProfileSetupScreen(
           authService: widget.authService,
@@ -187,14 +187,19 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       ),
     );
 
-    if (result == true && mounted) {
+    if (mounted) {
       _initFocusNodes();
       setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _cardFocusNodes[profile.id]?.requestFocus();
+        }
+      });
     }
   }
 
-  void _openAddProfile() {
-    Navigator.of(context).push(
+  void _openAddProfile() async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProfileSetupScreen(
           authService: widget.authService,
@@ -203,6 +208,15 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         ),
       ),
     );
+    if (mounted) {
+      _initFocusNodes();
+      setState(() {});
+      if (result is String && _cardFocusNodes.containsKey(result)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _cardFocusNodes[result]?.requestFocus();
+        });
+      }
+    }
   }
 
   @override
