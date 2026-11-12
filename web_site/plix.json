@@ -1,17 +1,14 @@
 {
     "version":  "1.9.0",
     "versionCode":  50,
-    "releaseNotes":  "- Multi-User Profiles \u0026 Server Isolation: Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and PIN protection\n- Custom Profile Avatars \u0026 Image Downloader: Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation\n- New Avatar Icons: Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients\n- TV \u0026 Mobile Dialog Polish: Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup\n- App Version Bump: v1.9.0 (versionCode 50)",
     "apkUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
-    "apkSha256":  "64e2b6fb66b73b7ff57902fde35c5f61e5be3eb64a4ef1387aebfae79dddf546",
+    "apkSha256":  "4e48cf9871da0261901d92b273c91e5134ff5b7a627ede50f51fc501faafe4e9",
     "windowsUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url":  "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsSha256":  "e644f8df0f745730e12cd4228b04fafef3230d2e7b61597e4336ea466473ea6b",
+    "windowsSha256":  "70213e14a218b248de7004481044355dd48699434d63e966ba5be76593fb817b",
     "linuxUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl":  "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseDate":  "2026-11-12",
-    "linuxSha256":  "9da44c7980f6e563f442c16b99cc0c77413a60c2b79b657940a4eb13314209a5",
-    "linuxArchSha256":  "78a16ac88e40ae6bf241c3a5cc582f9076dd5c08e08bc76807eddf78110cff07",
-    "linuxTarballSha256":  "f47198d868f822c1f984f4d8383113b7de310499f9db19263f8d858dcb6b695f"
+    "releaseNotes":  "- Multi-User Profiles \u0026 Server Isolation: Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and PIN protection\n- Custom Profile Avatars \u0026 Image Downloader: Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation\n- New Avatar Icons: Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients\n- TV \u0026 Mobile Dialog Polish: Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup\n- App Version Bump: v1.9.0 (versionCode 50)",
+    "releaseDate":  "2026-11-12"
 }
