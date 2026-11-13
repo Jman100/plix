@@ -44,6 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _editProfilesFocusNode = FocusNode();
 
   // Playback settings state
+  bool _anonymousMode = false;
+  final FocusNode _anonymousModeFocusNode = FocusNode();
   bool _autoplayNextEpisode = true;
   bool _autoSkipIntro = false;
   bool _playTvThemes = true;
@@ -152,6 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _autoCheckUpdates = autoCheck;
+        _anonymousMode = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
         _autoplayNextEpisode = prefs.getBool(ProfileService.key('autoplay_next_episode')) ?? prefs.getBool('autoplay_next_episode') ?? true;
         _autoplayTriggerSeconds = prefs.getInt(ProfileService.key('autoplay_trigger_seconds')) ?? prefs.getInt('autoplay_trigger_seconds') ?? 20;
         _autoSkipIntro = prefs.getBool(ProfileService.key('auto_skip_intro')) ?? prefs.getBool('auto_skip_intro') ?? false;
@@ -325,6 +328,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _toggleAnonymousMode() async {
+    final newVal = !_anonymousMode;
+    setState(() => _anonymousMode = newVal);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(ProfileService.key('anonymous_mode'), newVal);
+  }
+
   Future<void> _toggleAutoplay() async {
     final newVal = !_autoplayNextEpisode;
     setState(() => _autoplayNextEpisode = newVal);
@@ -405,6 +415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _homeButtonFocusNode.dispose();
     _alwaysAskProfileFocusNode.dispose();
     _editProfilesFocusNode.dispose();
+    _anonymousModeFocusNode.dispose();
     _autoplayFocusNode.dispose();
     _autoplayTriggerFocusNode.dispose();
     _skipIntroFocusNode.dispose();
@@ -547,7 +558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _editProfilesFocusNode,
                     onUp: () => _alwaysAskProfileFocusNode.requestFocus(),
-                    onDown: () => _autoplayFocusNode.requestFocus(),
+                    onDown: () => _anonymousModeFocusNode.requestFocus(),
                     title: 'Edit Profiles',
                     subtitle: "Open Who's Watching to switch profiles, edit names, or customize PINs",
                     trailing: 'Manage',
@@ -577,8 +588,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 14),
 
                   _SettingsActionTile(
-                    focusNode: _autoplayFocusNode,
+                    focusNode: _anonymousModeFocusNode,
                     onUp: () => _editProfilesFocusNode.requestFocus(),
+                    onDown: () => _autoplayFocusNode.requestFocus(),
+                    title: 'Anonymous Mode',
+                    subtitle: 'Stream content without reporting progress, updating continue watching, or adding to watch history',
+                    trailing: _anonymousMode ? 'Enabled' : 'Disabled',
+                    isInteractive: true,
+                    onTap: _toggleAnonymousMode,
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsActionTile(
+                    focusNode: _autoplayFocusNode,
+                    onUp: () => _anonymousModeFocusNode.requestFocus(),
                     onDown: () => _autoplayNextEpisode
                         ? _autoplayTriggerFocusNode.requestFocus()
                         : _skipIntroFocusNode.requestFocus(),

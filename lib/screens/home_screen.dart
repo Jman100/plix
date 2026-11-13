@@ -104,7 +104,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _isAwaitingContinueWatchingRefresh = false;
   }
 
-  void _onReturnedFromWatching() {
+  void _onReturnedFromWatching() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isAnon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+    if (isAnon) {
+      // In Anonymous Mode, do not re-sort continue watching or move focus to watched item
+      return;
+    }
     _isAwaitingContinueWatchingRefresh = true;
     _cursorMovedSinceReturn = false;
     _refreshContinueWatching(

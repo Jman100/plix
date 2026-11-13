@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/profile_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -871,6 +873,12 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     )
         .then((returnedItem) async {
       if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      final isAnon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+      if (isAnon) {
+        // In Anonymous Mode, do not advance episodes or refresh watch state
+        return;
+      }
       _mediaService.invalidateCache(item.ratingKey);
       if (returnedItem != null) {
         _mediaService.invalidateCache(returnedItem.ratingKey);

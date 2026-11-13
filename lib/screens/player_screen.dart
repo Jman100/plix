@@ -1,3 +1,4 @@
+import '../services/profile_service.dart';
 import '../services/iphone_duo_service.dart';
 
 
@@ -715,21 +716,25 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
       PlixDeviceHelper.isTelevision && _showTvCastCrew && _people.isNotEmpty;
 
-  PlexMediaItem get _playbackExitItem => _currentItem.copyWith(
-
-        viewOffset: _currentPositionMs,
-
-        duration: _durationMs > 0 ? _durationMs : _currentItem.duration,
-
-      );
-
-
-
-
+  PlexMediaItem get _playbackExitItem {
+    if (_isAnonymousMode) {
+      return _currentItem;
+    }
+    return _currentItem.copyWith(
+      viewOffset: _currentPositionMs,
+      duration: _durationMs > 0 ? _durationMs : _currentItem.duration,
+    );
+  }
 
 
 
 
+
+
+
+
+
+  bool _isAnonymousMode = false;
 
   // Skip Intro state
 
@@ -1714,6 +1719,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       final screenOff = prefs.getBool('continue_playback_screen_off') ?? false;
 
       _continuePlaybackScreenOff = screenOff;
+      final anon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+      _isAnonymousMode = anon;
+      _timelineService = PlexTimelineService(
+        server: widget.server,
+        clientId: widget.clientId,
+        isAnonymous: anon,
+      );
 
 
 
@@ -3941,6 +3953,18 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+      if (!_timelineService.isAnonymous) {
+        final prefs = await SharedPreferences.getInstance();
+        final anon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+        if (anon) {
+          _isAnonymousMode = true;
+          _timelineService = PlexTimelineService(
+            server: widget.server,
+            clientId: widget.clientId,
+            isAnonymous: true,
+          );
+        }
+      }
       _timelineService.startPlayback(
 
 

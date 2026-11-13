@@ -10,6 +10,7 @@ import 'update_service.dart';
 class PlexTimelineService {
   final PlexServer server;
   final String clientId;
+  final bool isAnonymous;
   Timer? _heartbeatTimer;
   PlexMediaItem? _currentItem;
   int _currentTimeMs = 0;
@@ -29,6 +30,7 @@ class PlexTimelineService {
   PlexTimelineService({
     required this.server,
     required this.clientId,
+    this.isAnonymous = false,
     http.Client? client,
   }) : _client = client ?? _defaultClient;
 
@@ -41,6 +43,11 @@ class PlexTimelineService {
     _isPlaying = true;
     _scrobbled = false;
     _missingSessionCount = 0;
+
+    if (isAnonymous) {
+      // In Anonymous Mode, do not report playback start, progress, scrobbles, or open WebSockets
+      return;
+    }
 
     if (server.isJellyfin) {
       final itemId = item.ratingKey;
@@ -208,18 +215,21 @@ class PlexTimelineService {
 
   void updatePosition(int timeMs) {
     _currentTimeMs = timeMs;
+    if (isAnonymous) return;
     _checkScrobble();
   }
 
   void pause(int timeMs) {
     _currentTimeMs = timeMs;
     _isPlaying = false;
+    if (isAnonymous) return;
     _reportTimeline(state: 'paused', timeMs: timeMs);
   }
 
   void resume(int timeMs) {
     _currentTimeMs = timeMs;
     _isPlaying = true;
+    if (isAnonymous) return;
     _reportTimeline(state: 'playing', timeMs: timeMs);
   }
 
@@ -229,10 +239,12 @@ class PlexTimelineService {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _closeWebSocket();
+    if (isAnonymous) return;
     _reportTimeline(state: 'stopped', timeMs: timeMs);
   }
 
   void _checkScrobble() {
+    if (isAnonymous) return;
     if (_scrobbled || _currentItem == null) return;
     if (_currentItem!.isTrailer || _currentItem!.type == 'clip') return;
     final dur = _currentItem!.duration;
@@ -245,6 +257,7 @@ class PlexTimelineService {
   }
 
   Future<void> _scrobbleItem(String ratingKey) async {
+    if (isAnonymous) return;
     if (server.isJellyfin) {
       final userId = server.userId ?? '';
       final url = Uri.parse('$baseUrl/Users/$userId/PlayedItems/$ratingKey');
@@ -264,7 +277,7 @@ class PlexTimelineService {
   }
 
   Future<void> _reportTimeline({required String state, required int timeMs}) async {
-    if (_currentItem == null) return;
+    if (isAnonymous || _currentItem == null) return;
 
     if (server.isJellyfin) {
       final itemId = _currentItem!.ratingKey;
