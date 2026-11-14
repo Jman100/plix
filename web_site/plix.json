@@ -1,6 +1,6 @@
 {
-    "version": "1.9.0",
-    "versionCode": 50,
+    "version": "1.9.1",
+    "versionCode": 51,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "202f848785e1dae14d75a9f10b84863a69f9ee3f5b5ed648c7d8dcd7e3c9eb9c",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -9,8 +9,8 @@
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "releaseNotes": "- Multi-User Profiles & Server Isolation: Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and PIN protection\n- Custom Profile Avatars & Image Downloader: Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation\n- New Avatar Icons: Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients\n- TV & Mobile Dialog Polish: Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup\n- App Version Bump: v1.9.0 (versionCode 50)",
-    "releaseDate": "2026-11-12",
+    "releaseNotes": "- Ephemeral Guest Mode: Introducing one-tap guest viewing that isolates playback, prevents main account watch progress bleed, and automatically terminates on app exit or restart\n- Real-Time Appearance & Theme Preview: Dynamic background atmosphere, accent highlights, and preview bar live updates that reflect instantly without exiting the settings screen\n- Jellyfin Transcoding & Session Reporting: Resolved direct-play overrides by sending proper MaxStreamingBitrate caps and active PlayMethod & PlaySessionId telemetry for real-time server dashboard transcoding status\n- Android TV Focus & Glow Polish: Removed residual green edge glow and focus flash artifacts on D-pad navigation; disabled native Android decor focus highlights\n- Server Management Navigation: Theme-matched server refresh controls with stable focus persistence that prevents cursor jumping upon selection\n- App Version Bump: v1.9.1 (versionCode 51)",
+    "releaseDate": "2026-11-14",
     "linuxSha256": "16131a7d10aec6902352bc6c27d01697655d066e1ce1885d6c6d3ca6938fc904",
     "linuxArchSha256": "d4839b8f3be471cc1792f550e63edee51a69621250d235b15291bc6ef027259b",
     "linuxTarballSha256": "5aebecd1f6f0105930f5baf7e3a83ad9ce19edf5c0c824f749c5273afff1a756"

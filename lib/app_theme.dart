@@ -686,7 +686,9 @@ class PlixTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
-      focusColor: primary.withOpacity(0.35),
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
       cardColor: crd,
     );
   }

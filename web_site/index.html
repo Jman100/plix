@@ -161,7 +161,7 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-black tracking-tight text-white">pli<span class="text-brand-gold">x</span></span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
-              v1.9.0
+              v1.9.1
             </span>
           </div>
           <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
@@ -205,7 +205,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.9.0</strong> is now live</span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.9.1</strong> is now live</span>
         <span class="text-neutral-500">•</span>
         <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
           <span>Release Notes</span>
@@ -257,7 +257,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.9.0</span>
+            <span id="winVersionLabel">Version 1.9.1</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -294,7 +294,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.9.0</span>
+            <span id="androidVersionLabel">Version 1.9.1</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -351,7 +351,7 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
-            <span id="linuxVersionLabel">Version 1.9.0</span>
+            <span id="linuxVersionLabel">Version 1.9.1</span>
             <span>DEB • Arch • Portable</span>
           </div>
         </div>
@@ -656,10 +656,10 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.9.0</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.9.1</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
-              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 12, 2026</span></p>
+              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 14, 2026</span></p>
             </div>
           </div>
 
@@ -686,23 +686,27 @@
                     <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Multi-User Profiles &amp; Server Isolation:</strong> Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and optional PIN protection.</div>
+              <div><strong class="text-white">Ephemeral Guest Mode:</strong> Introducing one-tap guest viewing that isolates playback, prevents main account watch progress bleed, and automatically terminates on app exit or restart.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Custom Profile Avatars &amp; Image Downloader:</strong> Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation.</div>
+              <div><strong class="text-white">Real-Time Appearance &amp; Theme Preview:</strong> Dynamic background atmosphere, accent highlights, and preview bar live updates that reflect instantly without exiting the settings screen.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">New Avatar Icons:</strong> Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients.</div>
+              <div><strong class="text-white">Jellyfin Transcoding &amp; Session Reporting:</strong> Resolved direct-play overrides by sending proper MaxStreamingBitrate caps and active PlayMethod &amp; PlaySessionId telemetry for real-time server dashboard transcoding status.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">TV &amp; Mobile Dialog Polish:</strong> Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup.</div>
+              <div><strong class="text-white">Android TV Focus &amp; Glow Polish:</strong> Removed residual green edge glow and focus flash artifacts on D-pad navigation; disabled native Android decor focus highlights.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.9.0 (versionCode 50).</div>
+              <div><strong class="text-white">Server Management Navigation:</strong> Theme-matched server refresh controls with stable focus persistence that prevents cursor jumping upon selection.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.9.1 (versionCode 51).</div>
             </li>
           </ul>
         </div>

@@ -11,6 +11,7 @@ import '../widgets/brand_logo.dart';
 import '../widgets/profile_avatar_widget.dart';
 import '../widgets/pin_dialog.dart';
 import '../widgets/custom_avatar_upload_dialog.dart';
+import '../widgets/plix_tv_text_field.dart';
 import 'auth_chooser_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   late TextEditingController _nameController;
   late String _selectedAvatarId;
   late String _selectedColorId;
+  String _lastFocusedAvatarId = 'avatar_default';
   late bool _enablePin;
   String _pinValue = '';
   String? _errorMessage;
@@ -42,7 +44,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   final FocusNode _backFocusNode = FocusNode();
   final FocusNode _nameBoxFocusNode = FocusNode();
-  late final FocusNode _nameInputFocusNode;
   final FocusNode _pinToggleFocusNode = FocusNode();
   final FocusNode _saveFocusNode = FocusNode();
   final FocusNode _deleteFocusNode = FocusNode();
@@ -66,6 +67,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _nameController = TextEditingController(text: profile?.name ?? (widget.isInitialSetup ? 'Home' : ''));
     _selectedAvatarId = profile?.avatarId ?? (widget.isInitialSetup ? 'avatar_default' : 'avatar_popcorn');
     _selectedColorId = profile?.avatarColorId ?? 'gradient_gold';
+    _lastFocusedAvatarId = _selectedAvatarId;
     _enablePin = profile?.hasPin ?? false;
     _pinValue = profile?.pin ?? '';
 
@@ -79,29 +81,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final double initialColorOffset = colIdx > 0 ? ((colIdx * 64.0) - 140.0).clamp(0.0, 3000.0) : 0.0;
     _colorScrollController = ScrollController(initialScrollOffset: initialColorOffset);
 
-    _nameInputFocusNode = FocusNode(
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          final key = event.logicalKey;
-          if (key == LogicalKeyboardKey.arrowDown) {
-            _nameInputFocusNode.unfocus();
-            final target = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
-            target.requestFocus();
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowUp) {
-            _nameInputFocusNode.unfocus();
-            if (!widget.isInitialSetup) {
-              _backFocusNode.requestFocus();
-            } else {
-              _nameBoxFocusNode.requestFocus();
-            }
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-    );
 
     _avatarOptions.addAll(PlixProfile.availableAvatars);
     for (final avatar in _avatarOptions) {
@@ -137,7 +116,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _nameController.dispose();
     _backFocusNode.dispose();
     _nameBoxFocusNode.dispose();
-    _nameInputFocusNode.dispose();
     _pinToggleFocusNode.dispose();
     _saveFocusNode.dispose();
     _deleteFocusNode.dispose();
@@ -493,7 +471,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -502,17 +480,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               ProfileAvatarWidget(
                                 avatarId: _selectedAvatarId,
                                 avatarColorId: _selectedColorId,
-                                size: 68,
+                                size: 54,
                                 glow: true,
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,75 +517,62 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 6),
-                                    Focus(
-                                      focusNode: _nameBoxFocusNode,
-                                      onKeyEvent: (node, event) {
-                                        if (event is KeyDownEvent) {
-                                          final key = event.logicalKey;
-                                          if (key == LogicalKeyboardKey.arrowDown) {
-                                            final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
-                                            targetAvatar.requestFocus();
-                                            return KeyEventResult.handled;
-                                          }
-                                          if (key == LogicalKeyboardKey.arrowUp && !widget.isInitialSetup) {
-                                            _backFocusNode.requestFocus();
-                                            return KeyEventResult.handled;
-                                          }
-                                          if (key == LogicalKeyboardKey.select ||
-                                              key == LogicalKeyboardKey.enter ||
-                                              key == LogicalKeyboardKey.space ||
-                                              key == LogicalKeyboardKey.gameButtonA) {
-                                            _nameInputFocusNode.requestFocus();
-                                            SystemChannels.textInput.invokeMethod('TextInput.show');
-                                            return KeyEventResult.handled;
-                                          }
-                                        }
-                                        return KeyEventResult.ignored;
+                                    AnimatedBuilder(
+                                      animation: _nameBoxFocusNode,
+                                      builder: (context, _) {
+                                        final isBoxFocused = _nameBoxFocusNode.hasFocus;
+                                        return Container(
+                                          height: 48,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                                          alignment: Alignment.centerLeft,
+                                          decoration: BoxDecoration(
+                                            color: isBoxFocused ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isBoxFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                                              width: isBoxFocused ? 2.5 : 1.0,
+                                            ),
+                                            boxShadow: isBoxFocused
+                                                ? [
+                                                    BoxShadow(
+                                                      color: PlixTheme.plexGold.withOpacity(0.35),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 1,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: PlixTvTextField(
+                                            controller: _nameController,
+                                            focusNode: _nameBoxFocusNode,
+                                            hintText: 'Enter name (e.g. Living Room, Bedroom)',
+                                            maxLength: 20,
+                                            imeAction: 'done',
+                                            style: const TextStyle(
+                                              color: PlixTheme.textPrimary,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            hintStyle: const TextStyle(
+                                              color: PlixTheme.textMuted,
+                                              fontSize: 13,
+                                            ),
+                                            onDown: () {
+                                              final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
+                                              targetAvatar.requestFocus();
+                                            },
+                                            onUp: () {
+                                              if (!widget.isInitialSetup) {
+                                                _backFocusNode.requestFocus();
+                                              }
+                                            },
+                                            onSubmitted: (_) {
+                                              final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
+                                              targetAvatar.requestFocus();
+                                            },
+                                          ),
+                                        );
                                       },
-                                      child: Builder(
-                                        builder: (context) {
-                                          final isBoxFocused = Focus.of(context).hasFocus;
-                                          return Container(
-                                            decoration: BoxDecoration(
-                                              color: isBoxFocused ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7),
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: isBoxFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                                                width: isBoxFocused ? 2.5 : 1.0,
-                                              ),
-                                              boxShadow: isBoxFocused
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: PlixTheme.plexGold.withOpacity(0.35),
-                                                        blurRadius: 10,
-                                                        spreadRadius: 1,
-                                                      ),
-                                                    ]
-                                                  : null,
-                                            ),
-                                            child: TextField(
-                                              controller: _nameController,
-                                              focusNode: _nameInputFocusNode,
-                                              maxLength: 20,
-                                              style: const TextStyle(
-                                                color: PlixTheme.textPrimary,
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              decoration: const InputDecoration(
-                                                hintText: 'Enter name (e.g. Living Room, Bedroom)',
-                                                hintStyle: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
-                                                counterText: '',
-                                                border: InputBorder.none,
-                                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                              ),
-                                              onSubmitted: (_) {
-                                                _nameBoxFocusNode.requestFocus();
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      ),
                                     ),
                                   ],
                                 ),
@@ -636,116 +601,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     SizedBox(
-                      height: 104,
-                      child: ListView.separated(
+                      height: 82,
+                      child: SingleChildScrollView(
                         controller: _avatarScrollController,
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
                         physics: const BouncingScrollPhysics(),
-                        itemCount: _avatarOptions.length + 1,
-                        separatorBuilder: (_, __) => const SizedBox(width: 14),
-                        itemBuilder: (context, index) {
-                          if (index == _avatarOptions.length) {
-                            return _buildUploadAvatarButton();
-                          }
-
-                          final avatar = _avatarOptions[index];
-                          final isSelected = _selectedAvatarId == avatar.id;
-                          final focusNode = _avatarFocusNodes.putIfAbsent(avatar.id, () => FocusNode());
-
-                          return Focus(
-                            focusNode: focusNode,
-                            onFocusChange: (hasF) {
-                              if (hasF) {
-                                final targetOffset = (index * 82.0) - 180.0;
-                                _avatarScrollController.animateTo(
-                                  targetOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutCubic,
-                                );
-                              }
-                              setState(() {});
-                            },
-                            onKeyEvent: (node, event) {
-                              if (event is KeyDownEvent) {
-                                final key = event.logicalKey;
-                                if (key == LogicalKeyboardKey.arrowLeft && index == 0) {
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowRight && index == _avatarOptions.length - 1) {
-                                  _uploadAvatarFocusNode.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowDown) {
-                                  final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
-                                  colTarget.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowUp) {
-                                  _nameBoxFocusNode.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.select ||
-                                    key == LogicalKeyboardKey.enter ||
-                                    key == LogicalKeyboardKey.space ||
-                                    key == LogicalKeyboardKey.gameButtonA) {
-                                  setState(() => _selectedAvatarId = avatar.id);
-                                  return KeyEventResult.handled;
-                                }
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: Builder(
-                              builder: (context) {
-                                final isAvatarFocused = Focus.of(context).hasFocus;
-                                return Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    canRequestFocus: false,
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    hoverColor: Colors.transparent,
-                                    focusColor: Colors.transparent,
-                                    onTap: () => setState(() => _selectedAvatarId = avatar.id),
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ProfileAvatarWidget(
-                                            avatarId: avatar.id,
-                                            avatarColorId: _selectedColorId,
-                                            size: 68,
-                                            isSelected: isSelected,
-                                            isFocused: isAvatarFocused,
-                                            glow: isAvatarFocused || isSelected,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          SizedBox(
-                                            width: 76,
-                                            child: Text(
-                                              avatar.label,
-                                              textAlign: TextAlign.center,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary,
-                                                fontSize: 11,
-                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int index = 0; index < _avatarOptions.length; index++) ...[
+                              if (index > 0) const SizedBox(width: 12),
+                              _buildAvatarItem(context, index, _avatarOptions[index]),
+                            ],
+                            const SizedBox(width: 12),
+                            _buildUploadAvatarButton(),
+                          ],
+                        ),
                       ),
                     ),
 
@@ -768,7 +643,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 4),
                     SizedBox(
-                      height: 56,
+                      height: 86,
                       child: Center(
                         child: SingleChildScrollView(
                           controller: _colorScrollController,
@@ -776,13 +651,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           clipBehavior: Clip.none,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                           physics: const BouncingScrollPhysics(),
-                          child: Row(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              for (int index = 0; index < ProfileGradientOption.availableGradients.length; index++) ...[
-                                if (index > 0) const SizedBox(width: 14),
-                                _buildColorItem(context, index, ProfileGradientOption.availableGradients[index]),
-                              ],
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (int index = 0; index < 12 && index < ProfileGradientOption.availableGradients.length; index++) ...[
+                                    if (index > 0) const SizedBox(width: 10),
+                                    _buildColorItem(context, index, ProfileGradientOption.availableGradients[index]),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (int index = 12; index < ProfileGradientOption.availableGradients.length; index++) ...[
+                                    if (index > 12) const SizedBox(width: 10),
+                                    _buildColorItem(context, index, ProfileGradientOption.availableGradients[index]),
+                                  ],
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -796,7 +686,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Focus(
                             focusNode: _pinToggleFocusNode,
                             onKeyEvent: (node, event) {
@@ -882,7 +772,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                                       : 'Prompt for PIN when switching to this profile',
                                                   style: TextStyle(
                                                     color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary.withOpacity(0.8),
-                                                    fontSize: 11,
+                                                    fontSize: 10,
                                                     fontWeight: _enablePin ? FontWeight.w600 : FontWeight.normal,
                                                   ),
                                                 ),
@@ -907,9 +797,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
 
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.redAccent.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
@@ -929,7 +819,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ],
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 6),
 
                     // 5. Action Buttons: Save Changes on Left, Delete Profile on Right
                     Center(
@@ -1063,12 +953,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  Widget _buildUploadAvatarButton() {
+  Widget _buildAvatarItem(BuildContext context, int index, AvatarOption avatar) {
+    final isSelected = _selectedAvatarId == avatar.id;
+    final focusNode = _avatarFocusNodes.putIfAbsent(avatar.id, () => FocusNode());
+
     return Focus(
-      focusNode: _uploadAvatarFocusNode,
+      focusNode: focusNode,
       onFocusChange: (hasF) {
         if (hasF) {
-          final targetOffset = (_avatarOptions.length * 82.0) - 180.0;
+          _lastFocusedAvatarId = avatar.id;
+          final targetOffset = (index * 68.0) - 180.0;
           _avatarScrollController.animateTo(
             targetOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
             duration: const Duration(milliseconds: 180),
@@ -1078,7 +972,111 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         setState(() {});
       },
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowLeft) {
+            if (index > 0) {
+              _avatarFocusNodes[_avatarOptions[index - 1].id]?.requestFocus();
+            }
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowRight) {
+            if (index < _avatarOptions.length - 1) {
+              _avatarFocusNodes[_avatarOptions[index + 1].id]?.requestFocus();
+            } else {
+              _uploadAvatarFocusNode.requestFocus();
+            }
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowDown) {
+            final colIdx = ProfileGradientOption.availableGradients.indexWhere((g) => g.id == _selectedColorId);
+            final targetIdx = colIdx < 12 && colIdx >= 0 ? colIdx : (colIdx >= 12 ? colIdx - 12 : 0);
+            final safeIdx = targetIdx.clamp(0, 11);
+            final colTarget = _colorFocusNodes[ProfileGradientOption.availableGradients[safeIdx].id] ?? _colorFocusNodes.values.first;
+            colTarget.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowUp) {
+            _nameBoxFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              (key == LogicalKeyboardKey.select ||
+              key == LogicalKeyboardKey.enter ||
+              key == LogicalKeyboardKey.space ||
+              key == LogicalKeyboardKey.gameButtonA)) {
+            setState(() => _selectedAvatarId = avatar.id);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final isAvatarFocused = Focus.of(context).hasFocus;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              canRequestFocus: false,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              onTap: () => setState(() => _selectedAvatarId = avatar.id),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ProfileAvatarWidget(
+                      avatarId: avatar.id,
+                      avatarColorId: _selectedColorId,
+                      size: 54,
+                      isSelected: isSelected,
+                      isFocused: isAvatarFocused,
+                      glow: isAvatarFocused || isSelected,
+                    ),
+                    const SizedBox(height: 3),
+                    SizedBox(
+                      width: 64,
+                      child: Text(
+                        avatar.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? PlixTheme.plexGold : PlixTheme.textSecondary,
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUploadAvatarButton() {
+    return Focus(
+      focusNode: _uploadAvatarFocusNode,
+      onFocusChange: (hasF) {
+        if (hasF) {
+          _lastFocusedAvatarId = 'upload';
+          final targetOffset = (_avatarOptions.length * 68.0) - 180.0;
+          _avatarScrollController.animateTo(
+            targetOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        setState(() {});
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
           final key = event.logicalKey;
           if (key == LogicalKeyboardKey.arrowLeft) {
             if (_avatarOptions.isNotEmpty) {
@@ -1091,7 +1089,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowDown) {
-            final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
+            final colIdx = ProfileGradientOption.availableGradients.indexWhere((g) => g.id == _selectedColorId);
+            final targetIdx = colIdx < 12 && colIdx >= 0 ? colIdx : (colIdx >= 12 ? colIdx - 12 : 0);
+            final safeIdx = targetIdx.clamp(0, 11);
+            final colTarget = _colorFocusNodes[ProfileGradientOption.availableGradients[safeIdx].id] ?? _colorFocusNodes.values.first;
             colTarget.requestFocus();
             return KeyEventResult.handled;
           }
@@ -1099,10 +1100,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             _nameBoxFocusNode.requestFocus();
             return KeyEventResult.handled;
           }
-          if (key == LogicalKeyboardKey.select ||
+          if (event is KeyDownEvent &&
+              (key == LogicalKeyboardKey.select ||
               key == LogicalKeyboardKey.enter ||
               key == LogicalKeyboardKey.space ||
-              key == LogicalKeyboardKey.gameButtonA) {
+              key == LogicalKeyboardKey.gameButtonA)) {
             _openUploadModal();
             return KeyEventResult.handled;
           }
@@ -1127,8 +1129,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      width: 68,
-                      height: 68,
+                      width: 54,
+                      height: 54,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isUploadFocused
@@ -1141,22 +1143,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         boxShadow: isUploadFocused
                             ? [
                                 BoxShadow(
-                                  color: PlixTheme.plexGold.withOpacity(0.65),
-                                  blurRadius: 18,
-                                  spreadRadius: 2.5,
+                                  color: PlixTheme.plexGold.withOpacity(0.85),
+                                  blurRadius: 28,
+                                  spreadRadius: 4.5,
+                                ),
+                                BoxShadow(
+                                  color: PlixTheme.plexGold.withOpacity(0.40),
+                                  blurRadius: 48,
+                                  spreadRadius: 8.0,
                                 ),
                               ]
                             : null,
                       ),
                       child: Icon(
                         Icons.cloud_upload_outlined,
-                        size: 30,
+                        size: 24,
                         color: isUploadFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.85),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     SizedBox(
-                      width: 76,
+                      width: 64,
                       child: Text(
                         'Upload',
                         textAlign: TextAlign.center,
@@ -1164,7 +1171,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: isUploadFocused ? PlixTheme.plexGold : PlixTheme.textSecondary,
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: isUploadFocused ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -1187,7 +1194,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       focusNode: focusNode,
       onFocusChange: (hasF) {
         if (hasF) {
-          final targetOffset = (index * 54.0) - 140.0;
+          final targetOffset = ((index % 12) * 44.0) - 140.0;
           _colorScrollController.animateTo(
             targetOffset.clamp(0.0, _colorScrollController.position.maxScrollExtent),
             duration: const Duration(milliseconds: 180),
@@ -1197,27 +1204,54 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         setState(() {});
       },
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
           final key = event.logicalKey;
-          if (key == LogicalKeyboardKey.arrowLeft && index == 0) {
+          final isRow1 = index < 12;
+          final isRow2 = index >= 12;
+
+          if (key == LogicalKeyboardKey.arrowLeft) {
+            if (isRow1 && index > 0) {
+              _colorFocusNodes[ProfileGradientOption.availableGradients[index - 1].id]?.requestFocus();
+            } else if (isRow2 && index > 12) {
+              _colorFocusNodes[ProfileGradientOption.availableGradients[index - 1].id]?.requestFocus();
+            }
             return KeyEventResult.handled;
           }
-          if (key == LogicalKeyboardKey.arrowRight && index == ProfileGradientOption.availableGradients.length - 1) {
+          if (key == LogicalKeyboardKey.arrowRight) {
+            if (isRow1 && index < 11) {
+              _colorFocusNodes[ProfileGradientOption.availableGradients[index + 1].id]?.requestFocus();
+            } else if (isRow2 && index < ProfileGradientOption.availableGradients.length - 1) {
+              _colorFocusNodes[ProfileGradientOption.availableGradients[index + 1].id]?.requestFocus();
+            }
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowDown) {
-            _pinToggleFocusNode.requestFocus();
+            if (isRow1) {
+              final targetIndex = (index + 12).clamp(12, ProfileGradientOption.availableGradients.length - 1);
+              _colorFocusNodes[ProfileGradientOption.availableGradients[targetIndex].id]?.requestFocus();
+            } else {
+              _pinToggleFocusNode.requestFocus();
+            }
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowUp) {
-            final avTarget = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
-            avTarget.requestFocus();
+            if (isRow2) {
+              final targetIndex = (index - 12).clamp(0, 11);
+              _colorFocusNodes[ProfileGradientOption.availableGradients[targetIndex].id]?.requestFocus();
+            } else {
+              final targetId = _lastFocusedAvatarId;
+              final FocusNode? avTarget = targetId == 'upload'
+                  ? _uploadAvatarFocusNode
+                  : (_avatarFocusNodes[targetId] ?? _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.firstOrNull);
+              avTarget?.requestFocus();
+            }
             return KeyEventResult.handled;
           }
-          if (key == LogicalKeyboardKey.select ||
+          if (event is KeyDownEvent &&
+              (key == LogicalKeyboardKey.select ||
               key == LogicalKeyboardKey.enter ||
               key == LogicalKeyboardKey.space ||
-              key == LogicalKeyboardKey.gameButtonA) {
+              key == LogicalKeyboardKey.gameButtonA)) {
             setState(() => _selectedColorId = gradientOpt.id);
             return KeyEventResult.handled;
           }
@@ -1236,44 +1270,53 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               hoverColor: Colors.transparent,
               focusColor: Colors.transparent,
               onTap: () => setState(() => _selectedColorId = gradientOpt.id),
-              child: Center(
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: gradientOpt.gradient,
-                    border: Border.all(
-                      color: isColorFocused
-                          ? PlixTheme.plexGold
-                          : isSelected
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.2),
-                      width: isColorFocused ? 3.0 : (isSelected ? 2.5 : 1.2),
-                    ),
-                    boxShadow: isColorFocused
-                        ? [
-                            BoxShadow(
-                              color: PlixTheme.plexGold.withOpacity(0.65),
-                              blurRadius: 14,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : isSelected
-                            ? [
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.35),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: gradientOpt.colors,
+                    begin: gradientOpt.begin,
+                    end: gradientOpt.end,
                   ),
-                  child: isSelected
-                      ? const Center(
-                          child: Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                        )
-                      : null,
+                  border: Border.all(
+                    color: isColorFocused
+                        ? PlixTheme.plexGold
+                        : (isSelected ? Colors.white : Colors.transparent),
+                    width: isColorFocused ? 2.5 : (isSelected ? 2.0 : 0.0),
+                  ),
+                  boxShadow: isColorFocused
+                      ? [
+                          BoxShadow(
+                            color: PlixTheme.plexGold.withOpacity(0.9),
+                            blurRadius: 18,
+                            spreadRadius: 3.5,
+                          ),
+                          BoxShadow(
+                            color: gradientOpt.colors.first.withOpacity(0.5),
+                            blurRadius: 12,
+                            spreadRadius: 2.0,
+                          ),
+                        ]
+                      : (isSelected
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.5),
+                                blurRadius: 10,
+                                spreadRadius: 1.5,
+                              ),
+                            ]
+                          : null),
                 ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      )
+                    : null,
               ),
             ),
           );

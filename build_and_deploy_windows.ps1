@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.9.0"
-$versionCode = 50
+$version = "1.9.1"
+$versionCode = 51
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
@@ -31,10 +31,12 @@ $networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 # Generate and update plix.json release manifest
 $releaseNotes = @"
-- Search Execution on Enter/Submit: Search queries now begin when pressing enter or selecting search on the keyboard, preventing unintended intermediate requests while typing
-- Search Page Sticky Top Bar & Upward Scroll Fix: Pinned opaque top header prevents cards from bleeding through, fixed upward navigation skipping row 0, auto-focuses first result on search completion, and centers empty state placeholders
-- Linux & Windows Release Packaging: Configured write permissions for GitHub Actions workflows ensuring Linux packages (DEB, Arch, Portable) and Windows installer assets publish reliably to GitHub releases
-- App Version Bump: v1.8.4 (versionCode 46)
+- Ephemeral Guest Mode: Introducing one-tap guest viewing that isolates playback, prevents main account watch progress bleed, and automatically terminates on app exit or restart
+- Real-Time Appearance & Theme Preview: Dynamic background atmosphere, accent highlights, and preview bar live updates that reflect instantly without exiting the settings screen
+- Jellyfin Transcoding & Session Reporting: Resolved direct-play overrides by sending proper MaxStreamingBitrate caps and active PlayMethod & PlaySessionId telemetry for real-time server dashboard transcoding status
+- Android TV Focus & Glow Polish: Removed residual green edge glow and focus flash artifacts on D-pad navigation; disabled native Android decor focus highlights
+- Server Management Navigation: Theme-matched server refresh controls with stable focus persistence that prevents cursor jumping upon selection
+- App Version Bump: v1.9.1 (versionCode 51)
 "@
 
 $manifest = [ordered]@{

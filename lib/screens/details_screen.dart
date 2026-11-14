@@ -1,3 +1,4 @@
+import '../services/guest_mode_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/profile_service.dart';
 import 'dart:async';
@@ -874,9 +875,16 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         .then((returnedItem) async {
       if (!mounted) return;
       final prefs = await SharedPreferences.getInstance();
+      if (GuestModeService.instance.isGuestMode) {
+        if (returnedItem != null) {
+          setState(() {
+            _item = returnedItem;
+          });
+        }
+        return;
+      }
       final isAnon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
       if (isAnon) {
-        // In Anonymous Mode, do not advance episodes or refresh watch state
         return;
       }
       _mediaService.invalidateCache(item.ratingKey);
@@ -978,6 +986,15 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   }
 
   Future<void> _toggleWatched() async {
+    if (GuestModeService.instance.isGuestMode) {
+      GuestModeService.instance.toggleWatched(_item.ratingKey);
+      setState(() {
+        _item = _item.copyWith(
+          viewOffset: 0,
+        );
+      });
+      return;
+    }
     final success = _item.isWatched
         ? await _mediaService.markUnwatched(_item.ratingKey)
         : await _mediaService.markWatched(_item.ratingKey);

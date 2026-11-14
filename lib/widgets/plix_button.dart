@@ -25,6 +25,8 @@ class PlixButton extends StatefulWidget {
   final Color? highlightColor;
   final Color? borderColor;
   final Color? textColor;
+  final Color? highlightTextColor;
+  final Color? highlightBorderColor;
 
   const PlixButton({
     super.key,
@@ -49,6 +51,8 @@ class PlixButton extends StatefulWidget {
     this.highlightColor,
     this.borderColor,
     this.textColor,
+    this.highlightTextColor,
+    this.highlightBorderColor,
   });
 
   @override
@@ -124,19 +128,22 @@ class _PlixButtonState extends State<PlixButton> {
                     ? const Color(0xFF000000)
                     : (isGlass ? const Color(0x12FFFFFF) : PlixTheme.surface))));
 
-    final fgColor = widget.textColor != null
-        ? widget.textColor!
-        : (widget.isPrimary
-            ? Colors.black
-            : (isHighlighted ? PlixTheme.textPrimary : PlixTheme.textSecondary));
+    final fgColor = (isHighlighted && widget.highlightTextColor != null)
+        ? widget.highlightTextColor!
+        : (widget.textColor != null
+            ? widget.textColor!
+            : (widget.isPrimary
+                ? Colors.black
+                : (isHighlighted ? PlixTheme.textPrimary : PlixTheme.textSecondary)));
 
     final borderColor = isHighlighted
-        ? (widget.borderColor ?? (isGlass ? Colors.white : PlixTheme.plexGold))
-        : (widget.isPrimary
-            ? Colors.transparent
-            : (PlixTheme.isOLED
-                ? PlixTheme.cardBorder
-                : (isGlass ? const Color(0x38FFFFFF) : Colors.transparent)));
+        ? (widget.highlightBorderColor ?? widget.borderColor ?? (isGlass ? Colors.white : PlixTheme.plexGold))
+        : (widget.borderColor ??
+            (widget.isPrimary
+                ? Colors.transparent
+                : (PlixTheme.isOLED
+                    ? PlixTheme.cardBorder
+                    : (isGlass ? const Color(0x38FFFFFF) : Colors.transparent))));
 
     final glowColor = widget.borderColor ??
         widget.highlightColor ??

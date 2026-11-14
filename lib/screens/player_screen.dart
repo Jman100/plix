@@ -1,3 +1,4 @@
+import '../services/guest_mode_service.dart';
 import '../services/profile_service.dart';
 import '../services/iphone_duo_service.dart';
 
@@ -639,6 +640,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
   VideoQualityOption _selectedQuality = VideoQualityOption.directPlay;
+  String? _currentPlaySessionId;
 
 
 
@@ -717,6 +719,17 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       PlixDeviceHelper.isTelevision && _showTvCastCrew && _people.isNotEmpty;
 
   PlexMediaItem get _playbackExitItem {
+    if (GuestModeService.instance.isGuestMode) {
+      GuestModeService.instance.recordPlaybackProgress(
+        _currentItem,
+        _currentPositionMs,
+        _durationMs > 0 ? _durationMs : (_currentItem.duration ?? 0),
+      );
+      return _currentItem.copyWith(
+        viewOffset: _currentPositionMs,
+        duration: _durationMs > 0 ? _durationMs : _currentItem.duration,
+      );
+    }
     if (_isAnonymousMode) {
       return _currentItem;
     }
@@ -1719,7 +1732,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       final screenOff = prefs.getBool('continue_playback_screen_off') ?? false;
 
       _continuePlaybackScreenOff = screenOff;
-      final anon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+      final anon = GuestModeService.instance.isGuestMode ||
+          (prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false);
       _isAnonymousMode = anon;
       _timelineService = PlexTimelineService(
         server: widget.server,
@@ -3879,35 +3893,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+        _currentPlaySessionId = '${widget.clientId}_${DateTime.now().millisecondsSinceEpoch}';
         streamUrl = _mediaService.buildTranscodeUrl(
-
-
 
           ratingKey: _currentItem.ratingKey,
         mediaSourceId: _currentItem.partId ?? _currentItem.ratingKey,
         maxBitrateKbps: _selectedQuality.bitrateKbps,
 
-
-
           resolution: _selectedQuality.resolution,
-
-
 
           offsetSeconds: _currentPositionMs ~/ 1000,
 
-
-
           clientId: widget.clientId,
-
-
 
           directStreamVideo: _selectedQuality.resolution.isEmpty,
 
-
-
           forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
 
-
+          playSessionId: _currentPlaySessionId,
 
         );
 
@@ -3955,7 +3958,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
       if (!_timelineService.isAnonymous) {
         final prefs = await SharedPreferences.getInstance();
-        final anon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
+        final anon = GuestModeService.instance.isGuestMode ||
+          (prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false);
         if (anon) {
           _isAnonymousMode = true;
           _timelineService = PlexTimelineService(
@@ -3965,17 +3969,16 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
           );
         }
       }
+      final playMethod = _selectedQuality.isDirectPlay
+          ? 'DirectPlay'
+          : (_selectedQuality.resolution.isEmpty ? 'DirectStream' : 'Transcode');
       _timelineService.startPlayback(
-
-
 
         _currentItem,
 
-
-
         _currentPositionMs,
-
-
+        playMethod: playMethod,
+        playSessionId: _currentPlaySessionId,
 
       );
 
@@ -7583,6 +7586,7 @@ void _showSubtitleSelector() {
           startPos = 0;
         }
 
+        _currentPlaySessionId = '${widget.clientId}_${DateTime.now().millisecondsSinceEpoch}';
         streamUrl = _mediaService.buildTranscodeUrl(
 
           ratingKey: _currentItem.ratingKey,
@@ -7604,6 +7608,8 @@ void _showSubtitleSelector() {
           subtitleStreamId: _selectedSubtitle?.id,
 
           forceAudioTranscode: _audioNeedsTranscode || _forceAudioForSpeed,
+
+          playSessionId: _currentPlaySessionId,
 
         );
 
@@ -7648,6 +7654,14 @@ void _showSubtitleSelector() {
       }
 
 
+
+      final qualityPlayMethod = quality.isDirectPlay
+          ? 'DirectPlay'
+          : (quality.resolution.isEmpty ? 'DirectStream' : 'Transcode');
+      _timelineService.updatePlayMethod(
+        playMethod: qualityPlayMethod,
+        playSessionId: _currentPlaySessionId,
+      );
 
       if (wasPlaying) {
 
@@ -19171,11 +19185,12 @@ class _SubtitleDialogOptionState extends State<_SubtitleDialogOption> {
 
       child: InkWell(
 
-
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        splashColor: Colors.transparent,
 
         onTap: widget.onTap,
-
-
 
         onHover: (hovered) {
 

@@ -17,6 +17,7 @@ import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
 
 import '../widgets/plix_bottom_nav.dart';
+import '../widgets/plix_tv_text_field.dart';
 
 
 
@@ -88,11 +89,17 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
 
 
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
 
   void initState() {
 
     super.initState();
+
+    PlixTheme.themeRevision.addListener(_onThemeChanged);
 
     for (final preset in PlixTheme.presetOptions) {
 
@@ -131,6 +138,8 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
   @override
 
   void dispose() {
+
+    PlixTheme.themeRevision.removeListener(_onThemeChanged);
 
     _backButtonFocusNode.dispose();
 
@@ -505,6 +514,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                                         } else {
 
                                           PlixTheme.setPreset(preset);
+                                          if (mounted) setState(() {});
 
                                         }
 
@@ -738,7 +748,10 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
                                       focusNode: _colorFocusNodes[opt.id]!,
 
-                                      onSelect: () => PlixTheme.setTheme(opt),
+                                      onSelect: () {
+                                        PlixTheme.setTheme(opt);
+                                        if (mounted) setState(() {});
+                                      },
 
                                       onLeft: onLeft,
 
@@ -897,6 +910,41 @@ class _LiveThemePreviewBar extends StatelessWidget {
               ),
 
               const SizedBox(width: 14),
+
+              // Sample mini button using Accent Highlight color
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withOpacity(0.4),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      size: 13,
+                      color: ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Accent',
+                      style: TextStyle(
+                        color: ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
 
               // Sample mini button using Sidebar & Surfaces color
 
@@ -3340,46 +3388,33 @@ class _PalettePickerDialogState extends State<_PalettePickerDialog> {
                   const SizedBox(width: 8),
 
                   Expanded(
-
-                    child: TextField(
-                      focusNode: _hexInputFocusNode,
-                      controller: _textController,
-                      maxLength: 6,
-                      readOnly: !_isEditingHex,
-                      textInputAction: TextInputAction.done,
-                      onTap: () {
-                        if (mounted) setState(() => _isEditingHex = true);
-                        SystemChannels.textInput.invokeMethod('TextInput.show');
-                      },
-                      onSubmitted: (_) {
-                        if (mounted) setState(() => _isEditingHex = false);
-                        _applyHex();
-                        _applyBtnFocusNode.requestFocus();
-                      },
-                      style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontWeight: FontWeight.bold),
-
-                      decoration: InputDecoration(
-
-                        counterText: '',
-
-                        hintText: 'RRGGBB',
-
-                        hintStyle: const TextStyle(color: Colors.white30),
-
-                        filled: true,
-
-                        fillColor: PlixTheme.card,
-
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: PlixTheme.cardBorder)),
-
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: PlixTheme.plexGold, width: 2)),
-
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: PlixTheme.card,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _hexInputFocusNode.hasFocus ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                          width: _hexInputFocusNode.hasFocus ? 2.0 : 1.0,
+                        ),
                       ),
-
+                      child: PlixTvTextField(
+                        focusNode: _hexInputFocusNode,
+                        controller: _textController,
+                        maxLength: 6,
+                        imeAction: 'done',
+                        hintText: 'RRGGBB',
+                        hintStyle: const TextStyle(color: Colors.white30),
+                        style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                        onRight: () => _applyBtnFocusNode.requestFocus(),
+                        onSubmitted: (_) {
+                          if (mounted) setState(() => _isEditingHex = false);
+                          _applyHex();
+                          _applyBtnFocusNode.requestFocus();
+                        },
+                      ),
                     ),
-
                   ),
 
                   const SizedBox(width: 10),

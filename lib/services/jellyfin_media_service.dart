@@ -1982,6 +1982,7 @@ class JellyfinMediaService {
     if (maxBitrateKbps != null && maxBitrateKbps > 0) {
 
       params.add('VideoBitRate=${maxBitrateKbps * 1000}');
+      params.add('MaxStreamingBitrate=${maxBitrateKbps * 1000}');
 
     }
 

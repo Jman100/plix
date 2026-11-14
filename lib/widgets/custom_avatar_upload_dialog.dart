@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../app_theme.dart';
 import '../models/plix_profile.dart';
 import '../services/custom_avatar_service.dart';
+import 'plix_tv_text_field.dart';
 
 class CustomAvatarUploadDialog extends StatefulWidget {
   const CustomAvatarUploadDialog({super.key});
@@ -374,6 +375,7 @@ class _CustomAvatarUploadDialogState extends State<CustomAvatarUploadDialog> {
                   builder: (context, _) {
                     final isFocused = _urlFocusNode.hasFocus;
                     return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: PlixTheme.surface,
                         borderRadius: BorderRadius.circular(12),
@@ -391,24 +393,33 @@ class _CustomAvatarUploadDialogState extends State<CustomAvatarUploadDialog> {
                               ]
                             : null,
                       ),
-                      child: TextField(
-                        controller: _urlController,
-                        focusNode: _urlFocusNode,
-                        enabled: !_isLoading,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                        decoration: const InputDecoration(
-                          hintText: 'https://example.com/avatar.png',
-                          hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
-                          prefixIcon: Icon(Icons.link_rounded, color: Colors.white54, size: 20),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
-                        onSubmitted: (_) => _handleApplyUrl(),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link_rounded, color: Colors.white54, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: SizedBox(
+                              height: 26,
+                              child: PlixTvTextField(
+                                controller: _urlController,
+                                focusNode: _urlFocusNode,
+                                hintText: 'https://example.com/avatar.png',
+                                imeAction: 'done',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                                hintStyle: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 13,
+                                ),
+                                onUp: () => _fileButtonFocusNode.requestFocus(),
+                                onDown: () => _applyFocusNode.requestFocus(),
+                                onSubmitted: (_) => _handleApplyUrl(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },

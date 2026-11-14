@@ -12,6 +12,7 @@ import '../services/plix_device_helper.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/plix_button.dart';
 import 'home_screen.dart';
+import 'server_select_screen.dart';
 
 class FavoriteLibrariesScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -35,6 +36,7 @@ class FavoriteLibrariesScreen extends StatefulWidget {
 
 class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
 
   List<PlexServer> _servers = [];
@@ -44,6 +46,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   bool _isSaving = false;
 
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _refreshBtnFocusNode = FocusNode();
   final FocusNode _saveBtnFocusNode = FocusNode();
   final FocusNode _bottomSaveBtnFocusNode = FocusNode();
   final Map<String, FocusNode> _cardFocusNodes = {};
@@ -51,12 +54,13 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   @override
   void initState() {
     super.initState();
+    _refreshBtnFocusNode.addListener(_onTopFocus);
     _saveBtnFocusNode.addListener(_onTopFocus);
     _loadAllLibraries();
   }
 
   void _onTopFocus() {
-    if (_saveBtnFocusNode.hasFocus) {
+    if (_saveBtnFocusNode.hasFocus || _refreshBtnFocusNode.hasFocus) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 200), curve: Curves.easeOutCubic);
       }
@@ -66,7 +70,9 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   @override
   void dispose() {
     _saveBtnFocusNode.removeListener(_onTopFocus);
+    _refreshBtnFocusNode.removeListener(_onTopFocus);
     _scrollController.dispose();
+    _refreshBtnFocusNode.dispose();
     _saveBtnFocusNode.dispose();
     _bottomSaveBtnFocusNode.dispose();
     for (final node in _cardFocusNodes.values) {
@@ -75,16 +81,22 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
     super.dispose();
   }
 
-  Future<void> _loadAllLibraries() async {
+  Future<void> _loadAllLibraries({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
+      if (forceRefresh) {
+        _isRefreshing = true;
+        _serverLibraries.clear();
+      }
       _errorMessage = null;
     });
 
     try {
       final token = await widget.authService.getSavedToken() ?? '';
-      List<PlexServer> servers = widget.servers != null ? List<PlexServer>.from(widget.servers!) : [];
-      if (servers.isEmpty) {
+      List<PlexServer> servers = (!forceRefresh && widget.servers != null)
+          ? List<PlexServer>.from(widget.servers!)
+          : [];
+      if (servers.isEmpty || forceRefresh) {
         servers = await widget.serverService.fetchServers(token);
       }
 
@@ -124,7 +136,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
         }
       }
       void requestInitialFocusIfNeeded() {
-        if (_hasInitialFocusRequested || !mounted) return;
+        if (_hasInitialFocusRequested || !mounted || forceRefresh) return;
         _hasInitialFocusRequested = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -167,16 +179,33 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isRefreshing = false;
         });
 
-        requestInitialFocusIfNeeded();
+        if (forceRefresh) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _refreshBtnFocusNode.canRequestFocus) {
+              _refreshBtnFocusNode.requestFocus();
+            }
+          });
+        } else {
+          requestInitialFocusIfNeeded();
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isRefreshing = false;
           _errorMessage = 'Failed to load libraries: $e';
         });
+        if (forceRefresh) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _refreshBtnFocusNode.canRequestFocus) {
+              _refreshBtnFocusNode.requestFocus();
+            }
+          });
+        }
       }
     }
   }
@@ -212,7 +241,8 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   }
 
   void _handleBackAttempt() {
-    if (_selectedCompositeIds.isEmpty) {
+    final totalLibsCount = _serverLibraries.values.fold<int>(0, (sum, list) => sum + list.length);
+    if (_selectedCompositeIds.isEmpty && totalLibsCount > 0) {
       _showToast('You must pick at least one favorite library.');
       return;
     }
@@ -221,7 +251,8 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
 
   Future<void> _saveChanges() async {
     if (_isSaving) return;
-    if (_selectedCompositeIds.isEmpty) {
+    final totalLibsCount = _serverLibraries.values.fold<int>(0, (sum, list) => sum + list.length);
+    if (_selectedCompositeIds.isEmpty && totalLibsCount > 0) {
       _showToast('You must pick at least one favorite library.');
       return;
     }
@@ -262,6 +293,19 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
             (route) => false,
           );
           return;
+        } else {
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => ServerSelectScreen(
+                servers: _servers,
+                authService: widget.authService,
+                serverService: widget.serverService,
+              ),
+            ),
+            (route) => false,
+          );
+          return;
         }
       }
 
@@ -295,19 +339,67 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
                   onPressed: _handleBackAttempt,
                 ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: PlixButton(
+              focusNode: _refreshBtnFocusNode,
+              label: _isRefreshing ? 'Refreshing...' : 'Refresh Servers',
+              icon: _isRefreshing
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _refreshBtnFocusNode.hasFocus ? Colors.black : PlixTheme.plexGold,
+                        ),
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              backgroundColor: Colors.white.withOpacity(0.1),
+              borderColor: PlixTheme.plexGold.withOpacity(0.4),
+              textColor: PlixTheme.textPrimary,
+              highlightColor: PlixTheme.plexGold,
+              highlightTextColor: Colors.black,
+              highlightBorderColor: PlixTheme.plexGold,
+              fontSize: 13,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              onRight: () {
+                if (_saveBtnFocusNode.canRequestFocus) {
+                  _saveBtnFocusNode.requestFocus();
+                }
+              },
+              onDown: () {
+                if (_cardFocusNodes.isNotEmpty) {
+                  _cardFocusNodes.values.first.requestFocus();
+                } else {
+                  _bottomSaveBtnFocusNode.requestFocus();
+                }
+              },
+              onPressed: _isRefreshing ? () {} : () => _loadAllLibraries(forceRefresh: true),
+            ),
+          ),
           if (!_isLoading)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: PlixButton(
                 focusNode: _saveBtnFocusNode,
                 label: 'Save Changes',
                 icon: const Icon(Icons.check_rounded, size: 18),
                 backgroundColor: PlixTheme.plexGold,
-                highlightColor: const Color(0xFFFFB82E),
+                highlightColor: PlixTheme.plexGoldLight,
                 borderColor: PlixTheme.plexGold,
                 textColor: Colors.black,
                 fontSize: 13,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                onLeft: () => _refreshBtnFocusNode.requestFocus(),
+                onDown: () {
+                  if (_cardFocusNodes.isNotEmpty) {
+                    _cardFocusNodes.values.first.requestFocus();
+                  } else {
+                    _bottomSaveBtnFocusNode.requestFocus();
+                  }
+                },
                 onPressed: _saveChanges,
               ),
             ),

@@ -1,3 +1,6 @@
+import '../services/guest_mode_service.dart';
+import 'incognito_icon.dart';
+import 'plix_button.dart';
 import '../services/profile_service.dart';
 import '../models/plix_profile.dart';
 import 'profile_avatar_widget.dart';
@@ -39,6 +42,7 @@ class SidebarNav extends StatefulWidget {
 
   final ValueChanged<List<PlexLibrary>>? onLibrariesReordered;
   final VoidCallback? onOpenProfiles;
+  final VoidCallback? onEditProfile;
 
   const SidebarNav({
     super.key,
@@ -59,6 +63,7 @@ class SidebarNav extends StatefulWidget {
     this.onFocusChange,
     this.onLibrariesReordered,
     this.onOpenProfiles,
+    this.onEditProfile,
   });
 
   @override
@@ -66,7 +71,9 @@ class SidebarNav extends StatefulWidget {
 }
 
 class _SidebarNavState extends State<SidebarNav> {
+  final GlobalKey _profileAvatarKey = GlobalKey();
   bool _isExpanded = false;
+  bool _isProfileMenuOpen = false;
   bool _mobileLandscapeExpanded = false;
   Orientation? _lastOrientation;
   late List<PlexLibrary> _orderedLibraries;
@@ -238,6 +245,274 @@ class _SidebarNavState extends State<SidebarNav> {
     }
   }
 
+  void _showEnterGuestModeDialog() {
+    final cancelFocus = FocusNode(debugLabel: 'guestCancel');
+    final enableFocus = FocusNode(debugLabel: 'guestEnable');
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Container(
+            width: 480,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: PlixTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: PlixTheme.plexGold.withOpacity(0.5), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.8),
+                  blurRadius: 24,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: PlixTheme.plexGold.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IncognitoIcon(size: 26, color: PlixTheme.plexGold),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Text(
+                        'Enter Guest Mode',
+                        style: TextStyle(
+                          color: PlixTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Stream content in a temporary private session. Watch history and progress during guest mode will not be saved to your server, keeping your profile activity and Continue Watching completely untouched.\n\nYou can exit Guest Mode at any time from the sidebar.',
+                  style: TextStyle(
+                    color: PlixTheme.textSecondary,
+                    fontSize: 14,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    PlixButton(
+                      focusNode: cancelFocus,
+                      autofocus: true,
+                      label: 'Cancel',
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      borderColor: Colors.white.withOpacity(0.2),
+                      textColor: PlixTheme.textPrimary,
+                      highlightColor: Colors.white.withOpacity(0.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      onRight: () => enableFocus.requestFocus(),
+                      blockLeft: true,
+                      blockUp: true,
+                      blockDown: true,
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    PlixButton(
+                      focusNode: enableFocus,
+                      label: 'Enable',
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      borderColor: Colors.white.withOpacity(0.2),
+                      textColor: PlixTheme.textPrimary,
+                      highlightColor: PlixTheme.plexGold,
+                      highlightTextColor: Colors.black,
+                      highlightBorderColor: PlixTheme.plexGold,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      onLeft: () => cancelFocus.requestFocus(),
+                      blockRight: true,
+                      blockUp: true,
+                      blockDown: true,
+                      onPressed: () async {
+                        Navigator.of(dialogCtx).pop();
+                        await GuestModeService.instance.setGuestMode(true);
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openProfileMenu() {
+    if (_isProfileMenuOpen) return;
+    _isProfileMenuOpen = true;
+    setState(() {});
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final avatarBox = _profileAvatarKey.currentContext?.findRenderObject() as RenderBox?;
+      final avatarPos = avatarBox?.localToGlobal(Offset.zero) ?? const Offset(16, 56);
+      final avatarSize = avatarBox?.size ?? const Size(42, 42);
+
+      final isGuest = GuestModeService.instance.isGuestMode;
+      final switchUserFocus = FocusNode(debugLabel: 'switchUser');
+      final editProfileFocus = FocusNode(debugLabel: 'editProfile');
+      final enterGuestFocus = FocusNode(debugLabel: 'enterGuest');
+      final exitGuestFocus = FocusNode(debugLabel: 'exitGuest');
+
+      showDialog(
+        context: context,
+        barrierColor: Colors.transparent,
+        barrierDismissible: true,
+        builder: (dialogCtx) {
+          return FocusScope(
+            autofocus: true,
+            child: FocusTraversalGroup(
+              policy: WidgetOrderTraversalPolicy(),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(dialogCtx).pop(),
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                  Positioned(
+                    left: avatarPos.dx.clamp(8.0, MediaQuery.of(dialogCtx).size.width - 220.0),
+                    top: avatarPos.dy + avatarSize.height + 6.0,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: PlixTheme.themeRevision,
+                        builder: (context, _, __) {
+                          final accent = PlixTheme.plexGold;
+                          return Container(
+                            width: isGuest ? 200 : 215,
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: PlixTheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: accent.withOpacity(0.5), width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withOpacity(0.25),
+                                  blurRadius: 18,
+                                  spreadRadius: 1,
+                                  offset: const Offset(0, 8),
+                                ),
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.7),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isGuest) ...[
+                                  _ProfilePopupMenuItem(
+                                    focusNode: exitGuestFocus,
+                                    autofocus: true,
+                                    icon: Icons.no_accounts_rounded,
+                                    label: 'Exit Guest Mode',
+                                    onSelect: () {
+                                      Navigator.of(dialogCtx).pop();
+                                      GuestModeService.instance.exitGuestMode();
+                                    },
+                                    onDown: () {},
+                                    onUp: () {},
+                                    onOtherDirection: () => Navigator.of(dialogCtx).pop(),
+                                    onBack: () => Navigator.of(dialogCtx).pop(),
+                                  ),
+                                ] else ...[
+                                  _ProfilePopupMenuItem(
+                                    focusNode: switchUserFocus,
+                                    autofocus: true,
+                                    icon: Icons.switch_account_rounded,
+                                    label: 'Switch User',
+                                    onSelect: () {
+                                      Navigator.of(dialogCtx).pop();
+                                      widget.onOpenProfiles?.call();
+                                    },
+                                    onDown: () => editProfileFocus.requestFocus(),
+                                    onUp: () => enterGuestFocus.requestFocus(),
+                                    onOtherDirection: () => Navigator.of(dialogCtx).pop(),
+                                    onBack: () => Navigator.of(dialogCtx).pop(),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _ProfilePopupMenuItem(
+                                    focusNode: editProfileFocus,
+                                    icon: Icons.edit_rounded,
+                                    label: 'Edit Profile',
+                                    onSelect: () {
+                                      Navigator.of(dialogCtx).pop();
+                                      widget.onEditProfile?.call();
+                                    },
+                                    onUp: () => switchUserFocus.requestFocus(),
+                                    onDown: () => enterGuestFocus.requestFocus(),
+                                    onOtherDirection: () => Navigator.of(dialogCtx).pop(),
+                                    onBack: () => Navigator.of(dialogCtx).pop(),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _ProfilePopupMenuItem(
+                                    focusNode: enterGuestFocus,
+                                    icon: Icons.visibility_off_rounded,
+                                    label: 'Enter Guest Mode',
+                                    onSelect: () {
+                                      Navigator.of(dialogCtx).pop();
+                                      _showEnterGuestModeDialog();
+                                    },
+                                    onUp: () => editProfileFocus.requestFocus(),
+                                    onDown: () => switchUserFocus.requestFocus(),
+                                    onOtherDirection: () => Navigator.of(dialogCtx).pop(),
+                                    onBack: () => Navigator.of(dialogCtx).pop(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ).then((_) {
+        switchUserFocus.dispose();
+        editProfileFocus.dispose();
+        exitGuestFocus.dispose();
+        if (mounted) {
+          setState(() {
+            _isProfileMenuOpen = false;
+          });
+          _profileFocusNode.requestFocus();
+        }
+      });
+    });
+  }
+
   void _toggleReorderMode() {
     setState(() {
       _isReorderMode = !_isReorderMode;
@@ -325,8 +600,8 @@ class _SidebarNavState extends State<SidebarNav> {
         currentOrientation == Orientation.landscape;
     final isReorderGripEnabled = !PlixDeviceHelper.isTelevision &&
         ((Platform.isWindows || Platform.isLinux) || currentOrientation == Orientation.landscape);
-    final effectiveExpanded = isMobileLandscape ? _mobileLandscapeExpanded : _isExpanded;
-    final width = effectiveExpanded ? 270.0 : 72.0;
+    final effectiveExpanded = _isProfileMenuOpen || (isMobileLandscape ? _mobileLandscapeExpanded : _isExpanded);
+    final width = effectiveExpanded ? 245.0 : 72.0;
 
     return MouseRegion(
       onEnter: (_) {
@@ -435,7 +710,7 @@ class _SidebarNavState extends State<SidebarNav> {
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
                 child: SizedBox(
-                  width: effectiveExpanded ? (270.0 - 28.0) : (72.0 - 20.0),
+                  width: effectiveExpanded ? (245.0 - 28.0) : (72.0 - 20.0),
                   child: Row(
                     children: [
                       if (!effectiveExpanded) ...[
@@ -503,7 +778,7 @@ class _SidebarNavState extends State<SidebarNav> {
                             return Focus(
                               focusNode: _profileFocusNode,
                               onKeyEvent: (node, event) {
-                                if (event is KeyDownEvent) {
+                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                   final key = event.logicalKey;
                                   if (key == LogicalKeyboardKey.arrowDown) {
                                     (widget.homeFocusNode ?? _itemFocusNodes['home'])?.requestFocus();
@@ -513,12 +788,14 @@ class _SidebarNavState extends State<SidebarNav> {
                                     _handleNavigateRight();
                                     return KeyEventResult.handled;
                                   }
-                                  if (key == LogicalKeyboardKey.select ||
+                                  if (event is KeyDownEvent &&
+                                      (key == LogicalKeyboardKey.select ||
                                       key == LogicalKeyboardKey.enter ||
                                       key == LogicalKeyboardKey.space ||
                                       key == LogicalKeyboardKey.gameButtonA ||
-                                      key == LogicalKeyboardKey.numpadEnter) {
-                                    widget.onOpenProfiles?.call();
+                                      key == LogicalKeyboardKey.gameButtonSelect ||
+                                      key == LogicalKeyboardKey.numpadEnter)) {
+                                    _openProfileMenu();
                                     return KeyEventResult.handled;
                                   }
                                 }
@@ -530,14 +807,17 @@ class _SidebarNavState extends State<SidebarNav> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     canRequestFocus: false,
-                                    onTap: widget.onOpenProfiles,
+                                    onTap: _openProfileMenu,
                                     borderRadius: BorderRadius.circular(10),
-                                    child: ProfileAvatarWidget(
-                                      avatarId: avatarId,
-                                      avatarColorId: activeProf?.avatarColorId,
-                                      size: 42,
-                                      isFocused: isFocused,
-                                      glow: isFocused,
+                                    child: Container(
+                                      key: _profileAvatarKey,
+                                      child: ProfileAvatarWidget(
+                                        avatarId: avatarId,
+                                        avatarColorId: activeProf?.avatarColorId,
+                                        size: 42,
+                                        isFocused: isFocused,
+                                        glow: isFocused,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -600,6 +880,22 @@ class _SidebarNavState extends State<SidebarNav> {
                                       ),
                                     ),
                                   ),
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: GuestModeService.instance.isGuestModeNotifier,
+                                    builder: (context, isGuest, _) {
+                                      if (!isGuest) return const SizedBox.shrink();
+                                      return Padding(
+                                        padding: const EdgeInsets.only(left: 6),
+                                        child: Tooltip(
+                                          message: 'Guest Mode Active',
+                                          child: IncognitoIcon(
+                                            size: 22,
+                                            color: PlixTheme.plexGold,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ],
                               ),
                             );
@@ -657,9 +953,7 @@ class _SidebarNavState extends State<SidebarNav> {
                     isSelected: widget.activeDestination == NavDestination.home,
                     isExpanded: effectiveExpanded,
                     onUp: () {
-                      if (effectiveExpanded) {
-                        _profileFocusNode.requestFocus();
-                      }
+                      _profileFocusNode.requestFocus();
                     },
                     onDown: () => _searchFocusNode.requestFocus(),
                     onFocusChange: (focused) {
@@ -939,16 +1233,27 @@ class _SidebarNavState extends State<SidebarNav> {
                     onTap: widget.onSwitchServer,
                   ),
 
-                  _NavItem(
-                    focusNode: _effectiveSignOutFocusNode,
-                    icon: Icons.logout_rounded,
-                    label: 'Sign Out',
-                    isSelected: widget.activeDestination == NavDestination.signOut,
-                    isExpanded: effectiveExpanded,
-                    onUp: () => _effectiveSwitchServerFocusNode.requestFocus(),
-                    blockDown: true,
-                    onNavigateRight: _handleNavigateRight,
-                    onTap: widget.onSignOut,
+                  ValueListenableBuilder<bool>(
+                    valueListenable: GuestModeService.instance.isGuestModeNotifier,
+                    builder: (context, isGuest, _) {
+                      return _NavItem(
+                        focusNode: _effectiveSignOutFocusNode,
+                        icon: isGuest ? Icons.no_accounts_rounded : Icons.logout_rounded,
+                        label: isGuest ? 'Exit Guest Mode' : 'Log Out',
+                        isSelected: !isGuest && widget.activeDestination == NavDestination.signOut,
+                        isExpanded: effectiveExpanded,
+                        onUp: () => _effectiveSwitchServerFocusNode.requestFocus(),
+                        blockDown: true,
+                        onNavigateRight: _handleNavigateRight,
+                        onTap: () {
+                          if (isGuest) {
+                            GuestModeService.instance.exitGuestMode();
+                          } else {
+                            widget.onSignOut();
+                          }
+                        },
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1498,3 +1803,127 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
   }
 }
 
+
+
+class _ProfilePopupMenuItem extends StatefulWidget {
+  final FocusNode focusNode;
+  final bool autofocus;
+  final IconData icon;
+  final String label;
+  final VoidCallback onSelect;
+  final VoidCallback onDown;
+  final VoidCallback onUp;
+  final VoidCallback onOtherDirection;
+  final VoidCallback onBack;
+
+  const _ProfilePopupMenuItem({
+    required this.focusNode,
+    this.autofocus = false,
+    required this.icon,
+    required this.label,
+    required this.onSelect,
+    required this.onDown,
+    required this.onUp,
+    required this.onOtherDirection,
+    required this.onBack,
+  });
+
+  @override
+  State<_ProfilePopupMenuItem> createState() => _ProfilePopupMenuItemState();
+}
+
+class _ProfilePopupMenuItemState extends State<_ProfilePopupMenuItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: widget.focusNode,
+      autofocus: widget.autofocus,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowDown) {
+            widget.onDown();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowUp) {
+            widget.onUp();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+            widget.onOtherDirection();
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
+            widget.onBack();
+            return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              (key == LogicalKeyboardKey.select ||
+              key == LogicalKeyboardKey.enter ||
+              key == LogicalKeyboardKey.space ||
+              key == LogicalKeyboardKey.gameButtonA ||
+              key == LogicalKeyboardKey.gameButtonSelect ||
+              key == LogicalKeyboardKey.numpadEnter)) {
+            widget.onSelect();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: AnimatedBuilder(
+        animation: widget.focusNode,
+        builder: (context, _) {
+          final isFocused = widget.focusNode.hasFocus || _isHovered;
+          return MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                canRequestFocus: false,
+                borderRadius: BorderRadius.circular(8),
+                onTap: widget.onSelect,
+                child: Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: isFocused ? PlixTheme.plexGold : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        widget.icon,
+                        size: 20,
+                        color: isFocused
+                            ? (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                            : PlixTheme.plexGold.withOpacity(0.85),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isFocused
+                                ? (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                                : PlixTheme.textPrimary,
+                            fontSize: 14,
+                            fontWeight: isFocused ? FontWeight.bold : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

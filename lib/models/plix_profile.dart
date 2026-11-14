@@ -90,6 +90,66 @@ class ProfileGradientOption {
       label: 'Vaporwave Sunset',
       colors: [Color(0xFFFA709A), Color(0xFFFEE140), Color(0xFF48CAE4)],
     ),
+    ProfileGradientOption(
+      id: 'gradient_rainbow_prism',
+      label: 'Rainbow Prism',
+      colors: [Color(0xFFFF1361), Color(0xFFFFF800), Color(0xFF00F5D4), Color(0xFF7B2CBF)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_aurora_borealis',
+      label: 'Northern Lights',
+      colors: [Color(0xFF00F5A0), Color(0xFF00D9F5), Color(0xFF6B11FF), Color(0xFF0D0221)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_supernova',
+      label: 'Supernova Flame',
+      colors: [Color(0xFFFF007F), Color(0xFFFF5E00), Color(0xFFFFDD00), Color(0xFF7928CA)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_hyper_cyber',
+      label: 'Hyper Cyber',
+      colors: [Color(0xFF00F5FF), Color(0xFF7000FF), Color(0xFFFF0066), Color(0xFF00FFA3)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_synthwave_dream',
+      label: 'Synthwave Dream',
+      colors: [Color(0xFF2E0854), Color(0xFFFF007F), Color(0xFFFF9900), Color(0xFF4DEEEA)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_tropical_paradise',
+      label: 'Tropical Coral',
+      colors: [Color(0xFFFF5858), Color(0xFFF09819), Color(0xFF48CAE4), Color(0xFF06D6A0)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_galaxy_cluster',
+      label: 'Deep Galaxy',
+      colors: [Color(0xFF1A0033), Color(0xFF5D0096), Color(0xFFE100FF), Color(0xFF00FFE0)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_cotton_candy',
+      label: 'Pastel Dream',
+      colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88), Color(0xFFFF99AC), Color(0xFF68D8D6)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_fire_ice',
+      label: 'Fire & Ice',
+      colors: [Color(0xFFFF3B30), Color(0xFFFF9500), Color(0xFF00C6FF), Color(0xFF0072FF)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_matrix_grid',
+      label: 'Phosphor Matrix',
+      colors: [Color(0xFF00FF66), Color(0xFF008F39), Color(0xFF011A08)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_amethyst_blush',
+      label: 'Amethyst Sunset',
+      colors: [Color(0xFF9D4EDD), Color(0xFFFF5D8F), Color(0xFFFFB4A2), Color(0xFF3C096C)],
+    ),
+    ProfileGradientOption(
+      id: 'gradient_laser_lemon',
+      label: 'Solar Citrus',
+      colors: [Color(0xFFFF0055), Color(0xFFFF5500), Color(0xFFCCFF00)],
+    ),
   ];
 
   static ProfileGradientOption getGradientOption(String? id) {

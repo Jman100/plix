@@ -20,6 +20,13 @@ class ProfileService {
   PlixProfile? get activeProfile => _activeProfile;
   static String? get activeProfileId => _instance._activeProfile?.id;
 
+  /// True if there is only one profile and it has a PIN, or all profiles have PINs.
+  /// When true, always asking "who's watching" at startup is strictly enforced.
+  bool get shouldForceAlwaysAsk {
+    if (_profiles.isEmpty) return false;
+    return _profiles.every((p) => p.hasPin);
+  }
+
   static String key(String baseKey) {
     final curId = activeProfileId;
     if (curId == null || curId.isEmpty) return baseKey;

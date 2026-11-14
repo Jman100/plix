@@ -38,17 +38,24 @@ class ProfileAvatarWidget extends StatelessWidget {
     if (isFocused) {
       shadows.add(
         BoxShadow(
-          color: PlixTheme.plexGold.withOpacity(0.65),
-          blurRadius: 18,
-          spreadRadius: 2.5,
+          color: PlixTheme.plexGold.withOpacity(0.85),
+          blurRadius: 28,
+          spreadRadius: 4.5,
+        ),
+      );
+      shadows.add(
+        BoxShadow(
+          color: PlixTheme.plexGold.withOpacity(0.40),
+          blurRadius: 48,
+          spreadRadius: 8.0,
         ),
       );
     } else if (glow) {
       shadows.add(
         BoxShadow(
-          color: PlixTheme.plexGold.withOpacity(0.35),
-          blurRadius: 10,
-          spreadRadius: 1,
+          color: PlixTheme.plexGold.withOpacity(0.50),
+          blurRadius: 16,
+          spreadRadius: 2.0,
         ),
       );
     }

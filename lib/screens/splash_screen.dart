@@ -61,7 +61,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final alwaysAskProfile = prefs.getBool('plix_always_ask_profile') ?? false;
+    final forceAlwaysAsk = ProfileService.instance.shouldForceAlwaysAsk;
+    final alwaysAskProfile = forceAlwaysAsk || (prefs.getBool('plix_always_ask_profile') ?? false);
     if (alwaysAskProfile && ProfileService.instance.profiles.isNotEmpty) {
       _navigateToProfiles();
       return;

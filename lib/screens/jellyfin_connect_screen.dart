@@ -13,6 +13,7 @@ import '../services/update_service.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
+import '../widgets/plix_tv_text_field.dart';
 
 class JellyfinConnectScreen extends StatefulWidget {
   final PlexAuthService authService;
@@ -139,6 +140,12 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         _targetServerName = info.name;
         _quickConnectCode = qcResult.code;
         _quickConnectSecret = qcResult.secret;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isStep2QuickConnect) {
+          _cancelBtnFocusNode.requestFocus();
+        }
       });
 
       _startQuickConnectPolling();
@@ -297,8 +304,8 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                   padding: EdgeInsets.only(
                     left: isCompact ? 16 : 40,
                     right: isCompact ? 16 : 40,
-                    top: isKeyboardOpen ? 40 : (isCompact ? 50 : 60),
-                    bottom: isCompact ? 16 : 24,
+                    top: isKeyboardOpen ? 40 : (_isStep2QuickConnect ? 20 : (isCompact ? 50 : 60)),
+                    bottom: _isStep2QuickConnect ? 32 : (isCompact ? 16 : 24),
                   ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 580),
@@ -381,71 +388,53 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         ],
 
         // URL Input Field with clear focus outline and D-Pad trap prevention
-        Focus(
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent || event is KeyRepeatEvent) {
-              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                _connectBtnFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                _backBtnFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                   event.logicalKey == LogicalKeyboardKey.select ||
-                   event.logicalKey == LogicalKeyboardKey.space ||
-                   event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                SystemChannels.textInput.invokeMethod('TextInput.show');
-              }
-            }
-            return KeyEventResult.ignored;
+        AnimatedBuilder(
+          animation: _urlFocusNode,
+          builder: (context, _) {
+            final isFocused = _urlFocusNode.hasFocus;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: PlixTheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isFocused ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
+                  width: isFocused ? 2.5 : 1.0,
+                ),
+                boxShadow: isFocused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF8E51DC).withOpacity(0.35),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.dns_rounded, color: Color(0xFF8E51DC)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 28,
+                      child: PlixTvTextField(
+                        controller: _urlController,
+                        focusNode: _urlFocusNode,
+                        hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
+                        imeAction: 'done',
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                        onUp: () => _backBtnFocusNode.requestFocus(),
+                        onDown: () => _connectBtnFocusNode.requestFocus(),
+                        onSubmitted: (val) => _onConnectServer(val),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
-          child: AnimatedBuilder(
-            animation: _urlFocusNode,
-            builder: (context, _) {
-              final isFocused = _urlFocusNode.hasFocus;
-              return Container(
-                decoration: BoxDecoration(
-                  color: PlixTheme.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isFocused ? const Color(0xFF8E51DC) : PlixTheme.cardBorder,
-                    width: isFocused ? 2.5 : 1.0,
-                  ),
-                  boxShadow: isFocused
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFF8E51DC).withOpacity(0.35),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: TextField(
-                  controller: _urlController,
-                  focusNode: _urlFocusNode,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
-                    hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    border: InputBorder.none,
-                    prefixIcon: Icon(Icons.dns_rounded, color: Color(0xFF8E51DC)),
-                  ),
-                  onTap: () {
-                    SystemChannels.textInput.invokeMethod('TextInput.show');
-                  },
-                  onSubmitted: (val) => _onConnectServer(val),
-                ),
-              );
-            },
-          ),
         ),
         const SizedBox(height: 20),
 
@@ -628,35 +617,35 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
           ),
         ],
         Container(
-          width: 56,
-          height: 56,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: const Color(0xFF8E51DC).withOpacity(0.15),
             shape: BoxShape.circle,
             border: Border.all(color: const Color(0xFF8E51DC), width: 1.5),
           ),
           child: const Center(
-            child: JellyfinLogo(color: Color(0xFF8E51DC), size: 32),
+            child: JellyfinLogo(color: Color(0xFF8E51DC), size: 26),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Text(
           _targetServerName,
           style: const TextStyle(
             color: PlixTheme.textPrimary,
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 2),
         Text(
           _targetServerUrl,
           style: const TextStyle(
             color: Color(0xFF8E51DC),
-            fontSize: 13,
+            fontSize: 12,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
 
         // Big Quick Connect Code Box
         Builder(
@@ -664,18 +653,18 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
             final isCompact = PlixDeviceHelper.isCompact(context);
             return Container(
               padding: EdgeInsets.symmetric(
-                horizontal: isCompact ? 16 : 28,
-                vertical: isCompact ? 16 : 20,
+                horizontal: isCompact ? 16 : 24,
+                vertical: isCompact ? 10 : 12,
               ),
               decoration: BoxDecoration(
                 color: PlixTheme.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFF8E51DC).withOpacity(0.6), width: 2.0),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF8E51DC).withOpacity(0.25),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+                    blurRadius: 16,
+                    spreadRadius: 1,
                   ),
                 ],
               ),
@@ -685,21 +674,21 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                     'QUICK CONNECT CODE',
                     style: TextStyle(
                       color: PlixTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: 11,
                       letterSpacing: 2,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       _quickConnectCode.split('').join('  '),
                       style: TextStyle(
                         color: PlixTheme.plexGold,
-                        fontSize: isCompact ? 30 : 42,
+                        fontSize: isCompact ? 28 : 36,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: isCompact ? 3 : 6,
+                        letterSpacing: isCompact ? 3 : 5,
                       ),
                     ),
                   ),
@@ -708,14 +697,14 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
             );
           },
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 14),
 
         // Instructions
         Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white12),
           ),
           child: const Column(
@@ -723,52 +712,57 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
             children: [
               Text(
                 'How to connect:',
-                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 4),
               Text(
                 '1. Open the Jellyfin app on your phone or web browser.\n'
                 '2. Go to Settings → Quick Connect.\n'
                 '3. Enter the code above to authorize this device.',
-                style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
 
         // Waiting Indicator
         const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: 14,
+              height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: Color(0xFF8E51DC),
               ),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 10),
             Text(
               'Waiting for authorization on your other device...',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 14),
 
         // Change Server Button with clear outline
         Focus(
           focusNode: _cancelBtnFocusNode,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                 event.logicalKey == LogicalKeyboardKey.select ||
-                 event.logicalKey == LogicalKeyboardKey.space ||
-                 event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              _cancelQuickConnect();
-              return KeyEventResult.handled;
+            if (event is KeyDownEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                _backBtnFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.space ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                _cancelQuickConnect();
+                return KeyEventResult.handled;
+              }
             }
             return KeyEventResult.ignored;
           },

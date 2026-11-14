@@ -162,6 +162,7 @@ class MainActivity: FlutterActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 window.colorMode = ActivityInfo.COLOR_MODE_HDR
                 window.setFormat(PixelFormat.RGBA_1010102)
+                window.decorView.defaultFocusHighlightEnabled = false
             }
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } catch (e: Exception) {
@@ -187,6 +188,9 @@ class MainActivity: FlutterActivity() {
         super.onFlutterSurfaceViewCreated(flutterSurfaceView)
         try {
             flutterSurfaceView.setZOrderMediaOverlay(true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flutterSurfaceView.defaultFocusHighlightEnabled = false
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -255,6 +259,12 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Native TV text field platform view
+        flutterEngine
+            .platformViewsController
+            .registry
+            .registerViewFactory("plix/tv_edit_text", TvEditTextFactory(flutterEngine.dartExecutor.binaryMessenger))
 
         // Updater channel
         updaterChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL)

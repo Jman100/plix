@@ -20,6 +20,8 @@ class PlexTimelineService {
   int _wsConnectGeneration = 0;
   WebSocket? _ws;
   StreamSubscription? _wsSub;
+  String _playMethod = 'DirectPlay';
+  String? _playSessionId;
 
   final StreamController<String?> _serverStopController = StreamController<String?>.broadcast();
   Stream<String?> get onServerStop => _serverStopController.stream;
@@ -37,12 +39,19 @@ class PlexTimelineService {
   String get baseUrl => server.activeConnectionUri ?? '';
   String get token => server.accessToken;
 
-  void startPlayback(PlexMediaItem item, int initialTimeMs) {
+  void startPlayback(
+    PlexMediaItem item,
+    int initialTimeMs, {
+    String playMethod = 'DirectPlay',
+    String? playSessionId,
+  }) {
     _currentItem = item;
     _currentTimeMs = initialTimeMs;
     _isPlaying = true;
     _scrobbled = false;
     _missingSessionCount = 0;
+    _playMethod = playMethod;
+    _playSessionId = playSessionId;
 
     if (isAnonymous) {
       // In Anonymous Mode, do not report playback start, progress, scrobbles, or open WebSockets
@@ -61,6 +70,9 @@ class PlexTimelineService {
         'ItemId': itemId,
         'MediaSourceId': itemId,
         'PositionTicks': ticks,
+        'PlayMethod': _playMethod,
+        if (_playSessionId != null && _playSessionId!.isNotEmpty) 'PlaySessionId': _playSessionId,
+        'CanSeek': true,
       });
       () async {
         try {
@@ -233,6 +245,38 @@ class PlexTimelineService {
     _reportTimeline(state: 'playing', timeMs: timeMs);
   }
 
+  void updatePlayMethod({
+    required String playMethod,
+    String? playSessionId,
+  }) {
+    _playMethod = playMethod;
+    if (playSessionId != null && playSessionId.isNotEmpty) {
+      _playSessionId = playSessionId;
+    }
+    if (server.isJellyfin && _currentItem != null && !isAnonymous) {
+      final itemId = _currentItem!.ratingKey;
+      final ticks = _currentTimeMs * 10000;
+      final endpoint = '$baseUrl/Sessions/Playing';
+      final headers = {
+        'Authorization': 'MediaBrowser Client="${PlixDeviceHelper.clientName}", Device="${PlixDeviceHelper.deviceName}", DeviceId="$clientId", Version="${UpdateService.currentVersion}", Token="$token"',
+        'Content-Type': 'application/json',
+      };
+      final body = jsonEncode({
+        'ItemId': itemId,
+        'MediaSourceId': itemId,
+        'PositionTicks': ticks,
+        'PlayMethod': _playMethod,
+        if (_playSessionId != null && _playSessionId!.isNotEmpty) 'PlaySessionId': _playSessionId,
+        'CanSeek': true,
+      });
+      () async {
+        try {
+          await _client.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));
+        } catch (_) {}
+      }();
+    }
+  }
+
   void stop(int timeMs) {
     _currentTimeMs = timeMs;
     _isPlaying = false;
@@ -293,8 +337,12 @@ class PlexTimelineService {
       };
       final body = jsonEncode({
         'ItemId': itemId,
+        'MediaSourceId': itemId,
         'PositionTicks': ticks,
         'IsPaused': isPaused,
+        'PlayMethod': _playMethod,
+        if (_playSessionId != null && _playSessionId!.isNotEmpty) 'PlaySessionId': _playSessionId,
+        'CanSeek': true,
       });
       try {
         await _client.post(Uri.parse(endpoint), headers: headers, body: body).timeout(const Duration(seconds: 4));

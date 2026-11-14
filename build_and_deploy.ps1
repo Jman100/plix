@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.9.0"
-$versionCode = 50
+$version = "1.9.1"
+$versionCode = 51
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,11 +45,12 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Multi-User Profiles & Server Isolation: Introducing local profiles with independent Plex and Jellyfin server configurations, distinct theme preferences, separate watch history, and PIN protection
-- Custom Profile Avatars & Image Downloader: Upload custom avatar images from your local device or download directly via web URL with safety and dimension validation
-- New Avatar Icons: Added Plex, Jellyfin, Windows, Android, and Linux system avatars alongside 3-tone customizable background gradients
-- TV & Mobile Dialog Polish: Auto-shifting modal dialogs that lift above on-screen software keyboards and optimized D-Pad remote navigation throughout profile setup
-- App Version Bump: v1.9.0 (versionCode 50)
+- Ephemeral Guest Mode: Introducing one-tap guest viewing that isolates playback, prevents main account watch progress bleed, and automatically terminates on app exit or restart
+- Real-Time Appearance & Theme Preview: Dynamic background atmosphere, accent highlights, and preview bar live updates that reflect instantly without exiting the settings screen
+- Jellyfin Transcoding & Session Reporting: Resolved direct-play overrides by sending proper MaxStreamingBitrate caps and active PlayMethod & PlaySessionId telemetry for real-time server dashboard transcoding status
+- Android TV Focus & Glow Polish: Removed residual green edge glow and focus flash artifacts on D-pad navigation; disabled native Android decor focus highlights
+- Server Management Navigation: Theme-matched server refresh controls with stable focus persistence that prevents cursor jumping upon selection
+- App Version Bump: v1.9.1 (versionCode 51)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

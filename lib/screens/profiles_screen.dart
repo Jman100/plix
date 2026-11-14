@@ -7,13 +7,13 @@ import '../services/plex_server_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/pin_dialog.dart';
-import '../widgets/plix_back_button.dart';
 import '../widgets/profile_avatar_widget.dart';
 import 'auth_chooser_screen.dart';
 import 'home_screen.dart';
 import 'profile_setup_screen.dart';
 
 class ProfilesScreen extends StatefulWidget {
+  static bool isVisible = false;
   final PlexAuthService authService;
   final PlexServerService serverService;
 
@@ -35,6 +35,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   @override
   void initState() {
     super.initState();
+    ProfilesScreen.isVisible = true;
     PlixTheme.resetToDefaultModern();
     _initFocusNodes();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,6 +56,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
 
   @override
   void dispose() {
+    ProfilesScreen.isVisible = false;
     for (final node in _cardFocusNodes.values) {
       node.dispose();
     }
@@ -71,11 +73,11 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     // If profile has a PIN lock, verify PIN first
     if (profile.hasPin) {
       final unlocked = await PinDialog.show(context, profile);
-      if (!unlocked) return;
+      if (!unlocked || !mounted) return;
     }
 
     // If it's already the active profile, restore theme and pop back
-    if (currentActive?.id == profile.id) {
+    if (currentActive?.id == profile.id && Navigator.of(context).canPop()) {
       await PlixTheme.loadSavedTheme();
       if (mounted) Navigator.of(context).pop();
       return;
@@ -174,7 +176,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   void _openEditProfile(PlixProfile profile) async {
     if (profile.hasPin) {
       final unlocked = await PinDialog.show(context, profile);
-      if (!unlocked) return;
+      if (!unlocked || !mounted) return;
     }
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -187,6 +189,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       ),
     );
 
+    PlixTheme.resetToDefaultModern();
     if (mounted) {
       _initFocusNodes();
       setState(() {});
@@ -208,6 +211,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         ),
       ),
     );
+    PlixTheme.resetToDefaultModern();
     if (mounted) {
       _initFocusNodes();
       setState(() {});
@@ -227,30 +231,12 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     final activeProfile = ProfileService.instance.activeProfile;
 
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) {
-          await PlixTheme.loadSavedTheme();
-        }
-      },
+      canPop: false,
       child: Scaffold(
         backgroundColor: PlixTheme.background,
         body: SafeArea(
           child: Stack(
             children: [
-              // Top Back Button
-              Positioned(
-                top: 16,
-                left: 20,
-                child: PlixBackButton(
-                  onPressed: () async {
-                    final nav = Navigator.of(context);
-                    await PlixTheme.loadSavedTheme();
-                    if (mounted) nav.pop();
-                  },
-                ),
-              ),
-
             // Center Content
             Center(
               child: SingleChildScrollView(
@@ -488,7 +474,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
             height: 118,
             decoration: BoxDecoration(
               color: isAddFocused
-                  ? PlixTheme.plexGold.withOpacity(0.15)
+                  ? const Color(0xFF22252C)
                   : PlixTheme.surface.withOpacity(0.5),
               shape: BoxShape.circle,
               border: Border.all(
@@ -498,7 +484,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
               boxShadow: isAddFocused
                   ? [
                       BoxShadow(
-                        color: PlixTheme.plexGold.withOpacity(0.35),
+                        color: PlixTheme.plexGold.withOpacity(0.40),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),

@@ -245,6 +245,8 @@ class PlexMediaService {
 
     bool forceAudioTranscode = false,
 
+    String? playSessionId,
+
   }) {
 
     if (server.isJellyfin) {
@@ -266,6 +268,8 @@ class PlexMediaService {
         directStreamVideo: directStreamVideo,
 
         forceAudioTranscode: forceAudioTranscode,
+
+        playSessionId: playSessionId,
 
       );
 

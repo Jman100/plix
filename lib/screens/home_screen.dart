@@ -1,7 +1,10 @@
+import '../services/guest_mode_service.dart';
 import '../models/plix_profile.dart';
 import '../services/profile_service.dart';
 import '../widgets/profile_avatar_widget.dart';
 import 'profiles_screen.dart';
+import '../widgets/pin_dialog.dart';
+import 'profile_setup_screen.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -105,10 +108,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _onReturnedFromWatching() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isAnon = prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false;
-    if (isAnon) {
-      // In Anonymous Mode, do not re-sort continue watching or move focus to watched item
+    if (GuestModeService.instance.isGuestMode) {
+      if (mounted) {
+        setState(() {
+          _continueWatching = List.from(GuestModeService.instance.continueWatching);
+        });
+      }
       return;
     }
     _isAwaitingContinueWatchingRefresh = true;
@@ -275,6 +280,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return true;
     }
 
+    if (GuestModeService.instance.isGuestMode) {
+      GuestModeService.instance.exitGuestMode();
+    }
     SystemNavigator.pop();
     return true;
   }
@@ -289,6 +297,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _mediaService = PlexMediaService(server: widget.server);
     _allServers = [widget.server];
+    GuestModeService.instance.isGuestModeNotifier.addListener(_onGuestModeChanged);
+    GuestModeService.instance.guestContinueWatchingNotifier.addListener(_onGuestContinueWatchingChanged);
 
     _initData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -299,6 +309,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      GuestModeService.instance.exitGuestMode();
+    }
     if (state == AppLifecycleState.resumed) {
       ThemeMusicService.instance.stopImmediate();
       _checkForAutoUpdate();
@@ -414,12 +427,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
 
 
+  void _onGuestModeChanged() {
+    if (!mounted) return;
+    if (GuestModeService.instance.isGuestMode) {
+      setState(() {
+        _continueWatching = List.from(GuestModeService.instance.continueWatching);
+      });
+    } else {
+      _refreshContinueWatching(forceFocusFirst: false);
+    }
+  }
+
+  void _onGuestContinueWatchingChanged() {
+    if (!mounted) return;
+    if (GuestModeService.instance.isGuestMode) {
+      setState(() {
+        _continueWatching = List.from(GuestModeService.instance.continueWatching);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _heroHoverTimer?.cancel();
     _mobileHeroTimer?.cancel();
     _heroMetadataDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    GuestModeService.instance.isGuestModeNotifier.removeListener(_onGuestModeChanged);
+    GuestModeService.instance.guestContinueWatchingNotifier.removeListener(_onGuestContinueWatchingChanged);
 
     _sidebarHomeFocusNode.dispose();
     _sidebarSettingsFocusNode.dispose();
@@ -598,7 +633,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       // First, quickly display cached items if available so the UI renders immediately!
-      if (_cachedContinueWatching.isNotEmpty && _continueWatching.isEmpty) {
+      if (_cachedContinueWatching.isNotEmpty && _continueWatching.isEmpty && !GuestModeService.instance.isGuestMode) {
         final cached = _libraries.isNotEmpty
             ? _cachedContinueWatching.where(_isItemInFavoritedLibraries).toList()
             : _cachedContinueWatching;
@@ -736,15 +771,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }));
 
       final results = await Future.wait([cwFuture, recentFuture]);
-      final cwLists = results[0] as List<List<PlexMediaItem>>;
-      final continueWatching = <PlexMediaItem>[];
-      for (final list in cwLists) {
-        continueWatching.addAll(list);
+      if (GuestModeService.instance.isGuestMode) {
+        _continueWatching = List.from(GuestModeService.instance.continueWatching);
+      } else {
+        final cwLists = results[0] as List<List<PlexMediaItem>>;
+        final continueWatching = <PlexMediaItem>[];
+        for (final list in cwLists) {
+          continueWatching.addAll(list);
+        }
+        final filteredContinueWatching = continueWatching.where(_isItemInFavoritedLibraries).toList();
+        _sortContinueWatching(filteredContinueWatching);
+        _continueWatching = filteredContinueWatching;
+        _cachedContinueWatching = List.from(filteredContinueWatching);
       }
-      final filteredContinueWatching = continueWatching.where(_isItemInFavoritedLibraries).toList();
-      _sortContinueWatching(filteredContinueWatching);
-      _continueWatching = filteredContinueWatching;
-      _cachedContinueWatching = List.from(filteredContinueWatching);
       _precacheAllHomeLogos();
 
       if (_continueWatching.isNotEmpty) {
@@ -995,6 +1034,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     bool forceFocusFirst = false,
     bool keepSidebarFocus = false,
   }) async {
+    if (GuestModeService.instance.isGuestMode) {
+      if (mounted) {
+        setState(() {
+          _continueWatching = List.from(GuestModeService.instance.continueWatching);
+        });
+      }
+      return;
+    }
     try {
       List<PlexServer> targetServers = List.from(_activeServers);
       if (targetServers.isEmpty) {
@@ -1335,6 +1382,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ).then((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  void _openEditProfile() async {
+    final activeProf = ProfileService.instance.activeProfile;
+    if (activeProf == null) return;
+    if (activeProf.hasPin) {
+      final unlocked = await PinDialog.show(context, activeProf);
+      if (!unlocked || !mounted) return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfileSetupScreen(
+          authService: widget.authService,
+          serverService: widget.serverService,
+          profileToEdit: activeProf,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _openSettings() {
@@ -2318,6 +2387,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onFocusChange: (focused) => _isSidebarFocused = focused,
                     onOpenSettings: _openSettings,
                     onOpenProfiles: _openProfilesScreen,
+                    onEditProfile: _openEditProfile,
                     onDestinationSelected: (dest) {
                       if (dest == NavDestination.home) {
                         _refreshContinueWatching(forceFocusFirst: false);

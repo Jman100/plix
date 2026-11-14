@@ -12,6 +12,7 @@ import '../services/plix_device_helper.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
+import '../widgets/plix_tv_text_field.dart';
 import 'details_screen.dart';
 import '../widgets/plix_bottom_nav.dart';
 
@@ -462,167 +463,108 @@ class _SearchScreenState extends State<SearchScreen> {
 
           // Search Input Bar
           Expanded(
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                  final key = event.logicalKey;
-                  if (key == LogicalKeyboardKey.arrowDown) {
-                    if (_results.isNotEmpty) {
-                      if (_isEditingKeyboard) {
-                        setState(() => _isEditingKeyboard = false);
-                        SystemChannels.textInput.invokeMethod('TextInput.hide');
-                      }
-                      _focusFirstResult();
-                      return KeyEventResult.handled;
-                    }
-                  } else if (key == LogicalKeyboardKey.arrowLeft) {
-                    if (!_isEditingKeyboard || _textController.selection.baseOffset <= 0) {
-                      if (_isEditingKeyboard) {
-                        setState(() => _isEditingKeyboard = false);
-                        SystemChannels.textInput.invokeMethod('TextInput.hide');
-                      }
-                      _homeButtonFocus.requestFocus();
-                      return KeyEventResult.handled;
-                    }
-                  } else if (key == LogicalKeyboardKey.arrowRight) {
-                    if (!_isEditingKeyboard || _textController.selection.baseOffset >= _textController.text.length) {
-                      if (_isEditingKeyboard) {
-                        setState(() => _isEditingKeyboard = false);
-                        SystemChannels.textInput.invokeMethod('TextInput.hide');
-                      }
-                      if (_query.isNotEmpty) {
-                        _clearButtonFocus.requestFocus();
-                        return KeyEventResult.handled;
-                      } else if (!(Platform.isWindows || Platform.isLinux)) {
-                        _micButtonFocus.requestFocus();
-                        return KeyEventResult.handled;
-                      }
-                    }
-                  } else if (event is KeyDownEvent &&
-                      (key == LogicalKeyboardKey.select ||
-                       key == LogicalKeyboardKey.enter ||
-                       key == LogicalKeyboardKey.space ||
-                       key == LogicalKeyboardKey.gameButtonA ||
-                       key == LogicalKeyboardKey.gameButtonSelect ||
-                       key == LogicalKeyboardKey.numpadEnter)) {
-                    if (!_isEditingKeyboard) {
-                      setState(() {
-                        _isEditingKeyboard = true;
-                      });
-                      SystemChannels.textInput.invokeMethod('TextInput.show');
-                      return KeyEventResult.handled;
-                    }
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
-              child: AnimatedBuilder(
-                animation: _textFieldFocusNode,
-                builder: (context, _) {
-                  final isFocused = _textFieldFocusNode.hasFocus;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    height: 48,
-                    padding: const EdgeInsets.only(left: 16, right: 6),
-                    decoration: BoxDecoration(
-                      color: PlixTheme.surface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                        width: isFocused ? 2.0 : 1.5,
+            child: AnimatedBuilder(
+              animation: _textFieldFocusNode,
+              builder: (context, _) {
+                final isFocused = _textFieldFocusNode.hasFocus;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: 48,
+                  padding: const EdgeInsets.only(left: 16, right: 6),
+                  decoration: BoxDecoration(
+                    color: PlixTheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                      width: isFocused ? 2.0 : 1.5,
+                    ),
+                    boxShadow: isFocused
+                        ? [
+                            BoxShadow(
+                              color: PlixTheme.plexGold.withOpacity(0.35),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        color: isFocused ? PlixTheme.plexGold : PlixTheme.textMuted,
+                        size: 24,
                       ),
-                      boxShadow: isFocused
-                          ? [
-                              BoxShadow(
-                                color: PlixTheme.plexGold.withOpacity(0.35),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.search_rounded,
-                          color: isFocused ? PlixTheme.plexGold : PlixTheme.textMuted,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _textController,
-                            focusNode: _textFieldFocusNode,
-                            readOnly: !_isEditingKeyboard,
-                            showCursor: true,
-                            cursorColor: PlixTheme.plexGold,
-                            autofocus: false,
-                            textInputAction: TextInputAction.search,
-                            style: const TextStyle(
-                              color: PlixTheme.textPrimary,
-                              fontSize: 16,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Search movies, TV shows, episodes...',
-                              hintStyle: TextStyle(
-                                color: PlixTheme.textMuted,
-                                fontSize: 16,
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _isEditingKeyboard = true;
-                              });
-                              SystemChannels.textInput.invokeMethod('TextInput.show');
-                            },
-                            onChanged: (val) {
-                              _query = val;
-                              _onQueryChanged();
-                            },
-                            onSubmitted: (val) {
-                              _query = val;
-                              setState(() {
-                                _isEditingKeyboard = false;
-                              });
-                              SystemChannels.textInput.invokeMethod('TextInput.hide');
-                              if (_query.trim().isNotEmpty) {
-                                setState(() => _isSearching = true);
-                                _performSearch();
-                              } else {
-                                for (final node in _resultFocusNodes) {
-                                  node.dispose();
-                                }
-                                _resultFocusNodes.clear();
-                                setState(() {
-                                  _results = [];
-                                  _isSearching = false;
-                                });
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PlixTvTextField(
+                          controller: _textController,
+                          focusNode: _textFieldFocusNode,
+                          hintText: 'Search movies, TV shows, episodes...',
+                          style: const TextStyle(
+                            color: PlixTheme.textPrimary,
+                            fontSize: 16,
+                          ),
+                          hintStyle: const TextStyle(
+                            color: PlixTheme.textMuted,
+                            fontSize: 16,
+                          ),
+                          imeAction: 'search',
+                          onChanged: (val) {
+                            _query = val;
+                            _onQueryChanged();
+                          },
+                          onSubmitted: (val) {
+                            _query = val;
+                            _textFieldFocusNode.unfocus();
+                            if (_query.trim().isNotEmpty) {
+                              setState(() => _isSearching = true);
+                              _performSearch();
+                            } else {
+                              for (final node in _resultFocusNodes) {
+                                node.dispose();
                               }
-                            },
-                          ),
+                              _resultFocusNodes.clear();
+                              setState(() {
+                                _results = [];
+                                _isSearching = false;
+                              });
+                            }
+                          },
+                          onLeft: () => _homeButtonFocus.requestFocus(),
+                          onRight: () {
+                            if (_query.isNotEmpty) {
+                              _clearButtonFocus.requestFocus();
+                            } else if (!(Platform.isWindows || Platform.isLinux)) {
+                              _micButtonFocus.requestFocus();
+                            }
+                          },
+                          onDown: () {
+                            if (_results.isNotEmpty) {
+                              _focusFirstResult();
+                            }
+                          },
                         ),
-                        if (_query.isNotEmpty) ...[
-                          _TvIconButton(
-                            focusNode: _clearButtonFocus,
-                            icon: Icons.close_rounded,
-                            tooltip: 'Clear',
-                            size: 32,
-                            iconSize: 18,
-                            onPressed: _handleClear,
-                            onLeft: () => _textFieldFocusNode.requestFocus(),
-                            onRight: !(Platform.isWindows || Platform.isLinux)
-                                ? () => _micButtonFocus.requestFocus()
-                                : null,
-                            onDown: _results.isNotEmpty ? _focusFirstResult : null,
-                          ),
-                        ],
+                      ),
+                      if (_query.isNotEmpty) ...[
+                        _TvIconButton(
+                          focusNode: _clearButtonFocus,
+                          icon: Icons.close_rounded,
+                          tooltip: 'Clear',
+                          size: 32,
+                          iconSize: 18,
+                          onPressed: _handleClear,
+                          onLeft: () => _textFieldFocusNode.requestFocus(),
+                          onRight: !(Platform.isWindows || Platform.isLinux)
+                              ? () => _micButtonFocus.requestFocus()
+                              : null,
+                          onDown: _results.isNotEmpty ? _focusFirstResult : null,
+                        ),
                       ],
-                    ),
-                  );
-                },
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
 
@@ -752,8 +694,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
         return GridView.builder(
           controller: _scrollController,
-          padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 60),
-          clipBehavior: Clip.hardEdge,
+          padding: const EdgeInsets.only(top: 20, left: 16, right: 16, bottom: 60),
+          clipBehavior: Clip.none,
           cacheExtent: 1500,
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           gridDelegate: gridDelegate,

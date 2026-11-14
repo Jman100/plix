@@ -1,3 +1,4 @@
+import '../services/guest_mode_service.dart';
 import 'package:intl/intl.dart';
 import 'plex_server.dart';
 
@@ -212,7 +213,26 @@ class PlexMediaItem {
   final String summary;
   final int? year;
   final int? duration; // milliseconds
-  final int? viewOffset; // milliseconds
+  final int? _rawViewOffset; // milliseconds
+  final int? _rawViewCount;
+
+  int? get viewOffset {
+    if (GuestModeService.instance.isGuestMode) {
+      return GuestModeService.instance.getViewOffset(ratingKey);
+    }
+    return _rawViewOffset;
+  }
+
+  int? get rawViewOffset => _rawViewOffset;
+
+  int? get viewCount {
+    if (GuestModeService.instance.isGuestMode) {
+      return GuestModeService.instance.isWatched(ratingKey) ? 1 : 0;
+    }
+    return _rawViewCount;
+  }
+
+  int? get rawViewCount => _rawViewCount;
   final String? thumb;
   final String? art;
   final String? theme; // TV Show theme audio path, e.g. /library/metadata/123/theme/456
@@ -236,7 +256,6 @@ class PlexMediaItem {
   final String? container;
   final String? partKey; // e.g. /library/parts/1234/file.mkv
   final String? partId;
-  final int? viewCount;
   final int? bitrate; // kbps
   final String? videoProfile;
   final String? colorTrc;
@@ -287,7 +306,7 @@ class PlexMediaItem {
     this.summary = '',
     this.year,
     this.duration,
-    this.viewOffset,
+    int? viewOffset,
     this.thumb,
     this.art,
     this.theme,
@@ -315,7 +334,7 @@ class PlexMediaItem {
     this.container,
     this.partKey,
     this.partId,
-    this.viewCount,
+    int? viewCount,
     this.bitrate,
     this.videoProfile,
     this.colorTrc,
@@ -352,7 +371,8 @@ class PlexMediaItem {
     this.librarySectionTitle,
     this.ancestorIds = const [],
     this.clearLogo,
-  });
+  }) : _rawViewOffset = viewOffset,
+       _rawViewCount = viewCount;
 
   bool get isMovie => type == 'movie';
   bool get isShow => type == 'show' || type == 'series';
@@ -1328,7 +1348,7 @@ class PlexMediaItem {
       summary: summary ?? this.summary,
       year: year ?? this.year,
       duration: clearDuration ? null : (duration ?? this.duration),
-      viewOffset: viewOffset ?? this.viewOffset,
+      viewOffset: viewOffset ?? _rawViewOffset,
       thumb: thumb ?? this.thumb,
       art: art ?? this.art,
       theme: theme ?? this.theme,
@@ -1356,7 +1376,7 @@ class PlexMediaItem {
       container: container ?? this.container,
       partKey: partKey ?? this.partKey,
       partId: partId ?? this.partId,
-      viewCount: viewCount ?? this.viewCount,
+      viewCount: viewCount ?? _rawViewCount,
       bitrate: bitrate ?? this.bitrate,
       videoProfile: videoProfile ?? this.videoProfile,
       colorTrc: colorTrc ?? this.colorTrc,
