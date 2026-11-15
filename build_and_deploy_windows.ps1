@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.9.1"
-$versionCode = 51
+$version = "1.9.2"
+$versionCode = 52
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $innoCompiler = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 
@@ -31,12 +31,12 @@ $networkPlixDir = $env:PLIX_LOCAL_DEPLOY_DIR
 
 # Generate and update plix.json release manifest
 $releaseNotes = @"
-- Ephemeral Guest Mode: Introducing one-tap guest viewing that isolates playback, prevents main account watch progress bleed, and automatically terminates on app exit or restart
-- Real-Time Appearance & Theme Preview: Dynamic background atmosphere, accent highlights, and preview bar live updates that reflect instantly without exiting the settings screen
-- Jellyfin Transcoding & Session Reporting: Resolved direct-play overrides by sending proper MaxStreamingBitrate caps and active PlayMethod & PlaySessionId telemetry for real-time server dashboard transcoding status
-- Android TV Focus & Glow Polish: Removed residual green edge glow and focus flash artifacts on D-pad navigation; disabled native Android decor focus highlights
-- Server Management Navigation: Theme-matched server refresh controls with stable focus persistence that prevents cursor jumping upon selection
-- App Version Bump: v1.9.1 (versionCode 51)
+- Profile-Specific Theme Customization: Redesigned theme selection directly into profile creation and editing workflows, ensuring profile theme isolation and preventing theme leakage onto Who's Watching
+- Continue Watching Priority for New Episodes: Newly released and unplayed episodes of shows currently being watched now automatically prioritize to index 0 at the front of Continue Watching
+- Arch Linux & Desktop Updater Detachment: Fully decoupled updater launches using systemd user units and process-group isolation, ensuring the updater terminal closes automatically and does not terminate Plix when exited
+- TV & Mobile Navigation Polish: Unified left navigation top profile header into a single glowing interactive button; enabled mobile touch scrolling for theme selection in landscape orientation
+- Virtual Keyboard & Focus Behavior: Gated profile name field auto-focus to TV only, preventing automatic virtual keyboard popup on mobile; added directional focus constraints on theme row and seamless upward traversal from Save Profile to the Theme option
+- App Version Bump: v1.9.2 (versionCode 52)
 "@
 
 $manifest = [ordered]@{
