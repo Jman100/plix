@@ -14,8 +14,6 @@ import '../widgets/brand_logo.dart';
 
 import '../widgets/plix_back_button.dart';
 
-import '../widgets/plix_home_button.dart';
-
 import '../widgets/plix_bottom_nav.dart';
 import '../widgets/plix_tv_text_field.dart';
 
@@ -76,8 +74,6 @@ class AppearanceScreen extends StatefulWidget {
 class _AppearanceScreenState extends State<AppearanceScreen> {
 
   final FocusNode _backButtonFocusNode = FocusNode();
-
-  final FocusNode _homeButtonFocusNode = FocusNode();
 
 
 
@@ -142,8 +138,6 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
     PlixTheme.themeRevision.removeListener(_onThemeChanged);
 
     _backButtonFocusNode.dispose();
-
-    _homeButtonFocusNode.dispose();
 
     for (final node in _presetFocusNodes.values) {
 
@@ -259,7 +253,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
         child: SingleChildScrollView(
 
-          physics: isCompact ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
 
           child: Padding(
 
@@ -290,26 +284,6 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                       focusNode: _backButtonFocusNode,
 
                       autofocus: false,
-
-                      onRight: () => _homeButtonFocusNode.requestFocus(),
-
-                      onDown: () {
-
-                        final activeId = PlixTheme.currentPreset.value.id;
-
-                        _presetFocusNodes[activeId]?.requestFocus();
-
-                      },
-
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    PlixHomeButton(
-
-                      focusNode: _homeButtonFocusNode,
-
-                      onLeft: () => _backButtonFocusNode.requestFocus(),
 
                       onDown: () {
 

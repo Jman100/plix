@@ -1421,6 +1421,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
     if (mounted) {
+      await PlixTheme.loadSavedTheme();
       setState(() {});
     }
   }

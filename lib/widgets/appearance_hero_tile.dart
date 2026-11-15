@@ -77,12 +77,16 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
             widget.onDown!();
             return KeyEventResult.handled;
           }
-          if (key == LogicalKeyboardKey.arrowLeft && widget.onLeft != null) {
-            widget.onLeft!();
+          if (key == LogicalKeyboardKey.arrowLeft) {
+            if (widget.onLeft != null) {
+              widget.onLeft!();
+            }
             return KeyEventResult.handled;
           }
-          if (key == LogicalKeyboardKey.arrowRight && widget.onRight != null) {
-            widget.onRight!();
+          if (key == LogicalKeyboardKey.arrowRight) {
+            if (widget.onRight != null) {
+              widget.onRight!();
+            }
             return KeyEventResult.handled;
           }
           if (event is KeyDownEvent &&

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:plix/app_theme.dart';
 import 'package:plix/services/profile_service.dart';
+import 'package:plix/screens/appearance_screen.dart';
 import 'package:plix/widgets/appearance_hero_tile.dart';
 import 'package:plix/widgets/plix_button.dart';
 
@@ -98,6 +100,64 @@ void main() {
       expect(selected, isTrue);
 
       focusNode.dispose();
+    });
+
+    testWidgets('AppearanceHeroTile absorbs arrowLeft and arrowRight to keep cursor stationary', (tester) async {
+      final heroNode = FocusNode();
+      final otherNode = FocusNode();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Focus(focusNode: otherNode, child: const SizedBox(height: 10)),
+                AppearanceHeroTile(
+                  focusNode: heroNode,
+                  onSelect: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      heroNode.requestFocus();
+      await tester.pumpAndSettle();
+      expect(heroNode.hasFocus, isTrue);
+
+      // Send arrowLeft
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(heroNode.hasFocus, isTrue);
+
+      // Send arrowRight
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(heroNode.hasFocus, isTrue);
+
+      heroNode.dispose();
+      otherNode.dispose();
+    });
+  });
+
+  group('AppearanceScreen Scroll & Header Tests', () {
+    testWidgets('AppearanceScreen uses BouncingScrollPhysics and does not contain PlixHomeButton', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AppearanceScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollFinder = find.byType(SingleChildScrollView);
+      expect(scrollFinder, findsWidgets);
+      final scrollView = tester.widget<SingleChildScrollView>(scrollFinder.first);
+      expect(scrollView.physics, isA<BouncingScrollPhysics>());
+
+      // Verify PlixHomeButton is completely absent
+      expect(find.byIcon(Icons.home_rounded), findsNothing);
     });
   });
 }

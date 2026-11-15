@@ -7,6 +7,7 @@ import '../models/plix_profile.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/profile_service.dart';
+import '../services/plix_device_helper.dart';
 import '../services/custom_avatar_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/brand_logo.dart';
@@ -109,10 +110,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     _loadCustomAvatars();
 
-    // Default focus to name box without automatically showing keyboard
+    // Default focus to name box on TV without automatically showing keyboard
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _nameBoxFocusNode.requestFocus();
+        if (PlixDeviceHelper.isTelevision) {
+          _nameBoxFocusNode.requestFocus();
+        }
         if (_avatarScrollController.hasClients && initialAvatarOffset > 0) {
           _avatarScrollController.jumpTo(
             initialAvatarOffset.clamp(0.0, _avatarScrollController.position.maxScrollExtent),
@@ -147,7 +150,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       node.dispose();
     }
     _colorScrollController.dispose();
-    PlixTheme.resetToDefaultModern();
+    if (ProfileService.activeProfileId != null) {
+      PlixTheme.loadSavedTheme();
+    } else {
+      PlixTheme.resetToDefaultModern();
+    }
     super.dispose();
   }
 
@@ -280,7 +287,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         );
         await ProfileService.instance.updateProfile(updated);
         ProfileService.targetProfileIdOverride = null;
-        PlixTheme.resetToDefaultModern();
+        if (ProfileService.activeProfileId != null) {
+          await PlixTheme.loadSavedTheme();
+        } else {
+          PlixTheme.resetToDefaultModern();
+        }
         if (mounted) {
           Navigator.of(context).pop(true);
         }
@@ -838,17 +849,35 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 680),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: AppearanceHeroTile(
-                            focusNode: _appearanceTileFocusNode,
-                            onUp: () {
-                              final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
-                              colTarget.requestFocus();
-                            },
-                            onDown: () => _saveFocusNode.requestFocus(),
-                            onSelect: _openAppearanceScreen,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14),
+                              child: Text(
+                                'THEME & APPEARANCE',
+                                style: TextStyle(
+                                  color: PlixTheme.textMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              child: AppearanceHeroTile(
+                                focusNode: _appearanceTileFocusNode,
+                                onUp: () {
+                                  final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
+                                  colTarget.requestFocus();
+                                },
+                                onDown: () => _saveFocusNode.requestFocus(),
+                                onSelect: _openAppearanceScreen,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -893,7 +922,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.arrowUp) {
-                                  _pinCheckboxFocusNode.requestFocus();
+                                  _appearanceTileFocusNode.requestFocus();
                                   return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.select ||
@@ -962,7 +991,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     return KeyEventResult.handled;
                                   }
                                   if (key == LogicalKeyboardKey.arrowUp) {
-                                    _pinCheckboxFocusNode.requestFocus();
+                                    _appearanceTileFocusNode.requestFocus();
                                     return KeyEventResult.handled;
                                   }
                                   if (key == LogicalKeyboardKey.select ||
