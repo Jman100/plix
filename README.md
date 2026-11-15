@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="web_site/logo_plix.png" alt="Plix Logo" width="180" />
+  <img src="https://plix.jman100.com/app_icon.png" alt="Plix Logo" width="180" />
 
   # Plix
 
