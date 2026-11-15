@@ -604,13 +604,13 @@ if [ \$INSTALL_SUCCESS -eq 0 ]; then
     # 1. Systemd user session transient unit (completely detached from terminal cgroup & slice)
     if command -v systemd-run >/dev/null 2>&1; then
         systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
-        systemd-run --user --unit="plix-app-\$RANDOM" --slice=app.slice \
-            --setenv=DISPLAY="\${DISPLAY:-}" \
-            --setenv=WAYLAND_DISPLAY="\${WAYLAND_DISPLAY:-}" \
-            --setenv=XDG_CURRENT_DESKTOP="\${XDG_CURRENT_DESKTOP:-}" \
-            --setenv=XDG_SESSION_TYPE="\${XDG_SESSION_TYPE:-}" \
-            --setenv=XDG_RUNTIME_DIR="\${XDG_RUNTIME_DIR:-}" \
-            --setenv=DBUS_SESSION_BUS_ADDRESS="\${DBUS_SESSION_BUS_ADDRESS:-}" \
+        systemd-run --user --unit="plix-app-\$RANDOM" --slice=app.slice \\
+            --setenv=DISPLAY="\${DISPLAY:-}" \\
+            --setenv=WAYLAND_DISPLAY="\${WAYLAND_DISPLAY:-}" \\
+            --setenv=XDG_CURRENT_DESKTOP="\${XDG_CURRENT_DESKTOP:-}" \\
+            --setenv=XDG_SESSION_TYPE="\${XDG_SESSION_TYPE:-}" \\
+            --setenv=XDG_RUNTIME_DIR="\${XDG_RUNTIME_DIR:-}" \\
+            --setenv=DBUS_SESSION_BUS_ADDRESS="\${DBUS_SESSION_BUS_ADDRESS:-}" \\
             "\$PLIX_BIN" </dev/null >/dev/null 2>&1 && RELAUNCHED=1
     fi
 
