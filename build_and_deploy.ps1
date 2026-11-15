@@ -112,6 +112,10 @@ if (Test-Path $innoCompiler) {
         Write-Host "Published to GitHub Releases successfully!" -ForegroundColor Green
     }
 
+    # Automatically verify and sync release manifest checksums from actual release assets
+    Write-Host "`n=== Syncing Checksums Manifest with Live Release Assets ===" -ForegroundColor Cyan
+    & python "scripts\sync_release_checksums.py" "v$version"
+
     # Optional local network mirror (if available)
     if ($networkPlixDir -and (Test-Path $networkPlixDir)) {
         Write-Host "`n=== Mirroring to Local Network Folder $networkPlixDir ===" -ForegroundColor Yellow

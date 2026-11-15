@@ -99,6 +99,5 @@ jobs:
         with:
           files: |
             build/staged_apk/plix_android.apk
-            web_site/plix.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
