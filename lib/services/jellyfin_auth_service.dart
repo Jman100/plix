@@ -171,7 +171,7 @@ class JellyfinAuthService {
 
     final candidates = <String>{};
 
-    // If localAddressHint is provided (e.g. "jellyfin.jman100.com")
+    // If localAddressHint is provided (e.g. "jellyfin.example.com")
     if (localAddressHint != null && localAddressHint.isNotEmpty) {
       String clean = localAddressHint.trim();
       if (clean.startsWith('http://')) clean = clean.substring(7);
