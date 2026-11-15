@@ -602,7 +602,7 @@ if [ \$INSTALL_SUCCESS -eq 0 ]; then
 
     RELAUNCHED=0
     # 1. Systemd user session transient unit (completely detached from terminal cgroup & slice)
-    if command -v systemd-run >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1; then
+    if command -v systemd-run >/dev/null 2>&1; then
         systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
         systemd-run --user --unit="plix-app-\$RANDOM" --slice=app.slice \
             --setenv=DISPLAY="\${DISPLAY:-}" \
@@ -651,6 +651,10 @@ if [ \$INSTALL_SUCCESS -eq 0 ]; then
     fi
 
     sleep 0.8
+    # Terminate the parent terminal emulator so the terminal window does not linger open
+    if [ -n "\$PPID" ] && [ "\$PPID" -gt 1 ]; then
+        kill -TERM "\$PPID" 2>/dev/null || kill -9 "\$PPID" 2>/dev/null || true
+    fi
     exit 0
 else
     echo "=========================================="

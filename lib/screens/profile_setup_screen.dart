@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'appearance_screen.dart';
+import '../widgets/appearance_hero_tile.dart';
 import '../app_theme.dart';
 import '../models/plix_profile.dart';
 import '../services/plex_auth_service.dart';
@@ -44,9 +46,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   final FocusNode _backFocusNode = FocusNode();
   final FocusNode _nameBoxFocusNode = FocusNode();
-  final FocusNode _pinToggleFocusNode = FocusNode();
+  final FocusNode _pinCheckboxFocusNode = FocusNode();
+  final FocusNode _appearanceTileFocusNode = FocusNode();
   final FocusNode _saveFocusNode = FocusNode();
   final FocusNode _deleteFocusNode = FocusNode();
+  late final String _targetProfileId;
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
 
   final List<AvatarOption> _avatarOptions = [];
   final FocusNode _uploadAvatarFocusNode = FocusNode();
@@ -61,7 +69,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    PlixTheme.resetToDefaultModern();
+    _targetProfileId = widget.profileToEdit?.id ?? 'prof_${DateTime.now().microsecondsSinceEpoch}';
+    ProfileService.targetProfileIdOverride = _targetProfileId;
+    PlixTheme.themeRevision.addListener(_onThemeChanged);
+
+    if (widget.profileToEdit != null) {
+      PlixTheme.loadSavedTheme();
+    } else {
+      PlixTheme.resetToDefaultModern();
+    }
 
     final profile = widget.profileToEdit;
     _nameController = TextEditingController(text: profile?.name ?? (widget.isInitialSetup ? 'Home' : ''));
@@ -113,10 +129,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   void dispose() {
+    ProfileService.targetProfileIdOverride = null;
+    PlixTheme.themeRevision.removeListener(_onThemeChanged);
+    _appearanceTileFocusNode.dispose();
+    _pinCheckboxFocusNode.dispose();
     _nameController.dispose();
     _backFocusNode.dispose();
     _nameBoxFocusNode.dispose();
-    _pinToggleFocusNode.dispose();
     _saveFocusNode.dispose();
     _deleteFocusNode.dispose();
     _uploadAvatarFocusNode.dispose();
@@ -128,6 +147,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       node.dispose();
     }
     _colorScrollController.dispose();
+    PlixTheme.resetToDefaultModern();
     super.dispose();
   }
 
@@ -190,6 +210,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
+  void _openAppearanceScreen() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AppearanceScreen(
+          server: null,
+          clientId: null,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _togglePin() async {
     if (_enablePin) {
       setState(() {
@@ -228,7 +260,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     if (_enablePin && _pinValue.length != 4) {
       setState(() => _errorMessage = 'PIN must be exactly 4 digits.');
-      _pinToggleFocusNode.requestFocus();
+      _pinCheckboxFocusNode.requestFocus();
       return;
     }
 
@@ -247,12 +279,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           clearPin: !_enablePin,
         );
         await ProfileService.instance.updateProfile(updated);
+        ProfileService.targetProfileIdOverride = null;
+        PlixTheme.resetToDefaultModern();
         if (mounted) {
           Navigator.of(context).pop(true);
         }
       } else {
         final previousProfileId = ProfileService.instance.activeProfile?.id;
         final newProfile = await ProfileService.instance.createProfile(
+          id: _targetProfileId,
           name: name,
           avatarId: _selectedAvatarId,
           avatarColorId: _selectedColorId,
@@ -263,6 +298,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
         // Switch to the newly created profile
         await ProfileService.instance.setActiveProfile(newProfile.id);
+        ProfileService.targetProfileIdOverride = null;
+        await PlixTheme.loadSavedTheme();
         widget.authService.clearCache();
 
         if (!mounted) return;
@@ -396,7 +433,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (confirmed == true && mounted) {
       await ProfileService.instance.deleteProfile(widget.profileToEdit!.id);
       widget.authService.clearCache();
-      await PlixTheme.loadSavedTheme();
+      ProfileService.targetProfileIdOverride = null;
+      PlixTheme.resetToDefaultModern();
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -407,9 +445,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !widget.isInitialSetup,
-      onPopInvokedWithResult: (didPop, result) async {
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          await PlixTheme.loadSavedTheme();
+          ProfileService.targetProfileIdOverride = null;
+          PlixTheme.resetToDefaultModern();
         }
       },
       child: Scaffold(
@@ -475,20 +514,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 1. Chosen Avatar Preview on Left + Profile Name Box on Right (Centered)
+                    // 1. Chosen Avatar Preview + Profile Name Entry Box + Require PIN Checkbox (Centered)
                     Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              ProfileAvatarWidget(
-                                avatarId: _selectedAvatarId,
-                                avatarColorId: _selectedColorId,
-                                size: 54,
-                                glow: true,
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: ProfileAvatarWidget(
+                                  avatarId: _selectedAvatarId,
+                                  avatarColorId: _selectedColorId,
+                                  size: 52,
+                                  glow: true,
+                                ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -545,7 +587,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                           child: PlixTvTextField(
                                             controller: _nameController,
                                             focusNode: _nameBoxFocusNode,
-                                            hintText: 'Enter name (e.g. Living Room, Bedroom)',
+                                            hintText: 'Enter name',
                                             maxLength: 20,
                                             imeAction: 'done',
                                             style: const TextStyle(
@@ -557,6 +599,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                               color: PlixTheme.textMuted,
                                               fontSize: 13,
                                             ),
+                                            onRight: () => _pinCheckboxFocusNode.requestFocus(),
                                             onDown: () {
                                               final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
                                               targetAvatar.requestFocus();
@@ -567,8 +610,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                               }
                                             },
                                             onSubmitted: (_) {
-                                              final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
-                                              targetAvatar.requestFocus();
+                                              _pinCheckboxFocusNode.requestFocus();
                                             },
                                           ),
                                         );
@@ -576,6 +618,117 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     ),
                                   ],
                                 ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Require PIN Checkbox
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'SECURITY',
+                                    style: TextStyle(
+                                      color: PlixTheme.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Focus(
+                                    focusNode: _pinCheckboxFocusNode,
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent) {
+                                        final key = event.logicalKey;
+                                        if (key == LogicalKeyboardKey.select ||
+                                            key == LogicalKeyboardKey.enter ||
+                                            key == LogicalKeyboardKey.space ||
+                                            key == LogicalKeyboardKey.gameButtonA) {
+                                          _togglePin();
+                                          return KeyEventResult.handled;
+                                        }
+                                        if (key == LogicalKeyboardKey.arrowLeft) {
+                                          _nameBoxFocusNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                        if (key == LogicalKeyboardKey.arrowDown) {
+                                          final targetAvatar = _avatarFocusNodes[_selectedAvatarId] ?? _avatarFocusNodes.values.first;
+                                          targetAvatar.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                        if (key == LogicalKeyboardKey.arrowUp) {
+                                          if (!widget.isInitialSetup) {
+                                            _backFocusNode.requestFocus();
+                                          }
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
+                                      return KeyEventResult.ignored;
+                                    },
+                                    child: Builder(
+                                      builder: (ctx) {
+                                        final isFocused = Focus.of(ctx).hasFocus;
+                                        return InkWell(
+                                          canRequestFocus: false,
+                                          onTap: _togglePin,
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 180),
+                                            height: 48,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                                            decoration: BoxDecoration(
+                                              color: isFocused
+                                                  ? PlixTheme.plexGold.withOpacity(0.18)
+                                                  : (_enablePin ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7)),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: isFocused
+                                                    ? PlixTheme.plexGold
+                                                    : (_enablePin ? PlixTheme.plexGold.withOpacity(0.6) : PlixTheme.cardBorder),
+                                                width: isFocused ? 2.5 : 1.0,
+                                              ),
+                                              boxShadow: isFocused
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: PlixTheme.plexGold.withOpacity(0.35),
+                                                        blurRadius: 10,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  _enablePin ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                                  color: _enablePin ? PlixTheme.plexGold : PlixTheme.textMuted,
+                                                  size: 22,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Require PIN',
+                                                  style: TextStyle(
+                                                    color: _enablePin ? PlixTheme.textPrimary : PlixTheme.textSecondary,
+                                                    fontSize: 13,
+                                                    fontWeight: _enablePin ? FontWeight.bold : FontWeight.w500,
+                                                  ),
+                                                ),
+                                                if (_enablePin) ...[
+                                                  const SizedBox(width: 6),
+                                                  Icon(
+                                                    Icons.lock_rounded,
+                                                    size: 14,
+                                                    color: PlixTheme.plexGold,
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -681,116 +834,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                     const SizedBox(height: 10),
 
-                    // 4. PIN Lock Toggle (Centered)
+                    // 4. Appearance & Theme Selection Bar (Centered)
                     Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 680),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Focus(
-                            focusNode: _pinToggleFocusNode,
-                            onKeyEvent: (node, event) {
-                              if (event is KeyDownEvent) {
-                                final key = event.logicalKey;
-                                if (key == LogicalKeyboardKey.select ||
-                                    key == LogicalKeyboardKey.enter ||
-                                    key == LogicalKeyboardKey.space ||
-                                    key == LogicalKeyboardKey.gameButtonA) {
-                                  _togglePin();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowDown) {
-                                  _saveFocusNode.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                if (key == LogicalKeyboardKey.arrowUp) {
-                                  final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
-                                  colTarget.requestFocus();
-                                  return KeyEventResult.handled;
-                                }
-                              }
-                              return KeyEventResult.ignored;
+                          child: AppearanceHeroTile(
+                            focusNode: _appearanceTileFocusNode,
+                            onUp: () {
+                              final colTarget = _colorFocusNodes[_selectedColorId] ?? _colorFocusNodes.values.first;
+                              colTarget.requestFocus();
                             },
-                            child: Builder(
-                              builder: (context) {
-                                final isToggleFocused = Focus.of(context).hasFocus;
-                                return Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    canRequestFocus: false,
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    hoverColor: Colors.transparent,
-                                    focusColor: Colors.transparent,
-                                    onTap: _togglePin,
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 150),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: isToggleFocused
-                                            ? PlixTheme.plexGold.withOpacity(0.15)
-                                            : PlixTheme.surface,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: isToggleFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                                          width: isToggleFocused ? 2.5 : 1.0,
-                                        ),
-                                        boxShadow: isToggleFocused
-                                            ? [
-                                                BoxShadow(
-                                                  color: PlixTheme.plexGold.withOpacity(0.35),
-                                                  blurRadius: 12,
-                                                  spreadRadius: 1.5,
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            _enablePin ? Icons.lock_rounded : Icons.lock_open_rounded,
-                                            color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                const Text(
-                                                  'Require 4-Digit PIN Lock',
-                                                  style: TextStyle(
-                                                    color: PlixTheme.textPrimary,
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  _enablePin
-                                                      ? 'PIN is active (toggle off to remove or change)'
-                                                      : 'Prompt for PIN when switching to this profile',
-                                                  style: TextStyle(
-                                                    color: _enablePin ? PlixTheme.plexGold : PlixTheme.textSecondary.withOpacity(0.8),
-                                                    fontSize: 10,
-                                                    fontWeight: _enablePin ? FontWeight.w600 : FontWeight.normal,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Switch(
-                                            value: _enablePin,
-                                            activeColor: PlixTheme.plexGold,
-                                            onChanged: (val) => _togglePin(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                            onDown: () => _saveFocusNode.requestFocus(),
+                            onSelect: _openAppearanceScreen,
                           ),
                         ),
                       ),
@@ -836,7 +893,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.arrowUp) {
-                                  _pinToggleFocusNode.requestFocus();
+                                  _pinCheckboxFocusNode.requestFocus();
                                   return KeyEventResult.handled;
                                 }
                                 if (key == LogicalKeyboardKey.select ||
@@ -905,7 +962,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     return KeyEventResult.handled;
                                   }
                                   if (key == LogicalKeyboardKey.arrowUp) {
-                                    _pinToggleFocusNode.requestFocus();
+                                    _pinCheckboxFocusNode.requestFocus();
                                     return KeyEventResult.handled;
                                   }
                                   if (key == LogicalKeyboardKey.select ||
@@ -1230,7 +1287,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               final targetIndex = (index + 12).clamp(12, ProfileGradientOption.availableGradients.length - 1);
               _colorFocusNodes[ProfileGradientOption.availableGradients[targetIndex].id]?.requestFocus();
             } else {
-              _pinToggleFocusNode.requestFocus();
+              _appearanceTileFocusNode.requestFocus();
             }
             return KeyEventResult.handled;
           }

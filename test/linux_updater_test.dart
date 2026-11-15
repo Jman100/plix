@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plix/services/update_service.dart';
 
@@ -96,6 +97,13 @@ void main() {
       expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://10.evil.com/plix_windows.exe')), isFalse);
       expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://192.168.1.100/plix_windows.exe')), isFalse);
       expect(UpdateService.isTrustedUpdateUri(Uri.parse('https://evilgithub.com/download/plix_windows.exe')), isFalse);
+    });
+
+    test('Linux updater script does not block systemd-run on degraded status and kills parent terminal', () {
+      final code = File('lib/services/update_service.dart').readAsStringSync();
+      expect(code, contains('command -v systemd-run >/dev/null 2>&1; then'));
+      expect(code, isNot(contains('systemctl --user is-system-running')));
+      expect(code, contains(r'kill -TERM "\$PPID"'));
     });
   });
 }

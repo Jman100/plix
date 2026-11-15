@@ -320,6 +320,8 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final isMobilePortrait = isCompact || (isPortrait && MediaQuery.of(context).size.width < 700);
 
     return PopScope(
       canPop: false,
@@ -343,7 +345,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: PlixButton(
               focusNode: _refreshBtnFocusNode,
-              label: _isRefreshing ? 'Refreshing...' : 'Refresh Servers',
+              label: isMobilePortrait ? '' : (_isRefreshing ? 'Refreshing...' : 'Refresh Servers'),
               icon: _isRefreshing
                   ? SizedBox(
                       width: 16,
@@ -363,7 +365,9 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
               highlightTextColor: Colors.black,
               highlightBorderColor: PlixTheme.plexGold,
               fontSize: 13,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: isMobilePortrait
+                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
+                  : const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               onRight: () {
                 if (_saveBtnFocusNode.canRequestFocus) {
                   _saveBtnFocusNode.requestFocus();

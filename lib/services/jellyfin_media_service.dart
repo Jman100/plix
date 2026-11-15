@@ -64,13 +64,13 @@ class JellyfinMediaService {
 
   static const String _itemFields =
 
-      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path,AncestorIds,Genres';
+      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path,AncestorIds,Genres,DateCreated';
 
 
 
   static const String _libraryFields =
 
-      'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,Path,AncestorIds,Genres';
+      'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,Path,AncestorIds,Genres,DateCreated';
 
 
 
@@ -175,6 +175,14 @@ class JellyfinMediaService {
       final dt = DateTime.tryParse(lastPlayedStr);
       if (dt != null) {
         lastViewedAt = dt.millisecondsSinceEpoch ~/ 1000;
+      }
+    }
+    int? addedAt;
+    final dateCreatedStr = json['DateCreated']?.toString() ?? json['DateAdded']?.toString() ?? json['dateCreated']?.toString();
+    if (dateCreatedStr != null && dateCreatedStr.isNotEmpty) {
+      final dt = DateTime.tryParse(dateCreatedStr);
+      if (dt != null) {
+        addedAt = dt.millisecondsSinceEpoch ~/ 1000;
       }
     }
 
@@ -645,6 +653,7 @@ class JellyfinMediaService {
 
       originallyAvailableAt: airDate,
       lastViewedAt: lastViewedAt,
+      addedAt: addedAt,
 
       subtitleStreams: subStreams,
 
@@ -949,6 +958,36 @@ class JellyfinMediaService {
     }
 
 
+
+    // Also query /Shows/NextUp so new episodes of in-progress shows appear in Continue Watching
+    try {
+      final nextUpUrl = Uri.parse(
+        '$baseUrl/Shows/NextUp?UserId=$userId&Limit=$limit&Fields=$_itemFields',
+      );
+      final nextUpRes = await _client.get(nextUpUrl, headers: _headers).timeout(const Duration(seconds: 6));
+      if (nextUpRes.statusCode == 200) {
+        final data = jsonDecode(nextUpRes.body) as Map<String, dynamic>;
+        final items = data['Items'] as List<dynamic>? ?? [];
+        for (final m in items) {
+          final it = _parseItem(m as Map<String, dynamic>).copyWith(
+            server: server,
+            serverId: server.clientIdentifier,
+          );
+          if (effectiveKeys.isNotEmpty) {
+            final itemAncestors = it.ancestorIds;
+            final matchesLib = effectiveKeys.any((k) =>
+                it.librarySectionId == k ||
+                itemAncestors.contains(k) ||
+                it.grandparentRatingKey == k ||
+                it.parentRatingKey == k);
+            if (!matchesLib) continue;
+          }
+          if (seenIds.add(it.ratingKey)) {
+            results.add(it);
+          }
+        }
+      }
+    } catch (_) {}
 
     return results;
 

@@ -770,136 +770,151 @@ class _SidebarNavState extends State<SidebarNav> {
                         ),
                       ],
                       if (effectiveExpanded) ...[
-                        ValueListenableBuilder<PlixProfile?>(
-                          valueListenable: ProfileService.instance.activeProfileNotifier,
-                          builder: (context, activeProf, _) {
-                            final avatarId = activeProf?.avatarId ?? 'avatar_default';
-                            final isFocused = _profileFocusNode.hasFocus;
-                            return Focus(
-                              focusNode: _profileFocusNode,
-                              onKeyEvent: (node, event) {
-                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                                  final key = event.logicalKey;
-                                  if (key == LogicalKeyboardKey.arrowDown) {
-                                    (widget.homeFocusNode ?? _itemFocusNodes['home'])?.requestFocus();
-                                    return KeyEventResult.handled;
+                        Expanded(
+                          child: ValueListenableBuilder<PlixProfile?>(
+                            valueListenable: ProfileService.instance.activeProfileNotifier,
+                            builder: (context, activeProf, _) {
+                              final avatarId = activeProf?.avatarId ?? 'avatar_default';
+                              final profName = activeProf?.name ?? 'Profile';
+                              final isFocused = _profileFocusNode.hasFocus;
+                              return Focus(
+                                focusNode: _profileFocusNode,
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                    final key = event.logicalKey;
+                                    if (key == LogicalKeyboardKey.arrowDown) {
+                                      (widget.homeFocusNode ?? _itemFocusNodes['home'])?.requestFocus();
+                                      return KeyEventResult.handled;
+                                    }
+                                    if (key == LogicalKeyboardKey.arrowRight) {
+                                      _handleNavigateRight();
+                                      return KeyEventResult.handled;
+                                    }
+                                    if (event is KeyDownEvent &&
+                                        (key == LogicalKeyboardKey.select ||
+                                        key == LogicalKeyboardKey.enter ||
+                                        key == LogicalKeyboardKey.space ||
+                                        key == LogicalKeyboardKey.gameButtonA ||
+                                        key == LogicalKeyboardKey.gameButtonSelect ||
+                                        key == LogicalKeyboardKey.numpadEnter)) {
+                                      _openProfileMenu();
+                                      return KeyEventResult.handled;
+                                    }
                                   }
-                                  if (key == LogicalKeyboardKey.arrowRight) {
-                                    _handleNavigateRight();
-                                    return KeyEventResult.handled;
-                                  }
-                                  if (event is KeyDownEvent &&
-                                      (key == LogicalKeyboardKey.select ||
-                                      key == LogicalKeyboardKey.enter ||
-                                      key == LogicalKeyboardKey.space ||
-                                      key == LogicalKeyboardKey.gameButtonA ||
-                                      key == LogicalKeyboardKey.gameButtonSelect ||
-                                      key == LogicalKeyboardKey.numpadEnter)) {
-                                    _openProfileMenu();
-                                    return KeyEventResult.handled;
-                                  }
-                                }
-                                return KeyEventResult.ignored;
-                              },
-                              child: Tooltip(
-                                message: 'Profiles (${activeProf?.name ?? "Switch Profile"})',
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    canRequestFocus: false,
-                                    onTap: _openProfileMenu,
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Container(
-                                      key: _profileAvatarKey,
-                                      child: ProfileAvatarWidget(
-                                        avatarId: avatarId,
-                                        avatarColorId: activeProf?.avatarColorId,
-                                        size: 42,
-                                        isFocused: isFocused,
-                                        glow: isFocused,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        RichText(
-                          text: TextSpan(
-                            children: [
-                              const TextSpan(
-                                text: 'pli',
-                                style: TextStyle(
-                                  color: PlixTheme.textPrimary,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  fontFamily: 'Roboto',
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'x',
-                                style: TextStyle(
-                                  color: PlixTheme.plexGold,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  fontFamily: 'Roboto',
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ValueListenableBuilder<PlixProfile?>(
-                          valueListenable: ProfileService.instance.activeProfileNotifier,
-                          builder: (context, activeProf, _) {
-                            final profName = activeProf?.name ?? 'Profile';
-                            return Expanded(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    width: 1.5,
-                                    height: 18,
-                                    color: PlixTheme.cardBorder,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      profName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: PlixTheme.textPrimary,
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  ),
-                                  ValueListenableBuilder<bool>(
-                                    valueListenable: GuestModeService.instance.isGuestModeNotifier,
-                                    builder: (context, isGuest, _) {
-                                      if (!isGuest) return const SizedBox.shrink();
-                                      return Padding(
-                                        padding: const EdgeInsets.only(left: 6),
-                                        child: Tooltip(
-                                          message: 'Guest Mode Active',
-                                          child: IncognitoIcon(
-                                            size: 22,
-                                            color: PlixTheme.plexGold,
+                                  return KeyEventResult.ignored;
+                                },
+                                child: Tooltip(
+                                  message: 'Profiles ($profName)',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      canRequestFocus: false,
+                                      onTap: _openProfileMenu,
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: AnimatedContainer(
+                                        key: _profileAvatarKey,
+                                        duration: const Duration(milliseconds: 160),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: isFocused
+                                              ? PlixTheme.plexGold.withOpacity(0.18)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isFocused ? PlixTheme.plexGold : Colors.transparent,
+                                            width: isFocused ? 2.0 : 1.0,
                                           ),
+                                          boxShadow: isFocused
+                                              ? [
+                                                  BoxShadow(
+                                                    color: PlixTheme.plexGold.withOpacity(0.35),
+                                                    blurRadius: 10,
+                                                    spreadRadius: 1,
+                                                  ),
+                                                ]
+                                              : null,
                                         ),
-                                      );
-                                    },
+                                        child: Row(
+                                          children: [
+                                            ProfileAvatarWidget(
+                                              avatarId: avatarId,
+                                              avatarColorId: activeProf?.avatarColorId,
+                                              size: 38,
+                                              isFocused: isFocused,
+                                              glow: isFocused,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            RichText(
+                                              text: TextSpan(
+                                                children: [
+                                                  const TextSpan(
+                                                    text: 'pli',
+                                                    style: TextStyle(
+                                                      color: PlixTheme.textPrimary,
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w900,
+                                                      fontFamily: 'Roboto',
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: 'x',
+                                                    style: TextStyle(
+                                                      color: PlixTheme.plexGold,
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w900,
+                                                      fontFamily: 'Roboto',
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              width: 1.5,
+                                              height: 16,
+                                              color: isFocused ? PlixTheme.plexGold.withOpacity(0.5) : PlixTheme.cardBorder,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                profName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: isFocused ? Colors.white : PlixTheme.textPrimary,
+                                                  fontSize: 14.0,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                            ),
+                                            ValueListenableBuilder<bool>(
+                                              valueListenable: GuestModeService.instance.isGuestModeNotifier,
+                                              builder: (context, isGuest, _) {
+                                                if (!isGuest) return const SizedBox.shrink();
+                                                return Padding(
+                                                  padding: const EdgeInsets.only(left: 4),
+                                                  child: Tooltip(
+                                                    message: 'Guest Mode Active',
+                                                    child: IncognitoIcon(
+                                                      size: 20,
+                                                      color: PlixTheme.plexGold,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
-                            );
-                          },
+                                ),
+                              );
+                            },
+                          ),
                         ),
                         if (isMobileLandscape) ...[
                           const SizedBox(width: 4),

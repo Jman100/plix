@@ -19,6 +19,7 @@ class ProfileService {
   List<PlixProfile> get profiles => List.unmodifiable(_profiles);
   PlixProfile? get activeProfile => _activeProfile;
   static String? get activeProfileId => _instance._activeProfile?.id;
+  static String? targetProfileIdOverride;
 
   /// True if there is only one profile and it has a PIN, or all profiles have PINs.
   /// When true, always asking "who's watching" at startup is strictly enforced.
@@ -28,7 +29,7 @@ class ProfileService {
   }
 
   static String key(String baseKey) {
-    final curId = activeProfileId;
+    final curId = targetProfileIdOverride ?? activeProfileId;
     if (curId == null || curId.isEmpty) return baseKey;
     return 'prof_${curId}_$baseKey';
   }
@@ -174,6 +175,7 @@ class ProfileService {
     required String avatarId,
     String avatarColorId = 'gradient_gold',
     String? pin,
+    String? id,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final trimmedName = name.trim();
@@ -181,7 +183,7 @@ class ProfileService {
     final cleanPin = (pin != null && pin.trim().length == 4) ? pin.trim() : null;
 
     final newProfile = PlixProfile(
-      id: 'prof_${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}',
+      id: id ?? 'prof_${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}',
       name: safeName,
       avatarId: avatarId,
       avatarColorId: avatarColorId,

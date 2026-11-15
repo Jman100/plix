@@ -261,18 +261,19 @@ class _PlixButtonState extends State<PlixButton> {
                           data: IconThemeData(color: fgColor, size: 20),
                           child: widget.icon!,
                         ),
-                        const SizedBox(width: 8),
+                        if (widget.label.isNotEmpty) const SizedBox(width: 8),
                       ],
-                      Text(
-                        widget.label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: fgColor,
-                          fontSize: widget.fontSize ?? 15,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+                      if (widget.label.isNotEmpty)
+                        Text(
+                          widget.label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: fgColor,
+                            fontSize: widget.fontSize ?? 15,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),

@@ -569,10 +569,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 999999;
   }
 
+  int _getContinueWatchingTimestamp(PlexMediaItem item) {
+    final viewed = item.lastViewedAt ?? 0;
+    final added = item.addedAt ?? 0;
+    final isUnplayedEpisode = item.type == 'episode' &&
+        (item.viewOffset == null || item.viewOffset == 0) &&
+        (item.viewCount == null || item.viewCount == 0);
+
+    if (isUnplayedEpisode) {
+      final airDate = DateTime.tryParse(item.originallyAvailableAt ?? '')?.millisecondsSinceEpoch;
+      final airSecs = airDate != null ? airDate ~/ 1000 : 0;
+      final recency = added > airSecs ? added : airSecs;
+      if (recency > 0) {
+        return recency > viewed ? recency : viewed;
+      }
+      return viewed > 0 ? viewed : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    }
+    return viewed > 0 ? viewed : added;
+  }
+
   void _sortContinueWatching(List<PlexMediaItem> list) {
     list.sort((a, b) {
-      final timeA = a.lastViewedAt ?? 0;
-      final timeB = b.lastViewedAt ?? 0;
+      final timeA = _getContinueWatchingTimestamp(a);
+      final timeB = _getContinueWatchingTimestamp(b);
       if (timeA != timeB) {
         return timeB.compareTo(timeA);
       }
