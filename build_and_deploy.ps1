@@ -60,6 +60,17 @@ if (Test-Path $innoCompiler) {
         $winHash = (Get-FileHash -Path $installerSource -Algorithm SHA256).Hash.ToLower()
     }
 
+    $existingManifest = $null
+    if (Test-Path "web_site\plix.json") {
+        try {
+            $existingManifest = (Get-Content "web_site\plix.json" -Raw | ConvertFrom-Json)
+        } catch {}
+    }
+
+    $linuxSha = if ($existingManifest -and $existingManifest.linuxSha256) { $existingManifest.linuxSha256 } else { "" }
+    $linuxArchSha = if ($existingManifest -and $existingManifest.linuxArchSha256) { $existingManifest.linuxArchSha256 } else { "" }
+    $linuxTarballSha = if ($existingManifest -and $existingManifest.linuxTarballSha256) { $existingManifest.linuxTarballSha256 } else { "" }
+
     $manifest = [ordered]@{
         version = $version
         versionCode = $versionCode
@@ -69,8 +80,11 @@ if (Test-Path $innoCompiler) {
         windowsArm64Url = "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe"
         windowsSha256 = $winHash
         linuxUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb"
+        linuxSha256 = $linuxSha
         linuxArchUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst"
+        linuxArchSha256 = $linuxArchSha
         linuxTarballUrl = "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz"
+        linuxTarballSha256 = $linuxTarballSha
         releaseNotes = $releaseNotes.Trim()
         releaseDate = (Get-Date -Format "yyyy-MM-dd")
     } | ConvertTo-Json -Depth 4
