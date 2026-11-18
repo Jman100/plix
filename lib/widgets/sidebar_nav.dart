@@ -1328,8 +1328,8 @@ class _SidebarNavState extends State<SidebarNav> {
                         onTap: () {
                           if (isGuest) {
                             GuestModeService.instance.exitGuestMode();
-                          } else if (PlixDeviceHelper.isDesktop) {
-                            widget.onOpenProfiles?.call();
+                          } else if (widget.onOpenProfiles != null) {
+                            widget.onOpenProfiles!();
                           } else {
                             widget.onSignOut();
                           }

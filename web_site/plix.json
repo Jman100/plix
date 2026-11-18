@@ -1,6 +1,6 @@
 {
-    "version": "1.10.2",
-    "versionCode": 54,
+    "version": "1.10.3",
+    "versionCode": 55,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "0c90df83806e503fe0ad9c358ea5e4aa768f6f90da556e574744268731aaa5f9",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -12,6 +12,6 @@
     "linuxArchSha256": "c576b11bcaaf4577cad8a503a213ad71894a560d80f769944dbef2dbf4fcbf1d",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "linuxTarballSha256": "7f0394dccd691fec42d72f57b3f3f05a26174f5ebac55a72f8212fa1515a8640",
-    "releaseNotes": "- Desktop Episode Download Hover Highlight: Added clear visual feedback with a golden circular highlight, tooltip, and mouse cursor pointer when hovering over episode download buttons on show pages\r\n- Desktop Profile Setup & Navigation Polish: Centered profile avatar in collapsed desktop sidebar nav, and redesigned profile avatar selector into two clean, non-scrolling rows for desktop displays\r\n- Desktop Sidebar Log Out: Directs to switch profile rather than disconnecting servers\r\n- Media Info Admin Permission Restriction: Strictly restricted the \"Get Info\" button to server owners and administrators across Jellyfin and Plex, actively querying administrator privileges\r\n- Plex Desktop Downloads: Ensured users with download permissions on Plex servers have access to the download button\r\n- App Version Bump: v1.10.2 (versionCode 54)",
-    "releaseDate": "2026-11-17"
+    "releaseNotes": "- Left Nav Log Out Navigation: Sign out / Log out in the left sidebar navigation now consistently navigates directly to the Who's Watching / Switch Profile screen across all platforms (TV, mobile, desktop).\r\n- Plex Watchlist Playback & Fast Loading: Resolved Plex Discover watchlist items directly to local server media, eliminating empty toast errors, removing phantom specials seasons, and pre-resolving items in the background with session-wide caching for instant sub-second page loads.\r\n- Android Build Toolchain Modernization: Upgraded Android toolchain to Gradle 8.8, Android Gradle Plugin 8.6.0, Kotlin 2.0.21, and Java 17 for enhanced build performance and runtime stability.\r\n- App Version Bump: v1.10.3 (versionCode 55)",
+    "releaseDate": "2026-11-18"
 }

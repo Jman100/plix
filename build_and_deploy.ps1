@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.10.2"
-$versionCode = 54
+$version = "1.10.3"
+$versionCode = 55
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,12 +45,10 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Desktop Episode Download Hover Highlight: Added clear visual feedback with a golden circular highlight, tooltip, and mouse cursor pointer when hovering over episode download buttons on show pages
-- Desktop Profile Setup & Navigation Polish: Centered profile avatar in collapsed desktop sidebar nav, and redesigned profile avatar selector into two clean, non-scrolling rows for desktop displays
-- Desktop Sidebar Log Out: Directs to switch profile rather than disconnecting servers
-- Media Info Admin Permission Restriction: Strictly restricted the "Get Info" button to server owners and administrators across Jellyfin and Plex, actively querying administrator privileges
-- Plex Desktop Downloads: Ensured users with download permissions on Plex servers have access to the download button
-- App Version Bump: v1.10.2 (versionCode 54)
+- Left Nav Log Out Navigation: Sign out / Log out in the left sidebar navigation now consistently navigates directly to the Who's Watching / Switch Profile screen across all platforms (TV, mobile, desktop).
+- Plex Watchlist Playback & Fast Loading: Resolved Plex Discover watchlist items directly to local server media, eliminating empty toast errors, removing phantom specials seasons, and pre-resolving items in the background with session-wide caching for instant sub-second page loads.
+- Android Build Toolchain Modernization: Upgraded Android toolchain to Gradle 8.8, Android Gradle Plugin 8.6.0, Kotlin 2.0.21, and Java 17 for enhanced build performance and runtime stability.
+- App Version Bump: v1.10.3 (versionCode 55)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

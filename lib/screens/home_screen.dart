@@ -21,7 +21,6 @@ import '../services/plex_server_service.dart';
 import '../widgets/media_card.dart';
 import '../widgets/plix_button.dart';
 import '../widgets/sidebar_nav.dart';
-import 'auth_chooser_screen.dart';
 import 'details_screen.dart';
 import 'library_screen.dart';
 import '../services/native_player_service.dart';
@@ -1316,38 +1315,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _signOut() async {
-    if (PlixDeviceHelper.isDesktop) {
-      _openProfilesScreen();
-      return;
-    }
-    _cachedContinueWatching.clear();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) => const _SignOutDialog(),
-    );
-
-    if (confirmed != true) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _sidebarSignOutFocusNode.canRequestFocus) {
-          _sidebarSignOutFocusNode.requestFocus();
-        }
-      });
-      return;
-    }
-
-    await widget.authService.logout();
-    await widget.serverService.clearAllServers();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => AuthChooserScreen(
-          authService: widget.authService,
-          serverService: widget.serverService,
-        ),
-      ),
-    );
+  void _signOut() {
+    _openProfilesScreen();
   }
 
   void _openLibrary(PlexLibrary lib) {
