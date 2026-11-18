@@ -31,6 +31,8 @@ import 'search_screen.dart';
 import 'server_select_screen.dart';
 import 'settings_screen.dart';
 import 'watchlist_screen.dart';
+import 'downloads_screen.dart';
+import '../services/download_service.dart';
 import '../services/plix_device_helper.dart';
 import '../services/plix_image_cache.dart';
 import '../services/update_service.dart';
@@ -43,12 +45,14 @@ class HomeScreen extends StatefulWidget {
   final PlexServer server;
   final PlexAuthService authService;
   final PlexServerService serverService;
+  final bool isOfflineInitial;
 
   const HomeScreen({
     super.key,
     required this.server,
     required this.authService,
     required this.serverService,
+    this.isOfflineInitial = false,
   });
 
   static void clearMemoryCaches() {
@@ -85,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   PlexMediaItem? _heroItem;
   bool _isLoading = true;
+  bool _isOffline = false;
   String? _errorMessage;
 
   final ScrollController _scrollController = ScrollController();
@@ -300,7 +305,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     GuestModeService.instance.isGuestModeNotifier.addListener(_onGuestModeChanged);
     GuestModeService.instance.guestContinueWatchingNotifier.addListener(_onGuestContinueWatchingChanged);
 
-    _initData();
+    if (widget.isOfflineInitial) {
+      _isOffline = true;
+      _errorMessage = 'You are offline';
+      _isLoading = false;
+    } else {
+      _initData();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForAutoUpdate();
       _checkFirstTimeWelcomeTour();
@@ -602,15 +613,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  Future<bool> _checkIfOffline() async {
+    try {
+      final res = await InternetAddress.lookup('example.com').timeout(const Duration(milliseconds: 1500));
+      return res.isEmpty || res[0].rawAddress.isEmpty;
+    } catch (_) {
+      return true;
+    }
+  }
+
   Future<void> _initData() async {
     ThemeMusicService.instance.stopImmediate();
     _lastFocusedContentNode = null;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _isOffline = false;
     });
 
     try {
+      final isOffline = await _checkIfOffline();
+      if (isOffline) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isOffline = true;
+            _errorMessage = 'You are offline';
+          });
+        }
+        return;
+      }
+
       _clientId = await widget.authService.getClientIdentifier();
       final token = await widget.authService.getSavedToken() ?? '';
       final servers = await widget.serverService.fetchServers(token);
@@ -853,9 +886,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
+        final offlineNow = await _checkIfOffline();
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Could not load home content: $e';
+          _isOffline = offlineNow;
+          _errorMessage = offlineNow ? 'You are offline' : 'Could not load home content: $e';
         });
       }
     }
@@ -1156,6 +1191,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_isUpdateDialogOpen || _isWelcomeTourOpen || ModalRoute.of(context)?.isCurrent != true) return;
+          if (PlixDeviceHelper.isCompact(context) || PlixDeviceHelper.isPhone(context)) {
+            // On mobile touch devices, do not programmatically steal focus to Continue Watching on return
+            return;
+          }
           if (keepSidebarFocus || _sidebarSettingsFocusNode.hasFocus || _isSidebarFocused || _sidebarHomeFocusNode.hasFocus) {
             return;
           }
@@ -1352,6 +1391,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  void _openDownloads() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DownloadsScreen(
+          server: widget.server,
+          authService: widget.authService,
+          serverService: widget.serverService,
+          clientId: _clientId,
+        ),
+      ),
+    );
+  }
+
   void _openSearch() {
     NativePlayerService().stop();
     Navigator.of(context).push(
@@ -1463,6 +1515,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 customBorder: const CircleBorder(),
                 child: ProfileAvatarWidget(
                   avatarId: activeProf?.avatarId ?? 'avatar_default',
+                  avatarColorId: activeProf?.avatarColorId,
                   size: 36,
                   glow: true,
                 ),
@@ -1504,13 +1557,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.search_rounded, color: Colors.white),
-            tooltip: 'Search',
-            onPressed: _openSearch,
-            iconSize: 22,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ListenableBuilder(
+            listenable: DownloadService.instance,
+            builder: (context, _) {
+              final active = DownloadService.instance.activeTasks;
+              final isDownloading = active.isNotEmpty;
+              final progress = isDownloading ? active.first.progress : 0.0;
+
+              return IconButton(
+                icon: isDownloading
+                    ? SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: CircularProgressIndicator(
+                                value: progress > 0 ? progress : null,
+                                strokeWidth: 2.2,
+                                valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                              ),
+                            ),
+                            Icon(
+                              Icons.download_rounded,
+                              size: 15,
+                              color: PlixTheme.plexGold,
+                            ),
+                          ],
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded, color: Colors.white),
+                tooltip: 'Downloads',
+                onPressed: _openDownloads,
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              );
+            },
           ),
         ],
       ),
@@ -2266,18 +2352,78 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     )
                   else if (_errorMessage != null)
                     Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-                          const SizedBox(height: 12),
-                          Text(_errorMessage!, style: const TextStyle(color: Colors.white70)),
-                          const SizedBox(height: 16),
-                          PlixButton(
-                            label: 'Retry',
-                            onPressed: _initData,
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isOffline ? Icons.wifi_off_rounded : Icons.error_outline,
+                              color: _isOffline ? PlixTheme.plexGold : Colors.redAccent,
+                              size: 56,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _isOffline ? 'You are offline' : _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (_isOffline) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Check your internet connection or browse your downloaded media.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: PlixTheme.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  PlixButton(
+                                    label: 'Downloads',
+                                    icon: const Icon(Icons.download_done_rounded, size: 18),
+                                    isPrimary: true,
+                                    autofocus: true,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => DownloadsScreen(
+                                            server: widget.server,
+                                            authService: widget.authService,
+                                            serverService: widget.serverService,
+                                            clientId: _clientId.isNotEmpty ? _clientId : 'plix_client',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  PlixButton(
+                                    label: 'Retry',
+                                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    onPressed: _initData,
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 16),
+                              PlixButton(
+                                label: 'Retry',
+                                onPressed: _initData,
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     )
                   else if (isCompact)
@@ -2286,6 +2432,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       color: PlixTheme.plexGold,
                       backgroundColor: PlixTheme.surface,
                       child: SingleChildScrollView(
+                        key: const PageStorageKey('home_mobile_scroll_view'),
                         controller: _scrollController,
                         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                         padding: const EdgeInsets.only(top: 0, bottom: 80),
@@ -2427,6 +2574,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         _openSearch();
                       } else if (dest == NavDestination.watchlist) {
                         _openWatchlist();
+                      } else if (dest == NavDestination.downloads) {
+                        _openDownloads();
                       }
                     },
                     onLibrarySelected: _openLibrary,

@@ -161,7 +161,7 @@
           <div class="flex items-center gap-2">
             <span class="text-xl font-black tracking-tight text-white">pli<span class="text-brand-gold">x</span></span>
             <span id="navVersionBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold border border-brand-gold/40">
-              v1.9.2
+              v1.10.1
             </span>
           </div>
           <span class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase -mt-0.5">Plex + Jellyfin Client</span>
@@ -205,7 +205,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
         </span>
-        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.9.2</strong> is now live</span>
+        <span class="font-medium text-neutral-200">Latest Release <strong id="heroVersionText" class="text-brand-gold font-bold">v1.10.1</strong> is now live</span>
         <span class="text-neutral-500">•</span>
         <a href="#changelog" class="text-brand-cyan hover:underline font-semibold flex items-center gap-1">
           <span>Release Notes</span>
@@ -257,7 +257,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="winVersionLabel">Version 1.9.2</span>
+            <span id="winVersionLabel">Version 1.10.1</span>
             <span>Unified Setup • ~25 MB</span>
           </div>
         </div>
@@ -294,7 +294,7 @@
           </a>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3.5 px-1">
-            <span id="androidVersionLabel">Version 1.9.2</span>
+            <span id="androidVersionLabel">Version 1.10.1</span>
             <span>Universal APK • ~25.7 MB</span>
           </div>
         </div>
@@ -351,7 +351,7 @@
           </div>
 
           <div class="flex items-center justify-between text-[11px] text-neutral-400 mt-3 px-1">
-            <span id="linuxVersionLabel">Version 1.9.2</span>
+            <span id="linuxVersionLabel">Version 1.10.1</span>
             <span>DEB • Arch • Portable</span>
           </div>
         </div>
@@ -656,10 +656,10 @@
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.9.2</span></h2>
+                <h2 class="text-2xl font-black text-white">Latest Version <span id="changelogVersion" class="text-brand-gold">v1.10.1</span></h2>
                 <span id="changelogBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Latest</span>
               </div>
-              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 15, 2026</span></p>
+              <p class="text-xs text-neutral-400">Published on <span id="changelogDate" class="text-neutral-200 font-medium">November 17, 2026</span></p>
             </div>
           </div>
 
@@ -686,27 +686,31 @@
                     <ul id="changelogList" class="space-y-3.5 text-sm sm:text-base text-neutral-200">
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Profile-Specific Theme Customization:</strong> Redesigned theme selection directly into profile creation and editing workflows, ensuring profile theme isolation and preventing theme leakage onto Who's Watching.</div>
+              <div><strong class="text-white">Offline Content &amp; Downloads:</strong> Full media downloading support with foreground notification service, local storage management, status badges, and offline launch detection.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Continue Watching Priority for New Episodes:</strong> Newly released and unplayed episodes of shows currently being watched now automatically prioritize to index 0 at the front of Continue Watching.</div>
+              <div><strong class="text-white">TV Library Categories Focus Navigation:</strong> Fixed visual cursor movement and active item highlighting in categories modal and sort dialog with smooth D-pad scrolling.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Arch Linux &amp; Desktop Updater Detachment:</strong> Fully decoupled updater launches using systemd user units and process-group isolation, ensuring the updater terminal closes automatically and does not terminate Plix when exited.</div>
+              <div><strong class="text-white">Episode Detail Button Layout:</strong> Restored standard horizontal action buttons under description on TV, removed duplicate buttons in landscape mobile view, and balanced left action buttons.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">TV &amp; Mobile Navigation Polish:</strong> Unified left navigation top profile header into a single glowing interactive button; enabled mobile touch scrolling for theme selection in landscape orientation.</div>
+              <div><strong class="text-white">Mobile Theme Preservation:</strong> Prevented theme resets when navigating to server connection screens (such as Jellyfin), ensuring selected profile themes persist on back navigation.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">Virtual Keyboard &amp; Focus Behavior:</strong> Gated profile name field auto-focus to TV only, preventing automatic virtual keyboard popup on mobile; added directional focus constraints on theme row and seamless upward traversal from Save Profile to the Theme option.</div>
+              <div><strong class="text-white">Immersive Landscape Playback UI:</strong> Kept system status bar and navigation bars hidden when exiting video playback in landscape mobile orientation.</div>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
-              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.9.2 (versionCode 52).</div>
+              <div><strong class="text-white">Mobile PiP &amp; Settings Polish:</strong> Preserved continuous playback when entering PiP via swipe-home from portrait mode, preserved home row scroll position on return, and removed unneeded focus ring on mobile settings.</div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold">&#10003;</span>
+              <div><strong class="text-white">App Version Bump:</strong> Updated to v1.10.1 (versionCode 53).</div>
             </li>
           </ul>
         </div>

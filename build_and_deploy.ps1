@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.9.2"
-$versionCode = 52
+$version = "1.10.1"
+$versionCode = 53
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,12 +45,13 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Profile-Specific Theme Customization: Redesigned theme selection directly into profile creation and editing workflows, ensuring profile theme isolation and preventing theme leakage onto Who's Watching
-- Continue Watching Priority for New Episodes: Newly released and unplayed episodes of shows currently being watched now automatically prioritize to index 0 at the front of Continue Watching
-- Arch Linux & Desktop Updater Detachment: Fully decoupled updater launches using systemd user units and process-group isolation, ensuring the updater terminal closes automatically and does not terminate Plix when exited
-- TV & Mobile Navigation Polish: Unified left navigation top profile header into a single glowing interactive button; enabled mobile touch scrolling for theme selection in landscape orientation
-- Virtual Keyboard & Focus Behavior: Gated profile name field auto-focus to TV only, preventing automatic virtual keyboard popup on mobile; added directional focus constraints on theme row and seamless upward traversal from Save Profile to the Theme option
-- App Version Bump: v1.9.2 (versionCode 52)
+- Offline Content & Downloads: Full media downloading support with foreground notification service, local storage management, status badges, and offline launch detection
+- TV Library Categories Focus Navigation: Fixed visual cursor movement and active item highlighting in categories modal and sort dialog with smooth D-pad scrolling
+- Episode Detail Button Layout: Restored standard horizontal action buttons under the description on TV, removed duplicate buttons in landscape mobile view, and balanced left action buttons
+- Mobile Theme Preservation: Prevented theme resets when navigating to server connection screens (such as Jellyfin), ensuring selected profile themes persist on back navigation
+- Immersive Landscape Playback UI: Kept system status bar and navigation bars hidden when exiting video playback in landscape mobile orientation
+- Mobile PiP & Settings Polish: Preserved continuous playback when entering PiP via swipe-home from portrait mode, preserved home row scroll position on return, and removed unneeded focus ring on mobile settings
+- App Version Bump: v1.10.1 (versionCode 53)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

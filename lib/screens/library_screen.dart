@@ -84,8 +84,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   int? _lastSelectedIndex;
   final Map<int, FocusNode> _focusNodes = {};
   final ScrollController _gridScrollController = ScrollController();
+  final ScrollController _alphabetScrollController = ScrollController();
   _LibrarySortOption _sortOption = _LibrarySortOption.nameAsc;
   Timer? _focusAdjustTimer;
+  Timer? _letterBadgeTimer;
   static const List<String> _alphabetLetters = [
     '#',
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
@@ -112,8 +114,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   void dispose() {
+    _letterBadgeTimer?.cancel();
     _focusAdjustTimer?.cancel();
     _gridScrollController.dispose();
+    _alphabetScrollController.dispose();
     for (final node in _focusNodes.values) {
       node.dispose();
     }
@@ -208,7 +212,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _gridScrollController.jumpTo(targetOffset);
     }
     _lastSelectedIndex = targetIndex;
-    setState(() => _activeAlphabetLetter = null);
+    _letterBadgeTimer?.cancel();
+    setState(() => _activeAlphabetLetter = letter);
+    _letterBadgeTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) setState(() => _activeAlphabetLetter = null);
+    });
 
     void focusTargetCard([int retry = 0]) {
       if (!mounted) return;
@@ -686,49 +694,114 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildAlphabetColumn(bool isCompact) {
     final availableLetters = _items.map(_getItemLetter).toSet();
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    final isShort = mediaQuery.size.height < 550;
+    final needsScroll = isLandscape || isShort;
+
+    final railContent = needsScroll
+        ? SingleChildScrollView(
+            controller: _alphabetScrollController,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < _alphabetLetters.length; i++)
+                  SizedBox(
+                    height: 28,
+                    child: _AlphabetLetterButton(
+                      letter: _alphabetLetters[i],
+                      hasItems: availableLetters.contains(_alphabetLetters[i]),
+                      focusNode: _alphabetFocusNodes[_alphabetLetters[i]]!,
+                      isCompact: isCompact,
+                      blockDown: i == _alphabetLetters.length - 1,
+                      onUp: i == 0
+                          ? () {
+                              setState(() => _activeAlphabetLetter = null);
+                              _categoriesButtonFocusNode.requestFocus();
+                            }
+                          : null,
+                      onFocus: (letter) {
+                        setState(() => _activeAlphabetLetter = letter);
+                      },
+                      onLeft: _returnFocusToGrid,
+                      onSelect: (letter) {
+                        _jumpToLetter(letter);
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: (details) {
+              final renderBox = context.findRenderObject() as RenderBox?;
+              if (renderBox != null) {
+                final local = renderBox.globalToLocal(details.globalPosition);
+                final h = renderBox.size.height;
+                if (h > 0) {
+                  final idx = ((local.dy / h) * _alphabetLetters.length).floor().clamp(0, _alphabetLetters.length - 1);
+                  final letter = _alphabetLetters[idx];
+                  if (_activeAlphabetLetter != letter) {
+                    _jumpToLetter(letter);
+                  }
+                }
+              }
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (int i = 0; i < _alphabetLetters.length; i++)
+                  Expanded(
+                    child: _AlphabetLetterButton(
+                      letter: _alphabetLetters[i],
+                      hasItems: availableLetters.contains(_alphabetLetters[i]),
+                      focusNode: _alphabetFocusNodes[_alphabetLetters[i]]!,
+                      isCompact: isCompact,
+                      blockDown: i == _alphabetLetters.length - 1,
+                      onUp: i == 0
+                          ? () {
+                              setState(() => _activeAlphabetLetter = null);
+                              _categoriesButtonFocusNode.requestFocus();
+                            }
+                          : null,
+                      onFocus: (letter) {
+                        setState(() => _activeAlphabetLetter = letter);
+                      },
+                      onLeft: _returnFocusToGrid,
+                      onSelect: (letter) {
+                        _jumpToLetter(letter);
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
 
     return Container(
-      width: isCompact ? 28 : 34,
+      width: isCompact ? 30 : 34,
       padding: EdgeInsets.symmetric(
         vertical: isCompact ? 4 : 6,
         horizontal: 2,
       ),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.4),
+        color: const Color(0xE6141418),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
-          width: 1,
+          color: Colors.white.withOpacity(0.24),
+          width: 1.2,
         ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          for (int i = 0; i < _alphabetLetters.length; i++)
-            Expanded(
-              child: _AlphabetLetterButton(
-                letter: _alphabetLetters[i],
-                hasItems: availableLetters.contains(_alphabetLetters[i]),
-                focusNode: _alphabetFocusNodes[_alphabetLetters[i]]!,
-                isCompact: isCompact,
-                blockDown: i == _alphabetLetters.length - 1,
-                onUp: i == 0
-                    ? () {
-                        setState(() => _activeAlphabetLetter = null);
-                        _categoriesButtonFocusNode.requestFocus();
-                      }
-                    : null,
-                onFocus: (letter) {
-                  setState(() => _activeAlphabetLetter = letter);
-                },
-                onLeft: _returnFocusToGrid,
-                onSelect: (letter) {
-                  _jumpToLetter(letter);
-                },
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.55),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
         ],
       ),
+      child: railContent,
     );
   }
 
@@ -905,10 +978,10 @@ class _AlphabetLetterButtonState extends State<_AlphabetLetterButton> {
                 color: _isFocused
                     ? Colors.black
                     : widget.hasItems
-                        ? Colors.white.withOpacity(0.9)
-                        : Colors.white.withOpacity(0.25),
-                fontSize: 11,
-                fontWeight: _isFocused ? FontWeight.w900 : FontWeight.w600,
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.35),
+                fontSize: 11.5,
+                fontWeight: _isFocused || widget.hasItems ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -919,6 +992,140 @@ class _AlphabetLetterButtonState extends State<_AlphabetLetterButton> {
 }
 
 
+
+class _ModalFocusItemTile extends StatefulWidget {
+  final FocusNode focusNode;
+  final bool isSelected;
+  final Widget? leading;
+  final String title;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _ModalFocusItemTile({
+    required this.focusNode,
+    required this.isSelected,
+    this.leading,
+    required this.title,
+    this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  State<_ModalFocusItemTile> createState() => _ModalFocusItemTileState();
+}
+
+class _ModalFocusItemTileState extends State<_ModalFocusItemTile> {
+  bool _isFocused = false;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFocused = widget.focusNode.hasFocus;
+    widget.focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (mounted) {
+      final hasF = widget.focusNode.hasFocus;
+      if (_isFocused != hasF) {
+        setState(() => _isFocused = hasF);
+        if (hasF) {
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 150),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocusChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = _isFocused || _isHovered;
+    final accent = PlixTheme.plexGold;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Focus(
+        focusNode: widget.focusNode,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.space ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+              widget.onTap();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (hovered) => setState(() => _isHovered = hovered),
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? PlixTheme.cardFocused
+                  : (widget.isSelected ? accent.withOpacity(0.18) : Colors.transparent),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: highlighted
+                    ? accent
+                    : (widget.isSelected ? accent.withOpacity(0.4) : Colors.transparent),
+                width: highlighted ? 2.0 : 1.2,
+              ),
+              boxShadow: highlighted
+                  ? [
+                      BoxShadow(
+                        color: accent.withOpacity(0.35),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                if (widget.leading != null) ...[
+                  widget.leading!,
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      color: highlighted
+                          ? Colors.white
+                          : (widget.isSelected ? accent : Colors.white),
+                      fontSize: 15,
+                      fontWeight: (highlighted || widget.isSelected)
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                if (widget.trailing != null) widget.trailing!,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _CategoryDialogContent extends StatefulWidget {
   final List<String> categories;
@@ -993,12 +1200,11 @@ class _CategoryDialogContentState extends State<_CategoryDialogContent> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
+              _ModalFocusItemTile(
                 focusNode: _allCategoriesFocusNode,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                tileColor: widget.selectedCategory == null ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
+                isSelected: widget.selectedCategory == null,
                 leading: Icon(Icons.apps_rounded, color: widget.selectedCategory == null ? PlixTheme.plexGold : Colors.white70),
-                title: const Text('All Categories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                title: 'All Categories',
                 trailing: widget.selectedCategory == null ? Icon(Icons.check_rounded, color: PlixTheme.plexGold) : null,
                 onTap: () => widget.onSelect(null),
               ),
@@ -1009,11 +1215,10 @@ class _CategoryDialogContentState extends State<_CategoryDialogContent> {
                     final count = widget.allItems.where((it) => it.genres.any((g) => g.toLowerCase() == cat.toLowerCase())).length;
                     final isSel = widget.selectedCategory?.toLowerCase() == cat.toLowerCase();
                     final node = _categoryFocusNodes.putIfAbsent(cat.toLowerCase(), () => FocusNode());
-                    return ListTile(
+                    return _ModalFocusItemTile(
                       focusNode: node,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
-                      title: Text(cat, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                      isSelected: isSel,
+                      title: cat,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1112,11 +1317,10 @@ class _SortDialogContentState extends State<_SortDialogContent> {
                     final title = item['title'] as String;
                     final isSel = widget.currentSort == opt;
                     final node = _focusNodes.putIfAbsent(opt, () => FocusNode());
-                    return ListTile(
+                    return _ModalFocusItemTile(
                       focusNode: node,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      tileColor: isSel ? PlixTheme.plexGold.withOpacity(0.18) : Colors.transparent,
-                      title: Text(title, style: TextStyle(color: isSel ? PlixTheme.plexGold : Colors.white, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                      isSelected: isSel,
+                      title: title,
                       trailing: isSel ? Icon(Icons.check_rounded, color: PlixTheme.plexGold, size: 18) : null,
                       onTap: () => widget.onSelect(opt),
                     );

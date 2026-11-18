@@ -137,6 +137,7 @@ class MainActivity: FlutterActivity() {
     private var selectedAudioLabel: String? = null
     private var selectedAudioIndex: Int? = null
     private var wasPlayingInPip: Boolean = false
+    private var wasPlayingBeforePip: Boolean = false
     private var isExpandingFromPip: Boolean = false
     private var isActivityResumed: Boolean = false
     private var lastKnownVideoWidth: Int = 1920
@@ -257,14 +258,112 @@ class MainActivity: FlutterActivity() {
         ))
     }
 
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 901)
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        requestNotificationPermission()
 
         // Native TV text field platform view
         flutterEngine
             .platformViewsController
             .registry
             .registerViewFactory("plix/tv_edit_text", TvEditTextFactory(flutterEngine.dartExecutor.binaryMessenger))
+
+        // Downloads foreground service channel
+        val downloadsChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.plix.plix/downloads")
+        downloadsChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "requestPermission" -> {
+                    requestNotificationPermission()
+                    result.success(true)
+                }
+                "startForeground" -> {
+                    try {
+                        requestNotificationPermission()
+                        val title = call.argument<String>("title") ?: "Plix Download"
+                        val text = call.argument<String>("text") ?: "Downloading..."
+                        val progress = call.argument<Int>("progress") ?: -1
+                        val indeterminate = call.argument<Boolean>("indeterminate") ?: false
+                        val intent = Intent(this, DownloadForegroundService::class.java).apply {
+                            action = DownloadForegroundService.ACTION_START
+                            putExtra(DownloadForegroundService.EXTRA_TITLE, title)
+                            putExtra(DownloadForegroundService.EXTRA_TEXT, text)
+                            putExtra(DownloadForegroundService.EXTRA_PROGRESS, progress)
+                            putExtra(DownloadForegroundService.EXTRA_INDETERMINATE, indeterminate)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("START_FAILED", e.message, null)
+                    }
+                }
+                "updateNotification" -> {
+                    try {
+                        val title = call.argument<String>("title") ?: "Plix Download"
+                        val text = call.argument<String>("text") ?: "Downloading..."
+                        val progress = call.argument<Int>("progress") ?: -1
+                        val indeterminate = call.argument<Boolean>("indeterminate") ?: false
+                        val intent = Intent(this, DownloadForegroundService::class.java).apply {
+                            action = DownloadForegroundService.ACTION_UPDATE
+                            putExtra(DownloadForegroundService.EXTRA_TITLE, title)
+                            putExtra(DownloadForegroundService.EXTRA_TEXT, text)
+                            putExtra(DownloadForegroundService.EXTRA_PROGRESS, progress)
+                            putExtra(DownloadForegroundService.EXTRA_INDETERMINATE, indeterminate)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("UPDATE_FAILED", e.message, null)
+                    }
+                }
+                "stopForeground" -> {
+                    try {
+                        val intent = Intent(this, DownloadForegroundService::class.java).apply {
+                            action = DownloadForegroundService.ACTION_STOP
+                        }
+                        stopService(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("STOP_FAILED", e.message, null)
+                    }
+                }
+                "notifyComplete" -> {
+                    try {
+                        val title = call.argument<String>("title") ?: "Download Complete"
+                        val text = call.argument<String>("text") ?: "Download finished. Tap to dismiss."
+                        val intent = Intent(this, DownloadForegroundService::class.java).apply {
+                            action = DownloadForegroundService.ACTION_COMPLETE
+                            putExtra(DownloadForegroundService.EXTRA_TITLE, title)
+                            putExtra(DownloadForegroundService.EXTRA_TEXT, text)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("COMPLETE_FAILED", e.message, null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
 
         // Updater channel
         updaterChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL)
@@ -983,12 +1082,21 @@ class MainActivity: FlutterActivity() {
             }
             videoSurfaceView?.let { setVideoSurfaceView(it) }
 
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
+            val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             headers?.let {
-                dataSourceFactory.setDefaultRequestProperties(it)
+                httpDataSourceFactory.setDefaultRequestProperties(it)
             }
+            val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(this@MainActivity, httpDataSourceFactory)
 
-            val mediaItem = MediaItem.fromUri(Uri.parse(url))
+            val isLocalFile = url.startsWith("file://") ||
+                (url.startsWith("/") && !url.contains("?") && java.io.File(url).exists())
+
+            val parsedUri = if (isLocalFile) {
+                if (url.startsWith("file://")) Uri.parse(url) else Uri.fromFile(java.io.File(url))
+            } else {
+                Uri.parse(url)
+            }
+            val mediaItem = MediaItem.fromUri(parsedUri)
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
             } else {
@@ -1341,7 +1449,8 @@ class MainActivity: FlutterActivity() {
         super.onUserLeaveHint()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val isTv = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
-            if (!isTv && exoPlayer?.isPlaying == true) {
+            if (!isTv && isPlayerActive && exoPlayer?.isPlaying == true) {
+                wasPlayingBeforePip = true
                 enterPictureInPictureIfSupported()
             }
         }
@@ -1350,8 +1459,14 @@ class MainActivity: FlutterActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
-            wasPlayingInPip = exoPlayer?.isPlaying == true
+            val shouldResume = wasPlayingBeforePip || wasPlayingInPip || exoPlayer?.isPlaying == true
+            wasPlayingInPip = shouldResume
+            wasPlayingBeforePip = false
             isExpandingFromPip = false
+            if (shouldResume && exoPlayer?.isPlaying == false && isPlayerActive) {
+                exoPlayer?.play()
+                nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to true))
+            }
             aspectRatioFrameLayout?.let { layout ->
                 val lp = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1372,6 +1487,7 @@ class MainActivity: FlutterActivity() {
             // When user taps 'X' (close) on the floating PiP window, activity is dismissed or not resumed
             if (isFinishing) {
                 wasPlayingInPip = false
+                wasPlayingBeforePip = false
                 isExpandingFromPip = false
                 exoPlayer?.pause()
                 stopPlayback()
@@ -1406,6 +1522,7 @@ class MainActivity: FlutterActivity() {
                 nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to true))
             }
             wasPlayingInPip = false
+            wasPlayingBeforePip = false
         }
     }
 
@@ -1423,6 +1540,9 @@ class MainActivity: FlutterActivity() {
             // Keep playing audio in the background on mobile when screen is turned off
             return
         }
+        if (exoPlayer?.isPlaying == true) {
+            wasPlayingBeforePip = true
+        }
         // In Android 12+ (API 31+), auto-enter PiP may briefly transition through onPause while playing
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && exoPlayer?.isPlaying == true) {
             mainHandler.postDelayed({
@@ -1431,7 +1551,7 @@ class MainActivity: FlutterActivity() {
                     exoPlayer?.pause()
                     nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
                 }
-            }, 350)
+            }, 600)
             return
         }
         exoPlayer?.pause()
@@ -1449,11 +1569,15 @@ class MainActivity: FlutterActivity() {
             // Keep playing audio in the background on mobile when screen is turned off
             return
         }
+        if (exoPlayer?.isPlaying == true) {
+            wasPlayingBeforePip = true
+        }
         exoPlayer?.pause()
         wasPlayingInPip = false
         isExpandingFromPip = false
         nativePlayerChannel?.invokeMethod("onIsPlayingChanged", mapOf("isPlaying" to false))
         if (isFinishing) {
+            wasPlayingBeforePip = false
             stopPlayback()
         }
     }

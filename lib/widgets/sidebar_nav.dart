@@ -16,6 +16,7 @@ import '../services/plix_device_helper.dart';
 enum NavDestination {
   home,
   watchlist,
+  downloads,
   search,
   library,
   settings,
@@ -84,6 +85,8 @@ class _SidebarNavState extends State<SidebarNav> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _watchlistFocusNode = FocusNode();
+  final FocusNode _downloadsFocusNode = FocusNode();
+  FocusNode get _aboveLibrariesFocusNode => !PlixDeviceHelper.isTelevision ? _downloadsFocusNode : _watchlistFocusNode;
   final FocusNode _settingsFocusNode = FocusNode();
   FocusNode get _effectiveSettingsFocusNode => widget.settingsFocusNode ?? _settingsFocusNode;
   final FocusNode _switchServerFocusNode = FocusNode();
@@ -211,6 +214,7 @@ class _SidebarNavState extends State<SidebarNav> {
     _scrollController.dispose();
     _searchFocusNode.dispose();
     _watchlistFocusNode.dispose();
+    _downloadsFocusNode.dispose();
     _settingsFocusNode.dispose();
     _switchServerFocusNode.dispose();
     _signOutFocusNode.dispose();
@@ -1001,6 +1005,10 @@ class _SidebarNavState extends State<SidebarNav> {
                     isExpanded: effectiveExpanded,
                     onUp: () => _searchFocusNode.requestFocus(),
                     onDown: () {
+                      if (!PlixDeviceHelper.isTelevision) {
+                        _downloadsFocusNode.requestFocus();
+                        return;
+                      }
                       if (_orderedLibraries.isNotEmpty) {
                         if (effectiveExpanded) {
                           _reorderToggleFocusNode.requestFocus();
@@ -1014,6 +1022,29 @@ class _SidebarNavState extends State<SidebarNav> {
                     onNavigateRight: _handleNavigateRight,
                     onTap: () => widget.onDestinationSelected(NavDestination.watchlist),
                   ),
+
+                  if (!PlixDeviceHelper.isTelevision)
+                    _NavItem(
+                      focusNode: _downloadsFocusNode,
+                      icon: Icons.download_rounded,
+                      label: 'Downloads',
+                      isSelected: widget.activeDestination == NavDestination.downloads,
+                      isExpanded: effectiveExpanded,
+                      onUp: () => _watchlistFocusNode.requestFocus(),
+                      onDown: () {
+                        if (_orderedLibraries.isNotEmpty) {
+                          if (effectiveExpanded) {
+                            _reorderToggleFocusNode.requestFocus();
+                          } else {
+                            _itemFocusNodes[_orderedLibraries.first.compositeId]?.requestFocus();
+                          }
+                        } else {
+                          _effectiveSettingsFocusNode.requestFocus();
+                        }
+                      },
+                      onNavigateRight: _handleNavigateRight,
+                      onTap: () => widget.onDestinationSelected(NavDestination.downloads),
+                    ),
 
                   // Libraries section header
                   if (_orderedLibraries.isNotEmpty)
@@ -1049,7 +1080,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                   focusNode: _reorderToggleFocusNode,
                                   isActive: _isReorderMode,
                                   onToggle: _toggleReorderMode,
-                                  onUp: () => _watchlistFocusNode.requestFocus(),
+                                  onUp: () => _aboveLibrariesFocusNode.requestFocus(),
                                   onDown: () {
                                     if (_orderedLibraries.isNotEmpty) {
                                       _itemFocusNodes[_orderedLibraries.first.compositeId]
@@ -1126,7 +1157,7 @@ class _SidebarNavState extends State<SidebarNav> {
                                     if (effectiveExpanded) {
                                       _reorderToggleFocusNode.requestFocus();
                                     } else {
-                                      _watchlistFocusNode.requestFocus();
+                                      _aboveLibrariesFocusNode.requestFocus();
                                     }
                                   } else {
                                     _itemFocusNodes[_orderedLibraries[i - 1].compositeId]?.requestFocus();

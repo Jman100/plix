@@ -62,7 +62,9 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
   @override
   void initState() {
     super.initState();
-    PlixTheme.resetToDefaultModern();
+    if (widget.isCreatingProfile) {
+      PlixTheme.resetToDefaultModern();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _connectBtnFocusNode.canRequestFocus) {
         _connectBtnFocusNode.requestFocus();
@@ -82,6 +84,9 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
     _homeBtnFocusNode.dispose();
     for (final node in _lanServerFocusNodes.values) {
       node.dispose();
+    }
+    if (widget.isCreatingProfile) {
+      PlixTheme.loadSavedTheme();
     }
     super.dispose();
   }

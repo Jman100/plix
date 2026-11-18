@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'profiles_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/brand_logo.dart';
@@ -97,6 +98,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
 
     try {
+      final isOffline = await _checkIfOffline();
+
       final servers = <PlexServer>[];
       if (token != null && token.isNotEmpty) {
         final fetched = await widget.serverService.fetchServers(token);
@@ -106,27 +109,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       }
       if (!mounted) return;
 
-      if (servers.isEmpty) {
-        _navigateToAuthChooser();
-        return;
-      }
-
       final savedActiveId = await widget.serverService.getActiveServerId();
       final pinnedIds = await widget.serverService.getPinnedServerIds();
 
-      final PlexServer selectedServer;
-      if (savedActiveId != null) {
-        selectedServer = servers.firstWhere(
-          (s) => s.clientIdentifier == savedActiveId,
-          orElse: () => servers.first,
-        );
-      } else if (pinnedIds.isNotEmpty) {
-        selectedServer = servers.firstWhere(
-          (s) => pinnedIds.contains(s.clientIdentifier),
-          orElse: () => servers.first,
-        );
+      PlexServer selectedServer;
+      if (servers.isNotEmpty) {
+        if (savedActiveId != null) {
+          selectedServer = servers.firstWhere(
+            (s) => s.clientIdentifier == savedActiveId,
+            orElse: () => servers.first,
+          );
+        } else if (pinnedIds.isNotEmpty) {
+          selectedServer = servers.firstWhere(
+            (s) => pinnedIds.contains(s.clientIdentifier),
+            orElse: () => servers.first,
+          );
+        } else {
+          selectedServer = servers.first;
+        }
       } else {
-        selectedServer = servers.first;
+        selectedServer = PlexServer(
+          name: 'Offline Server',
+          clientIdentifier: savedActiveId ?? 'offline',
+          accessToken: token ?? '',
+          owned: true,
+          connections: [],
+        );
+      }
+
+      if (isOffline) {
+        _navigateToHome(selectedServer, isOffline: true);
+        return;
+      }
+
+      if (servers.isEmpty) {
+        _navigateToAuthChooser();
+        return;
       }
 
       await widget.serverService.setActiveServerId(selectedServer.clientIdentifier);
@@ -144,8 +162,33 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       }
     } catch (_) {
       if (mounted) {
-        _navigateToAuthChooser();
+        final isOffline = await _checkIfOffline();
+        if (isOffline && (hasSavedToken || hasSavedJf)) {
+          final offlineServer = PlexServer(
+            name: 'Offline Server',
+            clientIdentifier: 'offline',
+            accessToken: token ?? '',
+            owned: true,
+            connections: [],
+          );
+          _navigateToHome(offlineServer, isOffline: true);
+        } else {
+          _navigateToAuthChooser();
+        }
       }
+    }
+  }
+
+  Future<bool> _checkIfOffline() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return false;
+    }
+    try {
+      final res = await InternetAddress.lookup('example.com')
+          .timeout(const Duration(milliseconds: 1500));
+      return res.isEmpty || res[0].rawAddress.isEmpty;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -197,13 +240,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
   }
 
-  void _navigateToHome(PlexServer server) {
+  void _navigateToHome(PlexServer server, {bool isOffline = false}) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => HomeScreen(
           server: server,
           authService: widget.authService,
           serverService: widget.serverService,
+          isOfflineInitial: isOffline,
         ),
       ),
     );

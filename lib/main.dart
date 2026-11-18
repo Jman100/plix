@@ -1,4 +1,5 @@
 import 'services/guest_mode_service.dart';
+import 'services/download_service.dart';
 import 'services/custom_avatar_service.dart';
 import 'services/iphone_duo_service.dart';
 import 'dart:io';
@@ -46,6 +47,9 @@ void main() async {
   await CustomAvatarService.init();
   await PlixTheme.loadSavedTheme();
   await GuestModeService.instance.init();
+  if (!PlixDeviceHelper.isTelevision) {
+    DownloadService.instance.init();
+  }
 
   // Set system UI overlay style for immersive dark experience
   SystemChrome.setSystemUIOverlayStyle(

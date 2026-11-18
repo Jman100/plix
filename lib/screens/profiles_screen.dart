@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/plex_server.dart';
@@ -126,6 +127,35 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
 
       if (servers.isEmpty) {
         if (!mounted) return;
+        bool isOffline = false;
+        try {
+          final res = await InternetAddress.lookup('example.com').timeout(const Duration(milliseconds: 1500));
+          isOffline = res.isEmpty || res[0].rawAddress.isEmpty;
+        } catch (_) {
+          isOffline = true;
+        }
+        if (!mounted) return;
+        if (isOffline) {
+          final offlineServer = PlexServer(
+            name: 'Offline Server',
+            clientIdentifier: 'offline',
+            accessToken: token ?? '',
+            owned: true,
+            connections: [],
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(
+                server: offlineServer,
+                authService: widget.authService,
+                serverService: widget.serverService,
+                isOfflineInitial: true,
+              ),
+            ),
+            (route) => false,
+          );
+          return;
+        }
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => AuthChooserScreen(
@@ -160,6 +190,35 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       );
     } catch (_) {
       if (mounted) {
+        bool isOffline = false;
+        try {
+          final res = await InternetAddress.lookup('example.com').timeout(const Duration(milliseconds: 1500));
+          isOffline = res.isEmpty || res[0].rawAddress.isEmpty;
+        } catch (_) {
+          isOffline = true;
+        }
+        if (!mounted) return;
+        if (isOffline) {
+          final offlineServer = PlexServer(
+            name: 'Offline Server',
+            clientIdentifier: 'offline',
+            accessToken: token ?? '',
+            owned: true,
+            connections: [],
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(
+                server: offlineServer,
+                authService: widget.authService,
+                serverService: widget.serverService,
+                isOfflineInitial: true,
+              ),
+            ),
+            (route) => false,
+          );
+          return;
+        }
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => AuthChooserScreen(

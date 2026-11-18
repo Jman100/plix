@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -101,15 +102,24 @@ class PlexMediaService {
 
     height = height?.clamp(1, _maxImageRequestHeight).toInt();
 
+    if (path == null || path.isEmpty) return '';
 
+    // Check if path is an existing local file or file: URI
+    if (path.startsWith('file:') ||
+        (!path.startsWith('http') &&
+         !path.startsWith('/library/') &&
+         !path.startsWith('/Items/') &&
+         !path.startsWith('/photo/') &&
+         !path.startsWith('/System/') &&
+         File(path).existsSync())) {
+      return path;
+    }
 
     if (server.isJellyfin) {
 
-      return _jfService.buildImageUrl(path ?? '', width: width, height: height);
+      return _jfService.buildImageUrl(path, width: width, height: height);
 
     }
-
-    if (path == null || path.isEmpty) return '';
 
     if (path.startsWith('http')) {
 

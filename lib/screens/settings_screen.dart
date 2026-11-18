@@ -81,9 +81,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSettings();
     _loadConnectedServers();
 
-    // Default focus to the first settings action tile
+    // Default focus to the first settings action tile on TV
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _alwaysAskProfileFocusNode.requestFocus();
+      if (mounted && PlixDeviceHelper.isTelevision) {
+        _alwaysAskProfileFocusNode.requestFocus();
+      }
     });
   }
 
@@ -885,7 +887,8 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
 
   @override
   Widget build(BuildContext context) {
-    final isHighlighted = _isFocused || _isHovered;
+    final isTv = PlixDeviceHelper.isTelevision;
+    final isHighlighted = (isTv && _isFocused) || _isHovered;
     final accent = PlixTheme.plexGold;
     final isGlass = PlixTheme.isGlass;
 

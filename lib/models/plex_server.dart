@@ -53,6 +53,7 @@ class PlexServer {
   final String clientIdentifier;
   String accessToken;
   final bool owned;
+  final bool allowSync;
   final List<PlexConnection> connections;
   String? activeConnectionUri;
   bool isPinned;
@@ -61,12 +62,14 @@ class PlexServer {
 
   bool get isJellyfin => serverType == 'jellyfin';
   bool get isPlex => serverType == 'plex';
+  bool get canDownload => owned || allowSync;
 
   PlexServer({
     required this.name,
     required this.clientIdentifier,
     required this.accessToken,
     required this.owned,
+    this.allowSync = false,
     required this.connections,
     this.activeConnectionUri,
     this.isPinned = false,
@@ -85,6 +88,7 @@ class PlexServer {
       clientIdentifier: json['clientIdentifier'] as String? ?? '',
       accessToken: json['accessToken'] as String? ?? '',
       owned: json['owned'] == true || json['owned'] == 1 || json['owned'] == '1',
+      allowSync: json['allowSync'] == true || json['allowSync'] == 1 || json['allowSync'] == '1' || json['owned'] == true || json['owned'] == 1 || json['owned'] == '1',
       connections: parsedConnections,
       activeConnectionUri: json['activeConnectionUri'] as String?,
       isPinned: json['isPinned'] == true,
@@ -99,6 +103,7 @@ class PlexServer {
       'clientIdentifier': clientIdentifier,
       'accessToken': accessToken,
       'owned': owned,
+      'allowSync': allowSync || owned,
       'connections': connections.map((c) => c.toJson()).toList(),
       'activeConnectionUri': activeConnectionUri,
       'isPinned': isPinned,

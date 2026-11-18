@@ -124,7 +124,10 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
         ),
       ),
     );
-    if (mounted) _refreshServers();
+    if (mounted) {
+      await PlixTheme.loadSavedTheme();
+      _refreshServers();
+    }
     } finally {
       _isNavigating = false;
     }
@@ -142,7 +145,10 @@ class _ServerSelectScreenState extends State<ServerSelectScreen> {
           ),
         ),
       );
-      if (mounted) _refreshServers();
+      if (mounted) {
+      await PlixTheme.loadSavedTheme();
+      _refreshServers();
+    }
     } finally {
       _isNavigating = false;
     }

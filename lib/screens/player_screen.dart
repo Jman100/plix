@@ -67,6 +67,8 @@ import '../services/media_button_service.dart';
 
 
 import '../services/native_player_service.dart';
+import '../services/download_service.dart';
+import '../widgets/download_button.dart';
 
 
 
@@ -642,6 +644,21 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   VideoQualityOption _selectedQuality = VideoQualityOption.directPlay;
   String? _currentPlaySessionId;
 
+  String? get _localDownloadedPath {
+    final ds = DownloadService.instance;
+    final path = ds.getDownloadedFilePath(_currentItem.ratingKey);
+    if (path != null) return path;
+
+    final candidate = _currentItem.filePath;
+    if (candidate != null && candidate.isNotEmpty && candidate.startsWith('file://')) {
+      final clean = candidate.replaceFirst('file://', '');
+      if (File(clean).existsSync()) return clean;
+    }
+    return null;
+  }
+
+  bool get _isLocalDownloaded => _localDownloadedPath != null;
+
 
 
 
@@ -1032,17 +1049,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
     _timelineService = PlexTimelineService(
-
-
-
       server: widget.server,
-
-
-
       clientId: widget.clientId,
-
-
-
+      isAnonymous: _isLocalDownloaded,
     );
 
 
@@ -1313,6 +1322,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
+        if (_isLocalDownloaded) {
+          _showPlaybackError(err);
+          return;
+        }
+
         if (_selectedQuality.isDirectPlay) {
 
           _audioNeedsTranscode = true;
@@ -1493,14 +1507,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-        if (!inPip && !_isPaused) {
-
-
-
+        if (inPip) {
+          if (!_isPaused) {
+            _nativePlayer.resume();
+          }
+        } else if (!_isPaused) {
           _nativePlayer.resume();
-
-
-
         }
 
 
@@ -1732,7 +1744,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       final screenOff = prefs.getBool('continue_playback_screen_off') ?? false;
 
       _continuePlaybackScreenOff = screenOff;
-      final anon = GuestModeService.instance.isGuestMode ||
+      final anon = _isLocalDownloaded ||
+          GuestModeService.instance.isGuestMode ||
           (prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false);
       _isAnonymousMode = anon;
       _timelineService = PlexTimelineService(
@@ -3651,7 +3664,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
         if (!mounted || generation != _initGeneration) return;
 
-        _currentItem = fullItem;
+        _currentItem = fullItem.copyWith(filePath: _localDownloadedPath);
 
       } catch (_) {}
 
@@ -3695,7 +3708,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-      if (audioCodec.isNotEmpty) {
+      if (!_isLocalDownloaded && audioCodec.isNotEmpty) {
 
         final isStandardSupported = audioCodec == 'aac' ||
 
@@ -3847,7 +3860,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-      if (_selectedQuality.isDirectPlay) {
+      final isLocalDownloaded = _isLocalDownloaded;
+      final localDownloadedPath = _localDownloadedPath;
+
+      if (isLocalDownloaded && localDownloadedPath != null) {
+        _streamOffsetMs = 0;
+        startPos = _currentPositionMs;
+        streamUrl = localDownloadedPath;
+      } else if (_selectedQuality.isDirectPlay) {
 
 
 
@@ -3956,31 +3976,35 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-      if (!_timelineService.isAnonymous) {
-        final prefs = await SharedPreferences.getInstance();
-        final anon = GuestModeService.instance.isGuestMode ||
+      final isLocal = _isLocalDownloaded;
+      final prefs = await SharedPreferences.getInstance();
+      final anon = isLocal ||
+          GuestModeService.instance.isGuestMode ||
           (prefs.getBool(ProfileService.key('anonymous_mode')) ?? prefs.getBool('anonymous_mode') ?? false);
-        if (anon) {
-          _isAnonymousMode = true;
-          _timelineService = PlexTimelineService(
-            server: widget.server,
-            clientId: widget.clientId,
-            isAnonymous: true,
-          );
-        }
-      }
-      final playMethod = _selectedQuality.isDirectPlay
-          ? 'DirectPlay'
-          : (_selectedQuality.resolution.isEmpty ? 'DirectStream' : 'Transcode');
-      _timelineService.startPlayback(
-
-        _currentItem,
-
-        _currentPositionMs,
-        playMethod: playMethod,
-        playSessionId: _currentPlaySessionId,
-
+      _isAnonymousMode = anon;
+      _timelineService.stop(_currentPositionMs);
+      _serverStopSubscription?.cancel();
+      _timelineService = PlexTimelineService(
+        server: _currentItem.server ?? widget.server,
+        clientId: widget.clientId,
+        isAnonymous: anon,
       );
+      _serverStopSubscription = _timelineService.onServerStop.listen((reason) {
+        if (mounted) {
+          _handleServerStop(reason);
+        }
+      });
+      if (!isLocal) {
+        final playMethod = _selectedQuality.isDirectPlay
+            ? 'DirectPlay'
+            : (_selectedQuality.resolution.isEmpty ? 'DirectStream' : 'Transcode');
+        _timelineService.startPlayback(
+          _currentItem,
+          _currentPositionMs,
+          playMethod: playMethod,
+          playSessionId: _currentPlaySessionId,
+        );
+      }
 
 
 
@@ -5309,7 +5333,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
 
 
-    if (_selectedQuality.isDirectPlay || widget.server.isJellyfin) {
+    if (_isLocalDownloaded || _selectedQuality.isDirectPlay || widget.server.isJellyfin) {
       _nativePlayer.seekTo(clampedTarget);
       _timelineService.updatePosition(clampedTarget);
       _currentPositionMs = clampedTarget;
@@ -7337,6 +7361,7 @@ void _showSubtitleSelector() {
 
 
   void _showQualitySelector() {
+    if (_isLocalDownloaded) return;
 
     _onModalOpened();
 
@@ -7560,7 +7585,14 @@ void _showSubtitleSelector() {
 
       final int startPos;
 
-      if (quality.isDirectPlay) {
+      final isLocalDownloaded = _isLocalDownloaded;
+      final localDownloadedPath = _localDownloadedPath;
+
+      if (isLocalDownloaded && localDownloadedPath != null) {
+        _streamOffsetMs = 0;
+        startPos = currentPosition;
+        streamUrl = localDownloadedPath;
+      } else if (quality.isDirectPlay) {
 
         _streamOffsetMs = 0;
 
@@ -8051,7 +8083,15 @@ void _showSubtitleSelector() {
 
 
 
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      final view = WidgetsBinding.instance.platformDispatcher.views.isNotEmpty
+          ? WidgetsBinding.instance.platformDispatcher.views.first
+          : null;
+      final isLandscape = view != null && view.physicalSize.width > view.physicalSize.height;
+      if (isLandscape) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
 
 
 
@@ -9329,7 +9369,8 @@ void _showSubtitleSelector() {
 
 
 
-                        _DuoTabletopButton(
+                        if (!_isLocalDownloaded)
+                          _DuoTabletopButton(
 
 
 
@@ -11011,7 +11052,10 @@ void _showSubtitleSelector() {
 
 
 
-                        _buildMobileBadge(_selectedQuality.label),
+                        if (_isLocalDownloaded)
+                          _buildMobileBadge('Local Play', isGold: true)
+                        else
+                          _buildMobileBadge(_selectedQuality.label),
 
 
 
@@ -11044,169 +11088,68 @@ void _showSubtitleSelector() {
 
 
                     Center(
-
-
-
-                      child: Row(
-
-
-
-                        mainAxisAlignment: MainAxisAlignment.center,
-
-
-
-                        children: [
-
-
-
-                          _buildPortraitIconButton(
-
-
-
-                            icon: _isOnWatchlist ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
-
-
-
-                            iconColor: _isOnWatchlist ? PlixTheme.plexGold : Colors.white,
-
-
-
-                            tooltip: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
-
-
-
-                            onPressed: _toggleWatchlist,
-
-
-
-                          ),
-
-
-
-                          const SizedBox(width: 14),
-
-
-
-                          _buildPortraitIconButton(
-
-
-
-                            icon: Icons.speed_rounded,
-
-
-
-                            iconColor: (_playbackSpeed - 1.0).abs() > 0.01 ? PlixTheme.plexGold : Colors.white,
-
-
-
-                            tooltip: 'Speed (${_playbackSpeed == 1.0 ? '1.0' : _playbackSpeed}x)',
-
-
-
-                            badgeText: (_playbackSpeed - 1.0).abs() > 0.01 ? '${_playbackSpeed}x' : null,
-
-
-
-                            onPressed: _showSpeedSelector,
-
-
-
-                          ),
-
-
-
-                          const SizedBox(width: 14),
-
-
-
-                          _buildPortraitIconButton(
-
-
-
-                            icon: Icons.tune_rounded,
-
-
-
-                            iconColor: _selectedQuality.isDirectPlay ? Colors.white : PlixTheme.plexGold,
-
-
-
-                            tooltip: 'Quality (${_selectedQuality.label})',
-
-
-
-                            onPressed: _showQualitySelector,
-
-
-
-                          ),
-
-
-
-                          const SizedBox(width: 14),
-
-
-
-                          _buildPortraitIconButton(
-
-
-
-                            icon: Icons.audiotrack_rounded,
-
-
-
-                            iconColor: Colors.white,
-
-
-
-                            tooltip: 'Audio Track',
-
-
-
-                            onPressed: _showAudioSelector,
-
-
-
-                          ),
-
-
-
-                          const SizedBox(width: 14),
-
-
-
-                          _buildPortraitIconButton(
-
-
-
-                            icon: Icons.subtitles_rounded,
-
-
-
-                            iconColor: _selectedSubtitle != null ? PlixTheme.plexGold : Colors.white,
-
-
-
-                            tooltip: 'Subtitles',
-
-
-
-                            onPressed: _showSubtitleSelector,
-
-
-
-                          ),
-
-
-
-                        ],
-
-
-
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_currentItem.isEpisode && _currentItem.grandparentRatingKey != null) ...[
+                              _buildPortraitIconButton(
+                                icon: Icons.tv_rounded,
+                                iconColor: Colors.white,
+                                tooltip: 'Go to series',
+                                label: 'Series',
+                                onPressed: _goToSeries,
+                              ),
+                              const SizedBox(width: 14),
+                            ],
+                            _buildPortraitIconButton(
+                              icon: _isOnWatchlist ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                              iconColor: _isOnWatchlist ? PlixTheme.plexGold : Colors.white,
+                              tooltip: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                              label: 'Watchlist',
+                              onPressed: _toggleWatchlist,
+                            ),
+                            const SizedBox(width: 14),
+                            _buildPortraitIconButton(
+                              icon: Icons.speed_rounded,
+                              iconColor: (_playbackSpeed - 1.0).abs() > 0.01 ? PlixTheme.plexGold : Colors.white,
+                              tooltip: 'Speed (${_playbackSpeed == 1.0 ? '1.0' : _playbackSpeed}x)',
+                              badgeText: (_playbackSpeed - 1.0).abs() > 0.01 ? '${_playbackSpeed}x' : null,
+                              label: 'Speed',
+                              onPressed: _showSpeedSelector,
+                            ),
+                            if (!_isLocalDownloaded) ...[
+                              const SizedBox(width: 14),
+                              _buildPortraitIconButton(
+                                icon: Icons.tune_rounded,
+                                iconColor: _selectedQuality.isDirectPlay ? Colors.white : PlixTheme.plexGold,
+                                tooltip: 'Quality (${_selectedQuality.label})',
+                                label: 'Quality',
+                                onPressed: _showQualitySelector,
+                              ),
+                            ],
+                            const SizedBox(width: 14),
+                            _buildPortraitIconButton(
+                              icon: Icons.audiotrack_rounded,
+                              iconColor: Colors.white,
+                              tooltip: 'Audio Track',
+                              label: 'Audio',
+                              onPressed: _showAudioSelector,
+                            ),
+                            const SizedBox(width: 14),
+                            _buildPortraitIconButton(
+                              icon: Icons.subtitles_rounded,
+                              iconColor: _selectedSubtitle != null ? PlixTheme.plexGold : Colors.white,
+                              tooltip: 'Subtitles',
+                              label: 'Subtitles',
+                              onPressed: _showSubtitleSelector,
+                            ),
+                          ],
+                        ),
                       ),
-
-
-
                     ),
 
 
@@ -11667,11 +11610,18 @@ void _showSubtitleSelector() {
 
 
 
-                                    if (isCurrent)
-
-
-
+                                    if (isCurrent) ...[
                                       Icon(Icons.play_arrow_rounded, color: PlixTheme.plexGold, size: 24),
+                                      const SizedBox(width: 4),
+                                    ],
+                                    DownloadButton(
+                                      item: ep,
+                                      server: ep.server ?? _currentItem.server ?? widget.server,
+                                      mediaService: (ep.server != null && ep.server != widget.server)
+                                          ? PlexMediaService(server: ep.server!)
+                                          : _mediaService,
+                                      isIconOnly: true,
+                                    ),
 
 
 
@@ -11832,249 +11782,88 @@ void _showSubtitleSelector() {
 
 
   Widget _buildPortraitIconButton({
-
-
-
     required IconData icon,
-
-
-
     required Color iconColor,
-
-
-
     required String tooltip,
-
-
-
     required VoidCallback onPressed,
-
-
-
     String? badgeText,
-
-
-
+    String? label,
   }) {
-
-
-
     Widget button = Tooltip(
-
-
-
       message: tooltip,
-
-
-
       child: Material(
-
-
-
         color: Colors.white.withOpacity(0.08),
-
-
-
         shape: const CircleBorder(),
-
-
-
         child: InkWell(
-
-
-
           customBorder: const CircleBorder(),
-
-
-
           onTap: onPressed,
-
-
-
           child: Container(
-
-
-
             width: 44,
-
-
-
             height: 44,
-
-
-
             decoration: BoxDecoration(
-
-
-
               shape: BoxShape.circle,
-
-
-
               border: Border.all(
-
-
-
                 color: (badgeText != null || iconColor == PlixTheme.plexGold)
-
-
-
                     ? PlixTheme.plexGold.withOpacity(0.5)
-
-
-
                     : Colors.white12,
-
-
-
                 width: 1.2,
-
-
-
               ),
-
-
-
             ),
-
-
-
             child: Icon(icon, color: iconColor, size: 20),
-
-
-
           ),
-
-
-
         ),
-
-
-
       ),
-
-
-
     );
 
-
-
-
-
-
-
     if (badgeText != null) {
-
-
-
       button = Stack(
-
-
-
         clipBehavior: Clip.none,
-
-
-
         alignment: Alignment.center,
-
-
-
         children: [
-
-
-
           button,
-
-
-
           Positioned(
-
-
-
             top: -12,
-
-
-
             child: Container(
-
-
-
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-
-
-
               decoration: BoxDecoration(
-
-
-
                 color: Colors.black.withOpacity(0.85),
-
-
-
                 borderRadius: BorderRadius.circular(4),
-
-
-
               ),
-
-
-
               child: Text(
-
-
-
                 badgeText,
-
-
-
                 style: TextStyle(
-
-
-
                   color: PlixTheme.plexGold,
-
-
-
                   fontSize: 10,
-
-
-
                   fontWeight: FontWeight.bold,
-
-
-
                 ),
-
-
-
               ),
-
-
-
             ),
-
-
-
           ),
-
-
-
         ],
-
-
-
       );
-
-
-
     }
 
-
+    if (label != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          button,
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
 
     return button;
-
-
-
   }
 
 
@@ -14093,7 +13882,7 @@ void _showSubtitleSelector() {
 
 
 
-                                                    ? 'DIRECT PLAY'
+                                                    ? (_isLocalDownloaded ? 'Local Play' : 'DIRECT PLAY')
 
 
 
@@ -14101,11 +13890,11 @@ void _showSubtitleSelector() {
 
 
 
-                                                        ? 'DIRECT STREAM'
+                                                        ? (_isLocalDownloaded ? 'Local Play' : 'DIRECT STREAM')
 
 
 
-                                                        : 'TRANSCODE (${_selectedQuality.label.split(' ').first})'),
+                                                        : (_isLocalDownloaded ? 'Local Play' : 'TRANSCODE (${_selectedQuality.label.split(' ').first})')),
 
 
 
@@ -14113,11 +13902,11 @@ void _showSubtitleSelector() {
 
 
 
-                                                    ? Icons.flash_on
+                                                    ? (_isLocalDownloaded ? Icons.download_done_rounded : Icons.flash_on)
 
 
 
-                                                    : Icons.tune_rounded,
+                                                    : (_isLocalDownloaded ? Icons.download_done_rounded : Icons.tune_rounded),
 
 
 
@@ -15281,7 +15070,7 @@ void _showSubtitleSelector() {
 
 
 
-                                              _PlayerIconButton(
+                                              if (!_isLocalDownloaded) _PlayerIconButton(
 
 
 

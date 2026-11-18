@@ -14,6 +14,7 @@ class PlexServerService {
   static const String _prefSavedJellyfinServersKey = 'plix_saved_jellyfin_servers';
   static const String _prefFavoriteLibrariesKey = 'plix_favorite_library_composite_ids';
   static const String _prefCachedLibrariesPrefix = 'plix_cached_libraries_';
+  static const String _prefCachedPlexServersKey = 'plix_cached_plex_servers';
   static const String _prefServerAddedOrderKey = 'plix_server_added_order';
 
   PlexServerService({required this.authService});
@@ -84,6 +85,29 @@ class PlexServerService {
     }
   }
 
+  Future<void> _cachePlexServers(List<PlexServer> servers) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = servers.map((s) => jsonEncode(s.toJson())).toList();
+      await prefs.setStringList(ProfileService.key(_prefCachedPlexServersKey), list);
+    } catch (_) {}
+  }
+
+  Future<List<PlexServer>> getCachedPlexServers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(ProfileService.key(_prefCachedPlexServersKey)) ?? [];
+      final pinnedIds = await getPinnedServerIds();
+      return list.map((s) {
+        final server = PlexServer.fromJson(jsonDecode(s) as Map<String, dynamic>);
+        server.isPinned = pinnedIds.contains(server.clientIdentifier);
+        return server;
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<PlexServer>> fetchServers(String authToken) async {
     final List<PlexServer> servers = [];
     final pinnedIds = await getPinnedServerIds();
@@ -111,8 +135,15 @@ class PlexServerService {
               servers.add(server);
             }
           }
+          await _cachePlexServers(servers);
+        } else {
+          final cached = await getCachedPlexServers();
+          servers.addAll(cached);
         }
-      } catch (_) {}
+      } catch (_) {
+        final cached = await getCachedPlexServers();
+        servers.addAll(cached);
+      }
     }
 
     // Always include any saved Jellyfin servers

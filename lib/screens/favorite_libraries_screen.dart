@@ -388,7 +388,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: PlixButton(
                 focusNode: _saveBtnFocusNode,
-                label: 'Save Changes',
+                label: isMobilePortrait ? 'Save' : 'Save Changes',
                 icon: const Icon(Icons.check_rounded, size: 18),
                 backgroundColor: PlixTheme.plexGold,
                 highlightColor: PlixTheme.plexGoldLight,
@@ -515,7 +515,7 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
                               width: isCompact ? double.infinity : 280,
                               child: PlixButton(
                                 focusNode: _bottomSaveBtnFocusNode,
-                                label: 'Save Changes',
+                                label: (isCompact && PlixDeviceHelper.isPortrait(context)) ? 'Save' : 'Save Changes',
                                 icon: const Icon(Icons.check_circle_rounded, size: 20),
                                 backgroundColor: PlixTheme.plexGold,
                                 highlightColor: const Color(0xFFFFB82E),

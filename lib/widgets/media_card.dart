@@ -103,6 +103,19 @@ class _MediaCardState extends State<MediaCard> {
     super.dispose();
   }
 
+  bool _isLocalFile(String? p) {
+    if (p == null || p.isEmpty) return false;
+    if (p.startsWith('http://') || p.startsWith('https://')) return false;
+    if (p.startsWith('/library/') || p.startsWith('/Items/') || p.startsWith('/photo/') || p.startsWith('/System/')) return false;
+    final clean = p.startsWith('file://') ? p.substring(7) : p;
+    try {
+      final f = File(clean);
+      return f.isAbsolute && f.existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final height = widget.width / widget.aspectRatio;
@@ -268,7 +281,17 @@ class _MediaCardState extends State<MediaCard> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (imageUrl.isNotEmpty)
+                        if (_isLocalFile(widget.item.thumb))
+                          Image.file(
+                            File(widget.item.thumb!.replaceFirst('file://', '')),
+                            fit: BoxFit.cover,
+                          )
+                        else if (_isLocalFile(imageUrl))
+                          Image.file(
+                            File(imageUrl.replaceFirst('file://', '')),
+                            fit: BoxFit.cover,
+                          )
+                        else if (imageUrl.isNotEmpty)
                           CachedNetworkImage(
                             key: ValueKey(imageUrl),
                             imageUrl: imageUrl,

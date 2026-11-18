@@ -40,7 +40,9 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
   @override
   void initState() {
     super.initState();
-    PlixTheme.resetToDefaultModern();
+    if (widget.isCreatingProfile) {
+      PlixTheme.resetToDefaultModern();
+    }
   }
 
   @override
@@ -48,6 +50,9 @@ class _AuthChooserScreenState extends State<AuthChooserScreen> {
     _plexFocusNode.dispose();
     _jellyfinFocusNode.dispose();
     _backFocusNode.dispose();
+    if (widget.isCreatingProfile) {
+      PlixTheme.loadSavedTheme();
+    }
     super.dispose();
   }
 
