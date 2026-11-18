@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "a61f5412b41cc2e596786bda023c89c89aa18a598e69005418e819bec60dcfc7",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "6cd0bbd19946fcc082a0303de659202190a66a5b98525375ffda7f3eb2e71bcc",
+    "linuxSha256": "db6bc4ba8160adf65ab2db7532ab5404558d2eda89434cb063e9f7d6d1056fd9",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "4cd7251b26b6cd9d6060c8d47eafc7c18ecd3f3138812357f7d4083c34790e94",
+    "linuxArchSha256": "2ced56f43d3adc2bdb6f6bb518ce6b43f185d745223d8946eebd8d481aa9ccb4",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "7e600fa5d45ab6b84c4297be7ffa63dff62d8f32b314447568cd4fdb57d1acfd",
+    "linuxTarballSha256": "58bccd5bb5816fc350c93014af96d65c9d0755b8d35f85a78316d042713eae0b",
     "releaseNotes": "- Offline Content & Downloads: Full media downloading support with foreground notification service, local storage management, status badges, and offline launch detection\r\n- TV Library Categories Focus Navigation: Fixed visual cursor movement and active item highlighting in categories modal and sort dialog with smooth D-pad scrolling\r\n- Episode Detail Button Layout: Restored standard horizontal action buttons under the description on TV, removed duplicate buttons in landscape mobile view, and balanced left action buttons\r\n- Mobile Theme Preservation: Prevented theme resets when navigating to server connection screens (such as Jellyfin), ensuring selected profile themes persist on back navigation\r\n- Immersive Landscape Playback UI: Kept system status bar and navigation bars hidden when exiting video playback in landscape mobile orientation\r\n- Mobile PiP & Settings Polish: Preserved continuous playback when entering PiP via swipe-home from portrait mode, preserved home row scroll position on return, and removed unneeded focus ring on mobile settings\r\n- App Version Bump: v1.10.1 (versionCode 53)",
     "releaseDate": "2026-11-17"
 }
