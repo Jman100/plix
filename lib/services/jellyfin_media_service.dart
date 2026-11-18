@@ -20,11 +20,34 @@ import 'update_service.dart';
 
 class JellyfinMediaService {
   static final http.Client _defaultClient = http.Client();
+  static final Map<String, bool> _adminCache = {};
   final PlexServer server;
   final http.Client _client;
 
   JellyfinMediaService({required this.server, http.Client? client})
       : _client = client ?? _defaultClient;
+
+  Future<bool> checkIsAdmin() async {
+    if (userId.isEmpty) return false;
+    if (_adminCache.containsKey(server.clientIdentifier)) {
+      final cached = _adminCache[server.clientIdentifier]!;
+      server.owned = cached;
+      return cached;
+    }
+    try {
+      final url = Uri.parse('$baseUrl/Users/$userId');
+      final res = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final policy = data['Policy'] as Map<String, dynamic>? ?? {};
+        final isAdmin = policy['IsAdministrator'] == true;
+        _adminCache[server.clientIdentifier] = isAdmin;
+        server.owned = isAdmin;
+        return isAdmin;
+      }
+    } catch (_) {}
+    return server.owned;
+  }
 
 
 

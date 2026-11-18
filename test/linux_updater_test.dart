@@ -4,9 +4,9 @@ import 'package:plix/services/update_service.dart';
 
 void main() {
   group('UpdateService Tests', () {
-    test('currentVersion and versionCode are updated to 1.10.1 (53)', () {
-      expect(UpdateService.currentVersion, equals('1.10.1'));
-      expect(UpdateService.currentVersionCode, equals(53));
+    test('currentVersion and versionCode are updated to 1.10.2 (54)', () {
+      expect(UpdateService.currentVersion, equals('1.10.2'));
+      expect(UpdateService.currentVersionCode, equals(54));
     });
 
     test('isVersionNewer correctly compares semver versions', () {

@@ -42,6 +42,50 @@ class DownloadButton extends StatefulWidget {
 class _DownloadButtonState extends State<DownloadButton> {
   bool _canDownload = false;
   bool _checkingPermission = true;
+  bool _isHovered = false;
+
+  Widget _buildIconOnly({
+    required Widget iconWidget,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          if (mounted) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (mounted) setState(() => _isHovered = false);
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _isHovered
+                  ? PlixTheme.plexGold.withOpacity(0.18)
+                  : Colors.transparent,
+              border: Border.all(
+                color: _isHovered
+                    ? PlixTheme.plexGold.withOpacity(0.55)
+                    : Colors.transparent,
+                width: 1.2,
+              ),
+            ),
+            child: Center(
+              child: iconWidget,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -247,25 +291,22 @@ class _DownloadButtonState extends State<DownloadButton> {
       final pct = (progress * 100).toInt();
 
       if (widget.isIconOnly) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        return _buildIconOnly(
+          tooltip: 'Cancel Download ($pct%)',
           onTap: _confirmCancel,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: progress > 0 ? progress : null,
-                    strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
-                  ),
-                  const Icon(Icons.close_rounded, size: 10, color: Colors.white70),
-                ],
-              ),
+          iconWidget: SizedBox(
+            width: 20,
+            height: 20,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress > 0 ? progress : null,
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(PlixTheme.plexGold),
+                ),
+                const Icon(Icons.close_rounded, size: 10, color: Colors.white70),
+              ],
             ),
           ),
         );
@@ -424,16 +465,13 @@ class _DownloadButtonState extends State<DownloadButton> {
     // 2. Downloaded State -> Delete Button
     if (isDownloaded) {
       if (widget.isIconOnly) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        return _buildIconOnly(
+          tooltip: 'Downloaded (Click to Delete)',
           onTap: _confirmDelete,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(
-              Icons.download_done_rounded,
-              size: 22,
-              color: PlixTheme.plexGold,
-            ),
+          iconWidget: Icon(
+            Icons.download_done_rounded,
+            size: 20,
+            color: PlixTheme.plexGold,
           ),
         );
       }
@@ -515,16 +553,13 @@ class _DownloadButtonState extends State<DownloadButton> {
 
     // 3. Not Downloaded State -> Download Button
     if (widget.isIconOnly) {
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      return _buildIconOnly(
+        tooltip: 'Download Episode',
         onTap: _startDownload,
-        child: const Padding(
-          padding: EdgeInsets.all(6),
-          child: Icon(
-            Icons.download_rounded,
-            size: 22,
-            color: Colors.white70,
-          ),
+        iconWidget: Icon(
+          Icons.download_rounded,
+          size: 20,
+          color: _isHovered ? PlixTheme.plexGold : Colors.white70,
         ),
       );
     }

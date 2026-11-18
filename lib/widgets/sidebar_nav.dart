@@ -705,6 +705,40 @@ class _SidebarNavState extends State<SidebarNav> {
                   },
                 ),
               )
+            else if (PlixDeviceHelper.isDesktop && !effectiveExpanded)
+              Container(
+                height: 60,
+                width: 72.0,
+                alignment: Alignment.center,
+                child: ValueListenableBuilder<PlixProfile?>(
+                  valueListenable: ProfileService.instance.activeProfileNotifier,
+                  builder: (context, activeProf, _) {
+                    final avatarId = activeProf?.avatarId ?? 'avatar_default';
+                    final profName = activeProf?.name ?? 'Profile';
+                    return Tooltip(
+                      message: 'Profiles ($profName)',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: _openProfileMenu,
+                          child: Container(
+                            key: _profileAvatarKey,
+                            padding: const EdgeInsets.all(4),
+                            child: ProfileAvatarWidget(
+                              avatarId: avatarId,
+                              avatarColorId: activeProf?.avatarColorId,
+                              size: 38,
+                              borderRadius: 10,
+                              glow: false,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
             else
               Container(
                 height: 60,
@@ -1294,6 +1328,8 @@ class _SidebarNavState extends State<SidebarNav> {
                         onTap: () {
                           if (isGuest) {
                             GuestModeService.instance.exitGuestMode();
+                          } else if (PlixDeviceHelper.isDesktop) {
+                            widget.onOpenProfiles?.call();
                           } else {
                             widget.onSignOut();
                           }

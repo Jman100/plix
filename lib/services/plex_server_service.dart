@@ -215,6 +215,20 @@ class PlexServerService {
       final working = await _firstSuccess(futures.toList());
       if (working != null) {
         server.activeConnectionUri = working;
+        if (server.userId != null && server.userId!.isNotEmpty && server.accessToken.isNotEmpty) {
+          try {
+            final userRes = await http.get(
+              Uri.parse('$working/Users/${server.userId}?api_key=${server.accessToken}'),
+            ).timeout(const Duration(seconds: 3));
+            if (userRes.statusCode == 200) {
+              final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
+              final policy = userData['Policy'] as Map<String, dynamic>? ?? {};
+              final isAdmin = policy['IsAdministrator'] == true;
+              server.owned = isAdmin;
+              await saveJellyfinServer(server);
+            }
+          } catch (_) {}
+        }
         return working;
       }
 

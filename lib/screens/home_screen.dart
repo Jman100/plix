@@ -1317,6 +1317,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _signOut() async {
+    if (PlixDeviceHelper.isDesktop) {
+      _openProfilesScreen();
+      return;
+    }
     _cachedContinueWatching.clear();
     final confirmed = await showDialog<bool>(
       context: context,

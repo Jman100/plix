@@ -44,6 +44,13 @@ class PlexMediaService {
     return _instanceCache[key] = PlexMediaService(server: server, client: client);
   }
 
+  Future<bool> checkIsServerOwner() async {
+    if (server.isJellyfin) {
+      return _jfService.checkIsAdmin();
+    }
+    return server.owned;
+  }
+
 
 
   String get baseUrl => server.activeConnectionUri ?? (server.connections.isNotEmpty ? server.connections.first.uri : '');

@@ -750,11 +750,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     const SizedBox(height: 10),
 
                     // 2. Avatar Icon Picker (Full width, larger 68px images, no clipping)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
+                        alignment: PlixDeviceHelper.isDesktop ? Alignment.center : Alignment.centerLeft,
+                        child: const Text(
                           'CHOOSE ICON',
                           style: TextStyle(
                             color: PlixTheme.textMuted,
@@ -766,27 +766,68 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    SizedBox(
-                      height: 82,
-                      child: SingleChildScrollView(
-                        controller: _avatarScrollController,
-                        scrollDirection: Axis.horizontal,
-                        clipBehavior: Clip.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (int index = 0; index < _avatarOptions.length; index++) ...[
-                              if (index > 0) const SizedBox(width: 12),
-                              _buildAvatarItem(context, index, _avatarOptions[index]),
+                    if (PlixDeviceHelper.isDesktop)
+                      Builder(
+                        builder: (context) {
+                          final half = (_avatarOptions.length + 1) ~/ 2;
+                          return Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (int index = 0; index < half && index < _avatarOptions.length; index++) ...[
+                                          if (index > 0) const SizedBox(width: 8),
+                                          _buildAvatarItem(context, index, _avatarOptions[index]),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (int index = half; index < _avatarOptions.length; index++) ...[
+                                          if (index > half) const SizedBox(width: 8),
+                                          _buildAvatarItem(context, index, _avatarOptions[index]),
+                                        ],
+                                        const SizedBox(width: 8),
+                                        _buildUploadAvatarButton(),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    else
+                      SizedBox(
+                        height: 82,
+                        child: SingleChildScrollView(
+                          controller: _avatarScrollController,
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (int index = 0; index < _avatarOptions.length; index++) ...[
+                                if (index > 0) const SizedBox(width: 12),
+                                _buildAvatarItem(context, index, _avatarOptions[index]),
+                              ],
+                              const SizedBox(width: 12),
+                              _buildUploadAvatarButton(),
                             ],
-                            const SizedBox(width: 12),
-                            _buildUploadAvatarButton(),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
 
                     const SizedBox(height: 8),
 
@@ -1075,6 +1116,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowDown) {
+            if (PlixDeviceHelper.isDesktop) {
+              final half = (_avatarOptions.length + 1) ~/ 2;
+              if (index < half) {
+                final targetIdx = index + half;
+                if (targetIdx < _avatarOptions.length) {
+                  _avatarFocusNodes[_avatarOptions[targetIdx].id]?.requestFocus();
+                } else {
+                  _uploadAvatarFocusNode.requestFocus();
+                }
+                return KeyEventResult.handled;
+              }
+            }
             final colIdx = ProfileGradientOption.availableGradients.indexWhere((g) => g.id == _selectedColorId);
             final targetIdx = colIdx < 12 && colIdx >= 0 ? colIdx : (colIdx >= 12 ? colIdx - 12 : 0);
             final safeIdx = targetIdx.clamp(0, 11);
@@ -1083,6 +1136,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowUp) {
+            if (PlixDeviceHelper.isDesktop) {
+              final half = (_avatarOptions.length + 1) ~/ 2;
+              if (index >= half) {
+                final targetIdx = index - half;
+                _avatarFocusNodes[_avatarOptions[targetIdx].id]?.requestFocus();
+                return KeyEventResult.handled;
+              }
+            }
             _nameBoxFocusNode.requestFocus();
             return KeyEventResult.handled;
           }
@@ -1183,7 +1244,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             return KeyEventResult.handled;
           }
           if (key == LogicalKeyboardKey.arrowUp) {
-            _nameBoxFocusNode.requestFocus();
+            if (PlixDeviceHelper.isDesktop) {
+              final half = (_avatarOptions.length + 1) ~/ 2;
+              final targetIdx = (_avatarOptions.length - half).clamp(0, _avatarOptions.length - 1);
+              _avatarFocusNodes[_avatarOptions[targetIdx].id]?.requestFocus();
+            } else {
+              _nameBoxFocusNode.requestFocus();
+            }
             return KeyEventResult.handled;
           }
           if (event is KeyDownEvent &&

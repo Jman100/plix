@@ -49,6 +49,7 @@ class JellyfinAuthResult {
   final String userName;
   final String serverId;
   final String serverName;
+  final bool isAdministrator;
 
   const JellyfinAuthResult({
     required this.accessToken,
@@ -56,6 +57,7 @@ class JellyfinAuthResult {
     required this.userName,
     required this.serverId,
     required this.serverName,
+    this.isAdministrator = false,
   });
 }
 
@@ -294,6 +296,8 @@ class JellyfinAuthService {
     final userId = user['Id']?.toString() ?? '';
     final userName = user['Name']?.toString() ?? 'User';
     final serverId = data['ServerId']?.toString() ?? '';
+    final policy = user['Policy'] as Map<String, dynamic>? ?? {};
+    final isAdministrator = policy['IsAdministrator'] == true;
 
     if (token.isEmpty || userId.isEmpty) {
       throw Exception('Incomplete authentication response from server');
@@ -314,6 +318,7 @@ class JellyfinAuthService {
       userName: userName,
       serverId: serverId,
       serverName: serverName,
+      isAdministrator: isAdministrator,
     );
   }
 }

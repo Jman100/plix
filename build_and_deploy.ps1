@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.10.1"
-$versionCode = 53
+$version = "1.10.2"
+$versionCode = 54
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,13 +45,12 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Offline Content & Downloads: Full media downloading support with foreground notification service, local storage management, status badges, and offline launch detection
-- TV Library Categories Focus Navigation: Fixed visual cursor movement and active item highlighting in categories modal and sort dialog with smooth D-pad scrolling
-- Episode Detail Button Layout: Restored standard horizontal action buttons under the description on TV, removed duplicate buttons in landscape mobile view, and balanced left action buttons
-- Mobile Theme Preservation: Prevented theme resets when navigating to server connection screens (such as Jellyfin), ensuring selected profile themes persist on back navigation
-- Immersive Landscape Playback UI: Kept system status bar and navigation bars hidden when exiting video playback in landscape mobile orientation
-- Mobile PiP & Settings Polish: Preserved continuous playback when entering PiP via swipe-home from portrait mode, preserved home row scroll position on return, and removed unneeded focus ring on mobile settings
-- App Version Bump: v1.10.1 (versionCode 53)
+- Desktop Episode Download Hover Highlight: Added clear visual feedback with a golden circular highlight, tooltip, and mouse cursor pointer when hovering over episode download buttons on show pages
+- Desktop Profile Setup & Navigation Polish: Centered profile avatar in collapsed desktop sidebar nav, and redesigned profile avatar selector into two clean, non-scrolling rows for desktop displays
+- Desktop Sidebar Log Out: Directs to switch profile rather than disconnecting servers
+- Media Info Admin Permission Restriction: Strictly restricted the "Get Info" button to server owners and administrators across Jellyfin and Plex, actively querying administrator privileges
+- Plex Desktop Downloads: Ensured users with download permissions on Plex servers have access to the download button
+- App Version Bump: v1.10.2 (versionCode 54)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

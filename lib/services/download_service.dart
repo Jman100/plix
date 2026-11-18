@@ -286,7 +286,40 @@ class DownloadService extends ChangeNotifier {
     if (PlixDeviceHelper.isTelevision) return false;
 
     if (server.isPlex) {
-      return server.canDownload;
+      if (server.owned) return true;
+      if (_serverPermissionCache.containsKey(server.clientIdentifier)) {
+        return _serverPermissionCache[server.clientIdentifier]!;
+      }
+      if (server.allowSync) {
+        _serverPermissionCache[server.clientIdentifier] = true;
+        return true;
+      }
+
+      // Query PMS root / to check allowSync capability for this user's token
+      final baseUrl = server.activeConnectionUri ??
+          (server.connections.isNotEmpty ? server.connections.first.uri : '');
+      if (baseUrl.isNotEmpty && server.accessToken.isNotEmpty) {
+        try {
+          final uri = Uri.parse('$baseUrl/');
+          final headers = {
+            'X-Plex-Token': server.accessToken,
+            'Accept': 'application/json',
+          };
+          final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body) as Map<String, dynamic>;
+            final mc = data['MediaContainer'] as Map<String, dynamic>? ?? {};
+            final allowSync = mc['allowSync'] == true || mc['allowSync'] == 1 || mc['allowSync'] == '1';
+            _serverPermissionCache[server.clientIdentifier] = allowSync;
+            server.allowSync = allowSync;
+            return allowSync;
+          }
+        } catch (e) {
+          debugPrint('[DownloadService] Error checking Plex allowSync permission: $e');
+        }
+      }
+
+      return server.allowSync;
     }
 
     if (server.isJellyfin) {

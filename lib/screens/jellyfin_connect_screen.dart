@@ -205,7 +205,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
         name: authResult.serverName.isNotEmpty ? authResult.serverName : _targetServerName,
         clientIdentifier: authResult.serverId.isNotEmpty ? authResult.serverId : 'jf_${DateTime.now().millisecondsSinceEpoch}',
         accessToken: authResult.accessToken,
-        owned: true,
+        owned: authResult.isAdministrator,
         connections: [
           PlexConnection(
             protocol: _targetServerUrl.startsWith('https') ? 'https' : 'http',

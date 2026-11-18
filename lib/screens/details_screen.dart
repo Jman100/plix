@@ -204,11 +204,23 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.addObserver(this);
     _item = widget.initialItem;
     _mediaService = PlexMediaService(server: widget.server);
+    _checkServerOwner();
     _resolveThumbnailAspectRatio();
     _loadFullDetails();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startThemeIfAllowed();
     });
+  }
+
+  Future<void> _checkServerOwner() async {
+    if (widget.server.isJellyfin) {
+      final isOwner = await _mediaService.checkIsServerOwner();
+      if (mounted && widget.server.owned != isOwner) {
+        setState(() {
+          widget.server.owned = isOwner;
+        });
+      }
+    }
   }
 
   String get _showRatingKey {
@@ -1530,18 +1542,22 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
               ),
               const SizedBox(width: 8),
             ],
-            Expanded(
-              child: PlixButton(
-                isPrimary: false,
-                fontSize: buttonFontSize,
-                padding: buttonPadding,
-                icon: const Icon(Icons.info_outline_rounded, size: 16),
-                label: 'Get Info',
-                onPressed: _showGetInfoModal,
+            if (widget.server.owned && (_item.isMovie || _item.isEpisode)) ...[
+              Expanded(
+                child: PlixButton(
+                  isPrimary: false,
+                  fontSize: buttonFontSize,
+                  padding: buttonPadding,
+                  icon: const Icon(Icons.info_outline_rounded, size: 16),
+                  label: 'Get Info',
+                  onPressed: _showGetInfoModal,
+                ),
               ),
-            ),
-            if (!_item.isInProgress || _item.grandparentRatingKey == null || _item.grandparentRatingKey!.isEmpty) ...[
-              const SizedBox(width: 8),
+              if (!_item.isInProgress || _item.grandparentRatingKey == null || _item.grandparentRatingKey!.isEmpty) ...[
+                const SizedBox(width: 8),
+                const Spacer(),
+              ],
+            ] else if (!_item.isInProgress || _item.grandparentRatingKey == null || _item.grandparentRatingKey!.isEmpty) ...[
               const Spacer(),
             ],
           ],
@@ -1716,11 +1732,12 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                 label: _item.isWatched ? 'Unwatch' : 'Watched',
                 onPressed: _toggleWatched,
               ),
-              _buildCircleActionButton(
-                icon: Icons.info_outline_rounded,
-                label: 'Get Info',
-                onPressed: _showGetInfoModal,
-              ),
+              if (widget.server.owned && (_item.isMovie || _item.isEpisode))
+                _buildCircleActionButton(
+                  icon: Icons.info_outline_rounded,
+                  label: 'Get Info',
+                  onPressed: _showGetInfoModal,
+                ),
               DownloadButton(
                 item: _item,
                 server: widget.server,

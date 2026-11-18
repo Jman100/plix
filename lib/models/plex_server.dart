@@ -52,8 +52,8 @@ class PlexServer {
   final String name;
   final String clientIdentifier;
   String accessToken;
-  final bool owned;
-  final bool allowSync;
+  bool owned;
+  bool allowSync;
   final List<PlexConnection> connections;
   String? activeConnectionUri;
   bool isPinned;
@@ -83,12 +83,18 @@ class PlexServer {
         .map((c) => PlexConnection.fromJson(c as Map<String, dynamic>))
         .toList();
 
+    final serverType = json['serverType'] as String? ?? 'plex';
+    final isJf = serverType == 'jellyfin';
+    final isOwned = isJf
+        ? (json['isJellyfinAdmin'] == true)
+        : (json['owned'] == true || json['owned'] == 1 || json['owned'] == '1');
+
     return PlexServer(
       name: json['name'] as String? ?? 'Plex Server',
       clientIdentifier: json['clientIdentifier'] as String? ?? '',
       accessToken: json['accessToken'] as String? ?? '',
-      owned: json['owned'] == true || json['owned'] == 1 || json['owned'] == '1',
-      allowSync: json['allowSync'] == true || json['allowSync'] == 1 || json['allowSync'] == '1' || json['owned'] == true || json['owned'] == 1 || json['owned'] == '1',
+      owned: isOwned,
+      allowSync: json['allowSync'] == true || json['allowSync'] == 1 || json['allowSync'] == '1' || json['sync'] == true || json['sync'] == 1 || json['sync'] == '1' || json['synced'] == true || json['synced'] == 1 || json['synced'] == '1' || json['owned'] == true || json['owned'] == 1 || json['owned'] == '1',
       connections: parsedConnections,
       activeConnectionUri: json['activeConnectionUri'] as String?,
       isPinned: json['isPinned'] == true,
@@ -103,6 +109,7 @@ class PlexServer {
       'clientIdentifier': clientIdentifier,
       'accessToken': accessToken,
       'owned': owned,
+      'isJellyfinAdmin': isJellyfin ? owned : null,
       'allowSync': allowSync || owned,
       'connections': connections.map((c) => c.toJson()).toList(),
       'activeConnectionUri': activeConnectionUri,
