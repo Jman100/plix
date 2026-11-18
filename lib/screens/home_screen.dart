@@ -1430,6 +1430,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => WatchlistScreen(
           server: widget.server,
+          servers: _activeServers.isNotEmpty ? _activeServers : _allServers,
           authService: widget.authService,
           serverService: widget.serverService,
           clientId: _clientId,

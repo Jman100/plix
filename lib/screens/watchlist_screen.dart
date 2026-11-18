@@ -40,6 +40,8 @@ class WatchlistScreen extends StatefulWidget {
 
   final String clientId;
 
+  final List<PlexServer>? servers;
+
 
 
   const WatchlistScreen({
@@ -47,6 +49,8 @@ class WatchlistScreen extends StatefulWidget {
     super.key,
 
     required this.server,
+
+    this.servers,
 
     required this.authService,
 
@@ -336,6 +340,28 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
       }
 
+      if (widget.servers != null && widget.servers!.isNotEmpty) {
+
+        for (final s in allServers) {
+
+          final matched = widget.servers!.firstWhere(
+
+            (ws) => ws.clientIdentifier == s.clientIdentifier && (ws.activeConnectionUri?.isNotEmpty ?? false),
+
+            orElse: () => s,
+
+          );
+
+          if (matched.activeConnectionUri != null && matched.activeConnectionUri!.isNotEmpty) {
+
+            s.activeConnectionUri = matched.activeConnectionUri;
+
+          }
+
+        }
+
+      }
+
       for (final s in allServers) {
 
         if (s.clientIdentifier == widget.server.clientIdentifier &&
@@ -458,6 +484,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
         });
 
+        _preResolveItems();
+
         if (_lastSelectedIndex != null) {
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -485,6 +513,54 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
           _errorMessage = 'Failed to load Watchlist: $e';
 
         });
+
+      }
+
+    }
+
+  }
+
+
+
+  void _preResolveItems() async {
+
+    for (int i = 0; i < _items.length; i++) {
+
+      if (!mounted) return;
+
+      final it = _items[i];
+
+      final isJellyfin = it.server?.isJellyfin == true;
+
+      final isCloud = int.tryParse(it.ratingKey) == null && !isJellyfin;
+
+      if (isCloud || it.librarySectionId == null) {
+
+        try {
+
+          final resolved = await _mediaService.resolveWatchlistItem(
+
+            it,
+
+            servers: _availableServers,
+
+            serverService: widget.serverService,
+
+            authService: widget.authService,
+
+          );
+
+          if (mounted && (resolved.ratingKey != it.ratingKey || resolved.server != it.server)) {
+
+            setState(() {
+
+              _items[i] = resolved;
+
+            });
+
+          }
+
+        } catch (_) {}
 
       }
 

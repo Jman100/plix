@@ -26,6 +26,7 @@ import 'update_service.dart';
 class PlexMediaService {
   static final http.Client _defaultClient = http.Client();
   static final Map<String, PlexMediaService> _instanceCache = {};
+  static final Map<String, PlexMediaItem> _resolvedWatchlistCache = {};
 
   final PlexServer server;
   final http.Client _client;
@@ -2637,7 +2638,7 @@ class PlexMediaService {
 
 
 
-  Future<List<PlexMediaItem>> search(String query) async {
+  Future<List<PlexMediaItem>> search(String query, {bool includeStreams = true, int limit = 50}) async {
     if (server.isJellyfin) {
       return _jfService.search(query);
     }
@@ -2652,6 +2653,7 @@ class PlexMediaService {
     final strippedQ = PlexMediaItem.normalizeSortTitle(q);
     final encodedStripped = Uri.encodeComponent(strippedQ);
     final tokenParam = token.isNotEmpty ? '&X-Plex-Token=${Uri.encodeComponent(token)}' : '';
+    final streamsParam = includeStreams ? '&includeStreams=1' : '';
 
     List<dynamic> extractList(dynamic container, List<String> candidateKeys) {
       if (container is! Map) return [];
@@ -2685,10 +2687,10 @@ class PlexMediaService {
 
     // 1. Query /hubs/search (handles case-insensitive 'Hub' / 'hub', 'Metadata' / 'Video' / 'Directory')
     try {
-      final uri = Uri.parse('$effectiveBase/hubs/search?query=$encoded&limit=50&includeStreams=1$tokenParam');
+      final uri = Uri.parse('$effectiveBase/hubs/search?query=$encoded&limit=$limit$streamsParam$tokenParam');
       if (strippedQ != q) {
         try {
-          final strippedUri = Uri.parse('$effectiveBase/hubs/search?query=$encodedStripped&limit=50&includeStreams=1$tokenParam');
+          final strippedUri = Uri.parse('$effectiveBase/hubs/search?query=$encodedStripped&limit=$limit$streamsParam$tokenParam');
           final sResp = await _client.get(strippedUri, headers: _headers).timeout(const Duration(seconds: 7));
           if (sResp.statusCode == 200) {
             final sData = json.decode(sResp.body) as Map<String, dynamic>;
@@ -3650,6 +3652,17 @@ class PlexMediaService {
     PlexServerService? serverService,
     PlexAuthService? authService,
   }) async {
+    final cacheKey = watchlistItem.guid?.isNotEmpty == true
+        ? watchlistItem.guid!
+        : watchlistItem.ratingKey;
+    if (_resolvedWatchlistCache.containsKey(cacheKey)) {
+      final cached = _resolvedWatchlistCache[cacheKey]!;
+      if (cached.ratingKey != watchlistItem.ratingKey &&
+          (cached.server?.activeConnectionUri?.isNotEmpty ?? false)) {
+        return cached;
+      }
+    }
+
     // If it is already a local server item with a validated connection URI and librarySectionId:
     final isPlexLocal = int.tryParse(watchlistItem.ratingKey) != null &&
         watchlistItem.librarySectionId != null &&
@@ -3659,6 +3672,7 @@ class PlexMediaService {
         (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false) &&
         (watchlistItem.partKey?.isNotEmpty ?? false);
     if (isPlexLocal || isJellyfinLocal) {
+      _resolvedWatchlistCache[cacheKey] = watchlistItem;
       return watchlistItem;
     }
 
@@ -3788,7 +3802,7 @@ class PlexMediaService {
             if (prefix != null && prefix != suffix) prefix,
           ];
           final searchFutures = await Future.wait(
-            queries.map((q) => srvService.search(q).catchError((_) => <PlexMediaItem>[])),
+            queries.map((q) => srvService.search(q, includeStreams: false, limit: 15).catchError((_) => <PlexMediaItem>[])),
           );
           final seenKeys = <String>{};
           for (final list in searchFutures) {
@@ -3799,7 +3813,7 @@ class PlexMediaService {
             }
           }
         } else {
-          searchResults = await srvService.search(targetTitle);
+          searchResults = await srvService.search(targetTitle, includeStreams: false, limit: 15);
         }
 
         for (final r in searchResults) {
@@ -3816,17 +3830,32 @@ class PlexMediaService {
       return null;
     }
 
-    // PHASE 1: Fast path - immediately check already-connected online servers (e.g. active server)
-    for (final srv in candidateServers) {
-      if (srv.activeConnectionUri != null && srv.activeConnectionUri!.isNotEmpty) {
-        final match = await checkServer(srv);
+    // Prioritize candidate server order: if it's a Plex cloud item, check Plex servers first
+    final isPlexWatchlist = watchlistItem.server?.isJellyfin != true &&
+        int.tryParse(watchlistItem.ratingKey) == null;
+    if (isPlexWatchlist) {
+      candidateServers.sort((a, b) {
+        if (!a.isJellyfin && b.isJellyfin) return -1;
+        if (a.isJellyfin && !b.isJellyfin) return 1;
+        return 0;
+      });
+    }
+
+    // PHASE 1: Fast path - immediately check already-connected online servers in parallel
+    final verified = candidateServers
+        .where((s) => s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty)
+        .toList();
+    if (verified.isNotEmpty) {
+      final matches = await Future.wait(verified.map((s) => checkServer(s)));
+      for (final match in matches) {
         if (match != null) {
+          _resolvedWatchlistCache[cacheKey] = match;
           return match;
         }
       }
     }
 
-    // PHASE 2: Only if not found on active server, test unverified candidate servers in parallel
+    // PHASE 2: Only if not found on online servers, test unverified candidate servers in parallel
     if (serverService != null) {
       final unverified = candidateServers
           .where((s) => s.activeConnectionUri == null || s.activeConnectionUri!.isEmpty)
@@ -3842,10 +3871,14 @@ class PlexMediaService {
           }),
         );
 
-        for (final srv in unverified) {
-          if (srv.activeConnectionUri != null && srv.activeConnectionUri!.isNotEmpty) {
-            final match = await checkServer(srv);
+        final nowVerified = unverified
+            .where((s) => s.activeConnectionUri != null && s.activeConnectionUri!.isNotEmpty)
+            .toList();
+        if (nowVerified.isNotEmpty) {
+          final matches = await Future.wait(nowVerified.map((s) => checkServer(s)));
+          for (final match in matches) {
             if (match != null) {
+              _resolvedWatchlistCache[cacheKey] = match;
               return match;
             }
           }
