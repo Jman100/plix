@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "881d3bb7e30afd99b0a1902d471a4bb52560f79463d53c53f77e1b171aeb4f6c",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "bea9d68ed99419f9886a0c25d1ee83ca956e0421d47032c0b628e2789f79a51d",
+    "linuxSha256": "0ebc79076cbbc9c3b69d2297e16e4e1703831194ed72d71aafbf57d9534885bf",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "c576b11bcaaf4577cad8a503a213ad71894a560d80f769944dbef2dbf4fcbf1d",
+    "linuxArchSha256": "d21c5c9a1ad067d5fdc862ce3ae0f8cab4772b70d8b0b1507c5046f7cd8f5dca",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "7f0394dccd691fec42d72f57b3f3f05a26174f5ebac55a72f8212fa1515a8640",
+    "linuxTarballSha256": "479274c219251e87f70f8b2d3da736b95b2491f314f1425377c3f88ae99de817",
     "releaseNotes": "- Left Nav Log Out Navigation: Sign out / Log out in the left sidebar navigation now consistently navigates directly to the Who's Watching / Switch Profile screen across all platforms (TV, mobile, desktop).\r\n- Plex Watchlist Playback & Fast Loading: Resolved Plex Discover watchlist items directly to local server media, eliminating empty toast errors, removing phantom specials seasons, and pre-resolving items in the background with session-wide caching for instant sub-second page loads.\r\n- Android Build Toolchain Modernization: Upgraded Android toolchain to Gradle 8.8, Android Gradle Plugin 8.6.0, Kotlin 2.0.21, and Java 17 for enhanced build performance and runtime stability.\r\n- App Version Bump: v1.10.3 (versionCode 55)",
     "releaseDate": "2026-11-18"
 }
