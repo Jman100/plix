@@ -1,6 +1,6 @@
 {
-    "version": "1.10.1",
-    "versionCode": 53,
+    "version": "1.10.2",
+    "versionCode": 54,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "0c90df83806e503fe0ad9c358ea5e4aa768f6f90da556e574744268731aaa5f9",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -12,6 +12,6 @@
     "linuxArchSha256": "c576b11bcaaf4577cad8a503a213ad71894a560d80f769944dbef2dbf4fcbf1d",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "linuxTarballSha256": "7f0394dccd691fec42d72f57b3f3f05a26174f5ebac55a72f8212fa1515a8640",
-    "releaseNotes": "- Offline Content & Downloads: Full media downloading support with foreground notification service, local storage management, status badges, and offline launch detection\r\n- TV Library Categories Focus Navigation: Fixed visual cursor movement and active item highlighting in categories modal and sort dialog with smooth D-pad scrolling\r\n- Episode Detail Button Layout: Restored standard horizontal action buttons under the description on TV, removed duplicate buttons in landscape mobile view, and balanced left action buttons\r\n- Mobile Theme Preservation: Prevented theme resets when navigating to server connection screens (such as Jellyfin), ensuring selected profile themes persist on back navigation\r\n- Immersive Landscape Playback UI: Kept system status bar and navigation bars hidden when exiting video playback in landscape mobile orientation\r\n- Mobile PiP & Settings Polish: Preserved continuous playback when entering PiP via swipe-home from portrait mode, preserved home row scroll position on return, and removed unneeded focus ring on mobile settings\r\n- App Version Bump: v1.10.1 (versionCode 53)",
+    "releaseNotes": "- Desktop Episode Download Hover Highlight: Added clear visual feedback with a golden circular highlight, tooltip, and mouse cursor pointer when hovering over episode download buttons on show pages\r\n- Desktop Profile Setup & Navigation Polish: Centered profile avatar in collapsed desktop sidebar nav, and redesigned profile avatar selector into two clean, non-scrolling rows for desktop displays\r\n- Desktop Sidebar Log Out: Directs to switch profile rather than disconnecting servers\r\n- Media Info Admin Permission Restriction: Strictly restricted the \"Get Info\" button to server owners and administrators across Jellyfin and Plex, actively querying administrator privileges\r\n- Plex Desktop Downloads: Ensured users with download permissions on Plex servers have access to the download button\r\n- App Version Bump: v1.10.2 (versionCode 54)",
     "releaseDate": "2026-11-17"
 }
