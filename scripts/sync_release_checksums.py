@@ -54,8 +54,23 @@ def sync_checksums(tag=None, upload_release=True, commit_git=False):
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
 
+    pubspec_path = os.path.join(os.path.dirname(__file__), "..", "pubspec.yaml")
+    if os.path.exists(pubspec_path):
+        with open(pubspec_path, "r", encoding="utf-8") as pf:
+            for line in pf:
+                if line.startswith("version:"):
+                    v_part = line.split(":", 1)[1].strip()
+                    if "+" in v_part:
+                        v_name, v_code = v_part.split("+", 1)
+                        manifest["version"] = v_name.strip()
+                        manifest["versionCode"] = int(v_code.strip())
+                    else:
+                        manifest["version"] = v_part.strip()
+
     if not tag:
         tag = f"v{manifest.get('version', '')}"
+    elif not manifest.get("version") or manifest.get("version") == "1.10.1":
+        manifest["version"] = tag.lstrip("v")
     
     print(f"=== Syncing Checksums for Release {tag} ===")
     token = get_github_token()
@@ -78,6 +93,8 @@ def sync_checksums(tag=None, upload_release=True, commit_git=False):
         return False
 
     release_id = release_data.get("id")
+    if release_data.get("body"):
+        manifest["releaseNotes"] = release_data["body"].strip()
     assets = {a["name"]: a for a in release_data.get("assets", [])}
     
     updated_count = 0
