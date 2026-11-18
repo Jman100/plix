@@ -526,6 +526,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
             availableServers: _availableServers.isNotEmpty ? _availableServers : null,
 
+            initialIsOnWatchlist: true,
+
           ),
 
         ),

@@ -3762,30 +3762,44 @@ class PlexMediaService {
           return false;
         }
 
-        var searchResults = await srvService.search(targetTitle);
-        if (!searchResults.any(isMatchCandidate)) {
-          final separators = [':', ' - ', '('];
-          for (final sep in separators) {
-            if (targetTitle.contains(sep)) {
-              final parts = targetTitle.split(sep);
-              final prefix = parts.first.trim();
-              final suffix = parts.last.trim().replaceAll(')', '').trim();
-              if (suffix.isNotEmpty && suffix.length >= 3) {
-                final sResults = await srvService.search(suffix);
-                if (sResults.any(isMatchCandidate)) {
-                  searchResults = sResults;
-                  break;
-                }
-              }
-              if (prefix.isNotEmpty && prefix.length >= 3) {
-                final pResults = await srvService.search(prefix);
-                if (pResults.any(isMatchCandidate)) {
-                  searchResults = pResults;
-                  break;
-                }
+        String? suffix;
+        String? prefix;
+        final separators = [':', ' - ', '('];
+        for (final sep in separators) {
+          if (targetTitle.contains(sep)) {
+            final parts = targetTitle.split(sep);
+            final p = parts.first.trim();
+            final s = parts.last.trim().replaceAll(')', '').trim();
+            if (s.isNotEmpty && s.length >= 3 && s.toLowerCase() != targetTitle.toLowerCase()) {
+              suffix = s;
+            }
+            if (p.isNotEmpty && p.length >= 3 && p.toLowerCase() != targetTitle.toLowerCase()) {
+              prefix = p;
+            }
+            break;
+          }
+        }
+
+        List<PlexMediaItem> searchResults = [];
+        if (suffix != null || prefix != null) {
+          final queries = <String>[
+            targetTitle,
+            if (suffix != null) suffix,
+            if (prefix != null && prefix != suffix) prefix,
+          ];
+          final searchFutures = await Future.wait(
+            queries.map((q) => srvService.search(q).catchError((_) => <PlexMediaItem>[])),
+          );
+          final seenKeys = <String>{};
+          for (final list in searchFutures) {
+            for (final item in list) {
+              if (seenKeys.add(item.ratingKey)) {
+                searchResults.add(item);
               }
             }
           }
+        } else {
+          searchResults = await srvService.search(targetTitle);
         }
 
         for (final r in searchResults) {

@@ -48,6 +48,7 @@ class DetailsScreen extends StatefulWidget {
   final PlexMediaItem? initialEpisode;
   final bool onlyDownloaded;
   final List<PlexServer>? availableServers;
+  final bool? initialIsOnWatchlist;
 
   const DetailsScreen({
     super.key,
@@ -59,6 +60,7 @@ class DetailsScreen extends StatefulWidget {
     required this.clientId,
     this.onlyDownloaded = false,
     this.availableServers,
+    this.initialIsOnWatchlist,
   });
 
   @override
@@ -208,6 +210,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     _mediaService = PlexMediaService(server: widget.server);
     _checkServerOwner();
     _resolveThumbnailAspectRatio();
+    if (widget.initialIsOnWatchlist != null) {
+      _isOnWatchlist = widget.initialIsOnWatchlist!;
+    }
     _loadFullDetails();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startThemeIfAllowed();
@@ -359,6 +364,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             ((_item.isMovie || _item.isEpisode || _item.isShow) &&
                 (_item.partKey == null || _item.partKey!.isEmpty) &&
                 _item.librarySectionId == null));
+    bool didResolveLocal = false;
     if (needsResolution) {
       try {
         final serverService = PlexServerService(authService: PlexAuthService());
@@ -371,22 +377,30 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         );
         if (resolved.ratingKey != _item.ratingKey || resolved.server != _item.server) {
           _item = resolved;
+          didResolveLocal = true;
           if (resolved.server != null && resolved.server!.activeConnectionUri?.isNotEmpty == true) {
             _mediaService = PlexMediaService(server: resolved.server!);
+          }
+          if (mounted) {
+            setState(() {});
           }
         }
       } catch (_) {}
     }
 
-    try {
-      final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
-      if (mounted) {
-        setState(() {
-          _item = full.copyWith(server: _mediaService.server, serverId: _mediaService.server.clientIdentifier);
-        });
-        _resolveThumbnailAspectRatio();
-      }
-    } catch (_) {}
+    if (!didResolveLocal || refresh) {
+      try {
+        final full = await _mediaService.getItemMetadata(_item.ratingKey, refresh: refresh);
+        if (mounted) {
+          setState(() {
+            _item = full.copyWith(server: _mediaService.server, serverId: _mediaService.server.clientIdentifier);
+          });
+          _resolveThumbnailAspectRatio();
+        }
+      } catch (_) {}
+    } else {
+      _resolveThumbnailAspectRatio();
+    }
 
     if (widget.onlyDownloaded) {
       if (_item.art == null || _item.art!.isEmpty || _item.summary.isEmpty) {
@@ -429,39 +443,31 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       }
     } catch (_) {}
 
-    // If item is a movie, attempt to load trailer
+    // If item is a movie, attempt to load trailer asynchronously without blocking
     if (_item.isMovie) {
-      try {
-        final userToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
-        final trailer = await _mediaService.getMovieTrailer(
+      PlexAuthService().getSavedToken().then((savedToken) {
+        final userToken = (savedToken != null && savedToken.isNotEmpty) ? savedToken : widget.server.accessToken;
+        _mediaService.getMovieTrailer(
           _item.ratingKey,
           guid: _item.guid,
           userToken: userToken,
-        );
-        if (mounted && trailer != null) {
-          setState(() {
-            _trailerItem = trailer.copyWith(
-              title: trailer.title.toLowerCase().contains(_item.title.toLowerCase())
-                  ? trailer.title
-                  : '${_item.title} - ${trailer.title}',
-            );
-          });
-        }
-      } catch (_) {}
+        ).then((trailer) {
+          if (mounted && trailer != null) {
+            setState(() {
+              _trailerItem = trailer.copyWith(
+                title: trailer.title.toLowerCase().contains(_item.title.toLowerCase())
+                    ? trailer.title
+                    : '${_item.title} - ${trailer.title}',
+              );
+            });
+          }
+        }).catchError((_) {});
+      }).catchError((_) {});
     }
 
     if (_item.isShow) {
       if (widget.initialEpisode != null) {
         _queuedEpisode = widget.initialEpisode;
-      } else {
-        try {
-          final nextUp = await _mediaService.getNextUpForShow(_item.ratingKey);
-          if (mounted && nextUp != null) {
-            setState(() {
-              _queuedEpisode = nextUp;
-            });
-          }
-        } catch (_) {}
       }
       try {
         List<PlexMediaItem> seasons;
@@ -486,11 +492,22 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           }
           seasons = seasonMap.values.toList()..sort((a, b) => (a.index ?? 0).compareTo(b.index ?? 0));
         } else {
-          try {
-            seasons = await _mediaService.getShowSeasons(_item.ratingKey);
-          } catch (_) {
-            seasons = [];
+          final showFutures = await Future.wait([
+            if (widget.initialEpisode == null)
+              _mediaService.getNextUpForShow(_item.ratingKey).catchError((_) => null)
+            else
+              Future.value(null),
+            _mediaService.getShowSeasons(_item.ratingKey).catchError((_) => <PlexMediaItem>[]),
+          ]);
+          final nextUp = showFutures[0] as PlexMediaItem?;
+          seasons = showFutures[1] as List<PlexMediaItem>;
+
+          if (mounted && nextUp != null) {
+            setState(() {
+              _queuedEpisode = nextUp;
+            });
           }
+
           if (seasons.isEmpty) {
             final downloadedEps = DownloadService.instance.getDownloadedEpisodesForShow(_item.ratingKey);
             final Map<int, PlexMediaItem> seasonMap = {};
@@ -573,29 +590,37 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       } catch (_) {}
     }
 
-    // Check if item is on Watchlist
-    try {
-      final userToken = await PlexAuthService().getSavedToken() ?? widget.server.accessToken;
-      final inWatchlist = await _mediaService.isInWatchlist(
-        item: _effectiveWatchlistItem,
-        userToken: userToken,
-      );
+    if (mounted) {
+      setState(() {
+        _isLoadingDetails = false;
+      });
+      if (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _startThemeIfAllowed();
+      }
+    }
+
+    // Check if item is on Watchlist asynchronously without blocking UI
+    if (widget.initialIsOnWatchlist != null) {
       if (mounted) {
         setState(() {
-          _isOnWatchlist = inWatchlist;
+          _isOnWatchlist = widget.initialIsOnWatchlist!;
         });
       }
-    } catch (_) {
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingDetails = false;
-        });
-        if (WidgetsBinding.instance.lifecycleState == null ||
-            WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-          _startThemeIfAllowed();
-        }
-      }
+    } else {
+      PlexAuthService().getSavedToken().then((savedToken) {
+        final userToken = (savedToken != null && savedToken.isNotEmpty) ? savedToken : widget.server.accessToken;
+        _mediaService.isInWatchlist(
+          item: _effectiveWatchlistItem,
+          userToken: userToken,
+        ).then((inWatchlist) {
+          if (mounted) {
+            setState(() {
+              _isOnWatchlist = inWatchlist;
+            });
+          }
+        }).catchError((_) {});
+      }).catchError((_) {});
     }
   }
 

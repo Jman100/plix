@@ -136,8 +136,8 @@ void main() {
     });
 
     test('Suffix / separator fallback extracts search queries for colon-separated titles', () {
-      final targetTitle = 'Star Trek: Deep Space Nine';
-      final separators = [':', ' - ', '('];
+      const targetTitle = 'Star Trek: Deep Space Nine';
+      const separators = [':', ' - ', '('];
       String? extractedSuffix;
       for (final sep in separators) {
         if (targetTitle.contains(sep)) {
@@ -158,7 +158,7 @@ void main() {
         year: 1993,
       );
 
-      final isJellyfinItem = false;
+      const isJellyfinItem = false;
       final isCloudItem = int.tryParse(cloudWatchlistItem.ratingKey) == null && !isJellyfinItem;
       final needsResolution = !isJellyfinItem &&
           (isCloudItem ||
