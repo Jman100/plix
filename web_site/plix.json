@@ -5,7 +5,7 @@
     "apkSha256": "9a320a38bbdb5fd11adc9bce216300b1eafc797dd06e4e5fb416cea76ebd2652",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
-    "windowsSha256": "a61f5412b41cc2e596786bda023c89c89aa18a598e69005418e819bec60dcfc7",
+    "windowsSha256": "fd06f1a521e4d40e17d60b80821c03f725106698e81e324c27f709d835297a54",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
     "linuxSha256": "db6bc4ba8160adf65ab2db7532ab5404558d2eda89434cb063e9f7d6d1056fd9",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
