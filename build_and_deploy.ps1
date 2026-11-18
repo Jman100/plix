@@ -113,9 +113,13 @@ if (Test-Path $innoCompiler) {
         Write-Host "Published to GitHub Releases successfully!" -ForegroundColor Green
     }
 
-    # Automatically verify and sync release manifest checksums from actual release assets
-    Write-Host "`n=== Syncing Checksums Manifest with Live Release Assets ===" -ForegroundColor Cyan
-    & python "scripts\sync_release_checksums.py" "v$version"
+    # Automatically monitor CI, verify all release assets (Android, Windows, Linux), promote release to latest, sync checksums, and notify Discord
+    Write-Host "`n=== Monitoring CI and Syncing Release Assets & Checksums ===" -ForegroundColor Cyan
+    & python "scripts\monitor_release.py" "v$version"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Release monitoring or asset verification failed with code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
 
     # Optional local network mirror (if available)
     if ($networkPlixDir -and (Test-Path $networkPlixDir)) {

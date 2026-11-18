@@ -7,6 +7,7 @@ import json
 
 sys.path.insert(0, os.path.dirname(__file__))
 import github_release as gr
+import sync_release_checksums as src
 
 def compute_sha256(url):
     print(f"Downloading for checksum: {url}", flush=True)
@@ -20,89 +21,89 @@ def compute_sha256(url):
             hasher.update(chunk)
     return hasher.hexdigest().lower()
 
-def main():
+def monitor_and_sync(tag=None, timeout_seconds=1800):
     token = gr.get_github_token()
     if not token:
         print("No GitHub token found!", flush=True)
         sys.exit(1)
 
-    print("Monitoring CI build workflows for v1.8.7...", flush=True)
-    start_time = time.time()
-    
-    while True:
-        data = gr.api_request('https://api.github.com/repos/Jman100/plix/actions/runs?per_page=12', token=token)
-        relevant_runs = [
-            r for r in data['workflow_runs']
-            if r['name'] in (
-                'Build Android APK',
-                'Build Windows Unified Installer (x64 & ARM64)',
-                'Build Linux Packages (DEB, Arch Linux, Portable)'
-            ) and r.get('head_commit', {}).get('message', '').startswith(('feat(release): bump to v1.8.7', 'chore(release)'))
-            or (r.get('head_branch') == 'v1.8.7')
-        ]
-        
-        all_done = True
-        status_lines = []
-        for r in relevant_runs:
-            name = r['name']
-            status = r['status']
-            conclusion = r['conclusion']
-            status_lines.append(f"{name}: {status} ({conclusion})")
-            if status != 'completed':
-                all_done = False
-                
-        if status_lines:
-            print(f"[{int(time.time() - start_time)}s elapsed] " + " | ".join(status_lines), flush=True)
-        else:
-            print(f"[{int(time.time() - start_time)}s elapsed] Waiting for workflow runs to register...", flush=True)
-            all_done = False
-            
-        if all_done and len(relevant_runs) >= 3:
-            print("\nAll core build workflows completed successfully!", flush=True)
-            break
-            
-        time.sleep(15)
-
-    print("\nFetching release v1.8.7 assets...", flush=True)
-    release = gr.api_request('https://api.github.com/repos/Jman100/plix/releases/tags/v1.8.7', token=token)
-    assets = release.get('assets', [])
-    print(f"Found {len(assets)} assets on v1.8.7 release.", flush=True)
-
     manifest_path = os.path.join(os.path.dirname(__file__), '..', 'web_site', 'plix.json')
+    if not os.path.exists(manifest_path):
+        print(f"Error: {manifest_path} not found", file=sys.stderr)
+        sys.exit(1)
+
     with open(manifest_path, 'r', encoding='utf-8') as f:
         manifest = json.load(f)
 
-    for asset in assets:
-        name = asset['name']
-        durl = asset['browser_download_url']
-        print(f"Computing SHA256 for {name}...", flush=True)
-        sha = compute_sha256(durl)
-        print(f"  -> {name}: {sha}", flush=True)
+    if not tag:
+        tag = f"v{manifest.get('version', '')}"
 
-        if name == 'plix_android.apk':
-            manifest['apkSha256'] = sha
-        elif name == 'plix_windows.exe':
-            manifest['windowsSha256'] = sha
-        elif name == 'plix_linux.deb':
-            manifest['linuxSha256'] = sha
-        elif name == 'plix_linux_arch.pkg.tar.zst':
-            manifest['linuxArchSha256'] = sha
-        elif name == 'plix_linux_portable.tar.gz':
-            manifest['linuxTarballSha256'] = sha
+    print(f"=== Monitoring CI build workflows for {tag} ===", flush=True)
+    start_time = time.time()
 
-    with open(manifest_path, 'w', encoding='utf-8') as f:
-        json.dump(manifest, f, indent=4)
-    print("Updated web_site/plix.json with exact release checksums!", flush=True)
+    required_assets = [
+        "plix_android.apk",
+        "plix_windows.exe",
+        "plix_linux.deb",
+        "plix_linux_arch.pkg.tar.zst",
+        "plix_linux_portable.tar.gz",
+    ]
 
-    # Upload plix.json to the release
-    print("Uploading plix.json to release v1.8.7...", flush=True)
-    gr.upload_asset(token, release['id'], manifest_path, 'plix.json')
+    while time.time() - start_time < timeout_seconds:
+        # Check assets on release
+        try:
+            release = gr.api_request(f'https://api.github.com/repos/{gr.REPO}/releases/tags/{tag}', token=token)
+            assets = {a['name']: a for a in release.get('assets', [])}
+            missing = [a for a in required_assets if a not in assets]
+            
+            if not missing:
+                print(f"\nAll required release assets are present on {tag}!", flush=True)
+                break
+            else:
+                elapsed = int(time.time() - start_time)
+                print(f"[{elapsed}s elapsed] Waiting for assets to upload to {tag}: missing {missing}...", flush=True)
+        except Exception as e:
+            print(f"Warning checking release: {e}", flush=True)
 
-    # Commit and push to main
-    os.system('git add web_site/plix.json')
-    os.system('git commit -m "chore(release): sync exact v1.8.7 binary checksums"')
-    os.system('git push origin main')
-    print("Pushed updated checksums to main!", flush=True)
+        # Also check running workflows
+        try:
+            data = gr.api_request(f'https://api.github.com/repos/{gr.REPO}/actions/runs?per_page=12', token=token)
+            for r in data.get('workflow_runs', []):
+                if r.get('head_branch') == tag and r['name'] == 'Build Linux Packages (DEB, Arch Linux, Portable)':
+                    if r['status'] == 'completed' and r['conclusion'] != 'success':
+                        print(f"ERROR: Linux build workflow failed with conclusion: {r['conclusion']}", file=sys.stderr)
+                        return False
+        except Exception:
+            pass
+
+        time.sleep(20)
+
+    if missing:
+        print(f"Timed out waiting for required assets on {tag}: {missing}", file=sys.stderr)
+        return False
+
+    # Promote release to latest now that all assets are verified
+    try:
+        gr.set_release_latest(token, release['id'], "true")
+        print(f"Successfully promoted {tag} to latest release!", flush=True)
+    except Exception as e:
+        print(f"Notice: Could not mark release as latest: {e}", file=sys.stderr)
+
+    # Sync checksums
+    print(f"\n=== Syncing verified checksums for {tag} ===", flush=True)
+    success = src.sync_checksums(tag=tag, upload_release=True, commit_git=True)
+
+    # Notify Discord
+    try:
+        import discord_changelog
+        if discord_changelog.get_webhook_url():
+            print("\nPosting updated changelog with verified Linux and Windows links to Discord...", flush=True)
+            discord_changelog.post_changelog()
+    except Exception as e:
+        print(f"Notice: Could not post changelog to Discord: {e}", file=sys.stderr)
+
+    return success
 
 if __name__ == '__main__':
-    main()
+    tag_arg = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else None
+    monitor_and_sync(tag=tag_arg)

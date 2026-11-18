@@ -50,7 +50,16 @@ def api_request(url, method="GET", data=None, content_type="application/json", t
         print(f"API Error {e.code} for {method} {url}: {err_body}", file=sys.stderr)
         raise
 
-def get_or_create_release(token, tag, title, body):
+def set_release_latest(token, release_id, make_latest="true"):
+    print(f"Setting release {release_id} make_latest={make_latest}...")
+    return api_request(
+        f"https://api.github.com/repos/{REPO}/releases/{release_id}",
+        method="PATCH",
+        data={"make_latest": make_latest},
+        token=token,
+    )
+
+def get_or_create_release(token, tag, title, body, make_latest="false"):
     # Check if release exists
     try:
         release = api_request(f"https://api.github.com/repos/{REPO}/releases/tags/{tag}", token=token)
@@ -76,6 +85,7 @@ def get_or_create_release(token, tag, title, body):
             "name": title,
             "body": body,
             "draft": False,
+            "make_latest": make_latest,
             "prerelease": False,
         },
         token=token,
@@ -156,14 +166,9 @@ def main():
 
     print("\nAll assets processed successfully for release", tag)
 
-    # Automatically notify Discord if webhook is configured
-    try:
-        import discord_changelog
-        if discord_changelog.get_webhook_url():
-            print("\nUpdating Discord changelog...")
-            discord_changelog.post_changelog()
-    except Exception as e:
-        print(f"Notice: Could not post changelog to Discord: {e}", file=sys.stderr)
+    # Note: Discord changelog notification is deferred until monitor_release.py
+    # verifies that all platform binaries (Android, Windows, Linux) are fully built and live.
+    print("Release asset upload complete. Final promotion to latest and Discord changelog will occur once Linux packages are verified.")
 
 if __name__ == "__main__":
     main()
