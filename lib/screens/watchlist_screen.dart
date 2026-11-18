@@ -72,6 +72,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   List<PlexMediaItem> _items = [];
 
+  List<PlexServer> _availableServers = [];
+
   bool _isLoading = true;
 
   String? _errorMessage;
@@ -356,6 +358,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
       final targetServers = allServers.isNotEmpty ? allServers : [widget.server];
 
+      _availableServers = targetServers;
+
       _isMultiServer = targetServers.length > 1;
 
 
@@ -519,6 +523,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
             server: effectiveServer,
 
             clientId: widget.clientId,
+
+            availableServers: _availableServers.isNotEmpty ? _availableServers : null,
 
           ),
 

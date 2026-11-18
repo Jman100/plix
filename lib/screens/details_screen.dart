@@ -47,6 +47,7 @@ class DetailsScreen extends StatefulWidget {
   final String? initialEpisodeKey;
   final PlexMediaItem? initialEpisode;
   final bool onlyDownloaded;
+  final List<PlexServer>? availableServers;
 
   const DetailsScreen({
     super.key,
@@ -57,6 +58,7 @@ class DetailsScreen extends StatefulWidget {
     required this.server,
     required this.clientId,
     this.onlyDownloaded = false,
+    this.availableServers,
   });
 
   @override
@@ -351,18 +353,23 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     // If item is a cloud/Discover item, resolve to server item BEFORE fetching metadata.
     // Skip resolving if it already belongs to a local Jellyfin server or local Plex server with library section.
     final isJellyfinItem = _mediaService.server.isJellyfin || (_item.server?.isJellyfin == true);
-    final hasDirectServer = _mediaService.server.accessToken.isNotEmpty && _mediaService.server.connections.isNotEmpty;
     final isCloudItem = int.tryParse(_item.ratingKey) == null && !isJellyfinItem;
-    if (!isJellyfinItem && !hasDirectServer && (isCloudItem || ((_item.isMovie || _item.isEpisode) && (_item.partKey == null || _item.partKey!.isEmpty) && _item.librarySectionId == null))) {
+    final needsResolution = !isJellyfinItem &&
+        (isCloudItem ||
+            ((_item.isMovie || _item.isEpisode || _item.isShow) &&
+                (_item.partKey == null || _item.partKey!.isEmpty) &&
+                _item.librarySectionId == null));
+    if (needsResolution) {
       try {
         final serverService = PlexServerService(authService: PlexAuthService());
         final authService = PlexAuthService();
         final resolved = await _mediaService.resolveWatchlistItem(
           _item,
+          servers: widget.availableServers,
           serverService: serverService,
           authService: authService,
         );
-        if (resolved.ratingKey != _item.ratingKey) {
+        if (resolved.ratingKey != _item.ratingKey || resolved.server != _item.server) {
           _item = resolved;
           if (resolved.server != null && resolved.server!.activeConnectionUri?.isNotEmpty == true) {
             _mediaService = PlexMediaService(server: resolved.server!);
@@ -992,13 +999,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         : item;
     if (!isDownloaded && (playItem.isMovie || playItem.isEpisode) && (playItem.partKey == null || playItem.partKey!.isEmpty)) {
       if (int.tryParse(playItem.ratingKey) == null && !widget.server.isJellyfin) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Media unavailable on connected servers'),
-            duration: const Duration(seconds: 3),
-            backgroundColor: PlixTheme.surface,
-          ),
-        );
+        _showToast('Media unavailable on connected servers');
         return;
       }
     }
@@ -1166,7 +1167,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         ),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        width: 220,
+        width: (message.length * 9.0).clamp(240.0, 420.0),
         backgroundColor: Colors.black.withOpacity(0.85),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -1753,16 +1754,35 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             spacing: 8,
             runSpacing: 8,
             children: [
-              PlixButton(
-                autofocus: true,
-                focusNode: _showPlayFocusNode,
-                isPrimary: true,
-                fontSize: 13.0,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                label: _showPlayLabel,
-                onPressed: _playShow,
-              ),
+              if (int.tryParse(_item.ratingKey) != null || _item.librarySectionId != null || widget.server.isJellyfin) ...[
+                PlixButton(
+                  autofocus: true,
+                  focusNode: _showPlayFocusNode,
+                  isPrimary: true,
+                  fontSize: 13.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: _showPlayLabel,
+                  onPressed: _playShow,
+                ),
+              ] else ...[
+                PlixButton(
+                  autofocus: true,
+                  focusNode: _showPlayFocusNode,
+                  isPrimary: true,
+                  fontSize: 13.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  icon: _isLoadingDetails
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                        )
+                      : const Icon(Icons.cloud_off_rounded, size: 20),
+                  label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
+                  onPressed: () => _showToast('This show is on your Plex Watchlist but not in this server\'s library.'),
+                ),
+              ],
               PlixButton(
                 isPrimary: false,
                 fontSize: 12.0,
@@ -2415,19 +2435,41 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                     ] else if (_item.isShow) ...[
                                       Row(
                                         children: [
-                                          PlixButton(
-                                            autofocus: true,
-                                            focusNode: _showPlayFocusNode,
-                                            onLeft: () {},
-                                            onUp: () => _backButtonFocusNode.requestFocus(),
-                                            onDown: _focusSelectedSeason,
-                                            isPrimary: false,
-                                            fontSize: 12.0,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                            label: _showPlayLabel,
-                                            onPressed: _playShow,
-                                          ),
+                                          if (int.tryParse(_item.ratingKey) != null || _item.librarySectionId != null || widget.server.isJellyfin) ...[
+                                            PlixButton(
+                                              autofocus: true,
+                                              focusNode: _showPlayFocusNode,
+                                              onLeft: () {},
+                                              onUp: () => _backButtonFocusNode.requestFocus(),
+                                              onDown: _focusSelectedSeason,
+                                              isPrimary: false,
+                                              fontSize: 12.0,
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                                              label: _showPlayLabel,
+                                              onPressed: _playShow,
+                                            ),
+                                          ] else ...[
+                                            PlixButton(
+                                              autofocus: true,
+                                              focusNode: _showPlayFocusNode,
+                                              onLeft: () {},
+                                              onUp: () => _backButtonFocusNode.requestFocus(),
+                                              onDown: _focusSelectedSeason,
+                                              isPrimary: false,
+                                              fontSize: 12.0,
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              icon: _isLoadingDetails
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                                    )
+                                                  : const Icon(Icons.cloud_off_rounded, size: 18),
+                                              label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
+                                              onPressed: () => _showToast('This show is on your Plex Watchlist but not in this server\'s library.'),
+                                            ),
+                                          ],
                                           const SizedBox(width: 10),
                                           PlixButton(
                                             onUp: () => _backButtonFocusNode.requestFocus(),

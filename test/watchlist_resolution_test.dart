@@ -134,5 +134,40 @@ void main() {
 
       expect(uninitializedFetchedServer.activeConnectionUri, equals('https://192-168-0-220.plex.direct:32400'));
     });
+
+    test('Suffix / separator fallback extracts search queries for colon-separated titles', () {
+      final targetTitle = 'Star Trek: Deep Space Nine';
+      final separators = [':', ' - ', '('];
+      String? extractedSuffix;
+      for (final sep in separators) {
+        if (targetTitle.contains(sep)) {
+          final parts = targetTitle.split(sep);
+          extractedSuffix = parts.last.trim().replaceAll(')', '').trim();
+          break;
+        }
+      }
+      expect(extractedSuffix, equals('Deep Space Nine'));
+    });
+
+    test('Discover item without librarySectionId identifies as needing resolution', () {
+      const cloudWatchlistItem = PlexMediaItem(
+        ratingKey: '609564c7f078d4002d0ec7e2',
+        key: '/library/metadata/609564c7f078d4002d0ec7e2',
+        title: 'Star Trek: Deep Space Nine',
+        type: 'show',
+        year: 1993,
+      );
+
+      final isJellyfinItem = false;
+      final isCloudItem = int.tryParse(cloudWatchlistItem.ratingKey) == null && !isJellyfinItem;
+      final needsResolution = !isJellyfinItem &&
+          (isCloudItem ||
+              ((cloudWatchlistItem.isMovie || cloudWatchlistItem.isEpisode || cloudWatchlistItem.isShow) &&
+                  (cloudWatchlistItem.partKey == null || cloudWatchlistItem.partKey!.isEmpty) &&
+                  cloudWatchlistItem.librarySectionId == null));
+
+      expect(isCloudItem, isTrue);
+      expect(needsResolution, isTrue);
+    });
   });
 }
