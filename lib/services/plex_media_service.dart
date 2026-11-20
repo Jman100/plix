@@ -598,8 +598,17 @@ class PlexMediaService {
       _metadataCache[_cacheKey(ratingKey)];
 
   PlexMediaItem? getDetailedCachedMetadata(String ratingKey) =>
-
       _detailedMetadataCache[_cacheKey(ratingKey)];
+
+  static PlexMediaItem? findDetailedCached(String ratingKey) {
+    if (ratingKey.isEmpty) return null;
+    for (final entry in _detailedMetadataCache.entries) {
+      if (entry.key.endsWith('_$ratingKey') || entry.value.ratingKey == ratingKey) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
 
 
 
@@ -821,11 +830,21 @@ class PlexMediaService {
 
 
 
-    return deduplicateContinueWatching(rawList)
-
+    final deduped = deduplicateContinueWatching(rawList)
         .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier))
-
         .toList();
+
+    final tvItems = deduped.where((it) => it.isShow || it.isEpisode).toList();
+    final movieItems = deduped.where((it) => it.isMovie).toList();
+    final enrichedTv = await _populateTvShowRatings(tvItems);
+    final enrichedMovies = await _populateMovieRatings(movieItems);
+
+    final Map<String, PlexMediaItem> enrichedMap = {
+      for (final it in enrichedTv) it.ratingKey: it,
+      for (final it in enrichedMovies) it.ratingKey: it,
+    };
+
+    return deduped.map((it) => enrichedMap[it.ratingKey] ?? it).toList();
 
   }
 
@@ -842,15 +861,17 @@ class PlexMediaService {
   }) async {
 
     if (server.isJellyfin) {
-
       final items = await _jfService.getRecentlyAdded(sectionKey, limit: limit, libraryType: libraryType);
-
-      return deduplicateShows(items)
-
+      final deduped = deduplicateShows(items);
+      final isTvLib = libraryType == 'show' || libraryType == 'series' || libraryType == 'tvshows';
+      final isMovieLib = libraryType == 'movie' || libraryType == 'movies';
+      final selected = deduped.take(limit).toList();
+      final enriched = isTvLib
+          ? await _populateTvShowRatings(selected)
+          : (isMovieLib ? await _populateMovieRatings(selected) : selected);
+      return enriched
           .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
-
           .toList();
-
     }
 
     // Fetch with progressive pagination until we have at least 'limit' unique items or end of section
@@ -906,18 +927,8 @@ class PlexMediaService {
       final deduped = deduplicateShows(rawItems);
 
       if (deduped.length >= limit) {
-
-        return deduped
-
-            .take(limit)
-
-            .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
-
-            .toList();
-
+        break;
       }
-
-
 
       start += metadata.length;
 
@@ -941,110 +952,164 @@ class PlexMediaService {
 
     }
 
-
-
     final deduped = deduplicateShows(rawItems);
+    final isTvLibrary = libraryType == 'show' || libraryType == 'series' || libraryType == 'tvshows';
+    final isMovieLibrary = libraryType == 'movie' || libraryType == 'movies';
+
+    Future<List<PlexMediaItem>> enrichItems(List<PlexMediaItem> items) async {
+      if (isTvLibrary) return _populateTvShowRatings(items);
+      if (isMovieLibrary) return _populateMovieRatings(items);
+      return items;
+    }
 
     if (deduped.length >= limit) {
-
-      return deduped
-
-          .take(limit)
-
+      final selected = deduped.take(limit).toList();
+      final enriched = await enrichItems(selected);
+      return enriched
           .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
-
           .toList();
-
     }
-
-
-
-    // TV libraries are de-duplicated down to shows. If the recently-added
-
-    // endpoint only returned enough episodes for 44 unique shows, pull the
-
-    // latest shows directly so "View more" still contains 50 entries.
-
-    final isTvLibrary = libraryType == 'show' || libraryType == 'series' || libraryType == 'tvshows';
 
     if (isTvLibrary) {
-
       try {
-
         final allUrl = Uri.parse(
-
             '$baseUrl/library/sections/$sectionKey/all?type=2&sort=addedAt:desc&X-Plex-Container-Start=0&X-Plex-Container-Size=$limit&includeStreams=1&includeGuids=1');
-
         final allResponse = await _client.get(allUrl, headers: _headers);
-
         if (allResponse.statusCode == 200) {
-
           final allData = jsonDecode(allResponse.body) as Map<String, dynamic>;
-
           final allContainer = allData['MediaContainer'] as Map<String, dynamic>? ?? {};
-
           final allMetadata = allContainer['Metadata'] as List<dynamic>? ?? [];
-
           final merged = List<PlexMediaItem>.from(deduped);
-
           final existingKeys = merged.map((e) => e.ratingKey).toSet();
-
           for (final raw in allMetadata) {
-
             final show = PlexMediaItem.fromJson(raw as Map<String, dynamic>);
-
             cacheMetadata(show);
-
             if (existingKeys.add(show.ratingKey)) {
-
               merged.add(show.copyWith(
-
                 title: show.title,
-
                 grandparentTitle: show.title,
-
                 targetType: 'show',
-
                 targetRatingKey: show.ratingKey,
-
                 targetSeasonKey: null,
-
                 addedSubtitle: '',
-
                 clearDuration: true,
-
               ));
-
             }
-
             if (merged.length >= limit) break;
-
           }
-
-          return merged
-
-              .take(limit)
-
+          final selected = merged.take(limit).toList();
+          final enriched = await enrichItems(selected);
+          return enriched
               .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
-
               .toList();
-
         }
-
       } catch (_) {}
-
     }
 
-
-
-    return deduped
-
-        .take(limit)
-
+    final selected = deduped.take(limit).toList();
+    final enriched = await enrichItems(selected);
+    return enriched
         .map((it) => it.copyWith(server: server, serverId: server.clientIdentifier, librarySectionId: it.librarySectionId ?? sectionKey))
-
         .toList();
+  }
 
+  Future<List<PlexMediaItem>> _populateTvShowRatings(List<PlexMediaItem> items) async {
+    final results = List<PlexMediaItem>.from(items);
+    await Future.wait(results.map((it) async {
+      if (!it.hasImdbRating || it.ratings.isEmpty) {
+        try {
+          if (it.isEpisode) {
+            // First try episode metadata for episode's own rating
+            PlexMediaItem? detail = _detailedMetadataCache[_cacheKey(it.ratingKey)] ?? _metadataCache[_cacheKey(it.ratingKey)];
+            if (detail == null || (!detail.hasImdbRating && detail.ratings.isEmpty)) {
+              detail = await getItemMetadata(it.ratingKey).timeout(const Duration(milliseconds: 1500));
+            }
+            if (detail.hasImdbRating) {
+              final idx = results.indexOf(it);
+              if (idx != -1) {
+                results[idx] = it.copyWith(
+                  rating: detail.rating,
+                  ratingImage: detail.ratingImage,
+                  audienceRating: detail.audienceRating,
+                  audienceRatingImage: detail.audienceRatingImage,
+                  ratings: detail.ratings,
+                );
+              }
+              return;
+            }
+            // If episode has no IMDb rating (e.g. newly aired episode), fallback to parent show rating
+            final showKey = it.grandparentRatingKey ?? it.parentRatingKey;
+            if (showKey != null && showKey.isNotEmpty) {
+              PlexMediaItem? show = _detailedMetadataCache[_cacheKey(showKey)] ?? _metadataCache[_cacheKey(showKey)];
+              if (show == null || !show.hasRatings) {
+                show = await getItemMetadata(showKey).timeout(const Duration(milliseconds: 1500));
+              }
+              if (show.hasRatings) {
+                final idx = results.indexOf(it);
+                if (idx != -1) {
+                  results[idx] = it.copyWith(
+                    rating: show.rating,
+                    ratingImage: show.ratingImage,
+                    audienceRating: show.audienceRating,
+                    audienceRatingImage: show.audienceRatingImage,
+                    ratings: show.ratings,
+                  );
+                }
+              }
+            }
+          } else {
+            // It's a show or season
+            final showKey = (it.type == 'show' || it.targetType == 'show')
+                ? it.ratingKey
+                : (it.grandparentRatingKey ?? it.parentRatingKey ?? it.ratingKey);
+            if (showKey.isNotEmpty) {
+              PlexMediaItem? show = _detailedMetadataCache[_cacheKey(showKey)] ?? _metadataCache[_cacheKey(showKey)];
+              if (show == null || !show.hasRatings) {
+                show = await getItemMetadata(showKey).timeout(const Duration(milliseconds: 1500));
+              }
+              if (show.hasRatings) {
+                final idx = results.indexOf(it);
+                if (idx != -1) {
+                  results[idx] = it.copyWith(
+                    rating: show.rating,
+                    ratingImage: show.ratingImage,
+                    audienceRating: show.audienceRating,
+                    audienceRatingImage: show.audienceRatingImage,
+                    ratings: show.ratings,
+                  );
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }));
+    return results;
+  }
+
+  Future<List<PlexMediaItem>> _populateMovieRatings(List<PlexMediaItem> items) async {
+    final results = List<PlexMediaItem>.from(items);
+    await Future.wait(results.map((it) async {
+      if (!it.hasRtRatings && it.ratingKey.isNotEmpty && it.ratings.isEmpty) {
+        try {
+          PlexMediaItem? detail = _detailedMetadataCache[_cacheKey(it.ratingKey)];
+          detail ??= await getItemMetadata(it.ratingKey).timeout(const Duration(milliseconds: 1500));
+          if (detail.hasRatings) {
+            final idx = results.indexOf(it);
+            if (idx != -1) {
+              results[idx] = it.copyWith(
+                rating: detail.rating,
+                ratingImage: detail.ratingImage,
+                audienceRating: detail.audienceRating,
+                audienceRatingImage: detail.audienceRatingImage,
+                ratings: detail.ratings,
+              );
+            }
+          }
+        } catch (_) {}
+      }
+    }));
+    return results;
   }
 
 
@@ -1302,9 +1367,12 @@ class PlexMediaService {
               aspectRatio: ep.aspectRatio,
 
               videoWidth: ep.videoWidth,
-
               videoHeight: ep.videoHeight,
-
+              rating: ep.rating ?? _metadataCache[_cacheKey(showKey)]?.rating,
+              ratingImage: ep.ratingImage ?? _metadataCache[_cacheKey(showKey)]?.ratingImage,
+              audienceRating: ep.audienceRating ?? _metadataCache[_cacheKey(showKey)]?.audienceRating,
+              audienceRatingImage: ep.audienceRatingImage ?? _metadataCache[_cacheKey(showKey)]?.audienceRatingImage,
+              ratings: ep.ratings.isNotEmpty ? ep.ratings : (_metadataCache[_cacheKey(showKey)]?.ratings ?? const []),
             );
 
             cacheMetadata(ep);
@@ -1428,9 +1496,12 @@ class PlexMediaService {
             targetSeasonKey: targetSeasonKey,
 
             addedSubtitle: addedSubtitle,
-
             clearDuration: true,
-
+            rating: item.rating ?? _metadataCache[_cacheKey(showKey)]?.rating,
+            ratingImage: item.ratingImage ?? _metadataCache[_cacheKey(showKey)]?.ratingImage,
+            audienceRating: item.audienceRating ?? _metadataCache[_cacheKey(showKey)]?.audienceRating,
+            audienceRatingImage: item.audienceRatingImage ?? _metadataCache[_cacheKey(showKey)]?.audienceRatingImage,
+            ratings: item.ratings.isNotEmpty ? item.ratings : (_metadataCache[_cacheKey(showKey)]?.ratings ?? const []),
           );
 
           result.add(showItem);
@@ -1629,9 +1700,7 @@ class PlexMediaService {
 
 
     return metadata
-
-        .map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>))
-
+        .map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>).copyWith(librarySectionId: sectionKey))
         .toList();
 
   }
@@ -1752,7 +1821,8 @@ class PlexMediaService {
 
 
 
-    final parsed = PlexMediaItem.fromJson(metadata.first as Map<String, dynamic>);
+    final rawMap = metadata.first as Map<String, dynamic>;
+    final parsed = PlexMediaItem.fromJson(rawMap);
 
     _metadataCache[_cacheKey(ratingKey)] = parsed;
 
@@ -2151,9 +2221,7 @@ class PlexMediaService {
 
 
     return metadata
-
         .map((m) => PlexMediaItem.fromJson(m as Map<String, dynamic>))
-
         .toList();
 
   }
@@ -3663,11 +3731,12 @@ class PlexMediaService {
       }
     }
 
-    // If it is already a local server item with a validated connection URI and librarySectionId:
+    // If it is already a local server item with a validated connection URI:
+    final hasActiveServer = (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false) ||
+        (server.activeConnectionUri?.isNotEmpty ?? false);
     final isPlexLocal = int.tryParse(watchlistItem.ratingKey) != null &&
-        watchlistItem.librarySectionId != null &&
         watchlistItem.server?.isJellyfin != true &&
-        (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false);
+        hasActiveServer;
     final isJellyfinLocal = (watchlistItem.server?.isJellyfin ?? false) &&
         (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false) &&
         (watchlistItem.partKey?.isNotEmpty ?? false);

@@ -2,6 +2,7 @@ import 'services/guest_mode_service.dart';
 import 'services/download_service.dart';
 import 'services/custom_avatar_service.dart';
 import 'services/iphone_duo_service.dart';
+import 'services/ratings_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,6 +45,7 @@ void main() async {
   }
 
   await ProfileService.instance.init();
+  await RatingsService.instance.init();
   await CustomAvatarService.init();
   await PlixTheme.loadSavedTheme();
   await GuestModeService.instance.init();

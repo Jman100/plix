@@ -1,4 +1,6 @@
 import '../services/guest_mode_service.dart';
+import '../services/ratings_service.dart';
+import '../widgets/ratings_badge.dart';
 import '../models/plix_profile.dart';
 import '../services/profile_service.dart';
 import '../widgets/profile_avatar_widget.dart';
@@ -225,6 +227,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 );
               }
             } catch (_) {}
+          }
+        }
+        // If episode or season lacks ratings, inherit parent show ratings
+        if (!full.hasRatings) {
+          final showKey = full.grandparentRatingKey ??
+              full.parentRatingKey ??
+              currentHeroItem.grandparentRatingKey ??
+              currentHeroItem.parentRatingKey ??
+              (currentHeroItem.type == 'show' || currentHeroItem.targetType == 'show' ? currentHeroItem.ratingKey : null);
+          if (showKey != null && showKey.isNotEmpty && showKey != fetchKey) {
+            try {
+              final show = await heroService.getItemMetadata(showKey);
+              if (show.hasRatings) {
+                full = full.copyWith(
+                  rating: show.rating,
+                  ratingImage: show.ratingImage,
+                  audienceRating: show.audienceRating,
+                  audienceRatingImage: show.audienceRatingImage,
+                  ratings: show.ratings,
+                );
+              }
+            } catch (_) {}
+          }
+          if (!full.hasRatings && currentHeroItem.hasRatings) {
+            full = full.copyWith(
+              rating: currentHeroItem.rating,
+              ratingImage: currentHeroItem.ratingImage,
+              audienceRating: currentHeroItem.audienceRating,
+              audienceRatingImage: currentHeroItem.audienceRatingImage,
+              ratings: currentHeroItem.ratings,
+            );
           }
         }
         final isStillCurrent = _heroItem?.ratingKey == currentHeroItem.ratingKey ||
@@ -738,6 +771,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       } else {
         userLibraries = allLibraries;
+      }
+
+      // If all favorited libraries are offline, show "All your connected servers are offline" error
+      if (userLibraries.isNotEmpty && userLibraries.every((l) => !l.isServerOnline)) {
+        if (mounted) {
+          setState(() {
+            _libraries = userLibraries;
+            _isLoading = false;
+            _isOffline = true;
+            _errorMessage = 'All your connected servers are offline';
+          });
+        }
+        return;
       }
 
       // Apply saved library custom order
@@ -1726,44 +1772,58 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         if (item.year != null) ...[
-                          Text(
-                            item.year.toString(),
-                            style: const TextStyle(
-                              color: PlixTheme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            height: 20,
+                            alignment: Alignment.center,
+                            child: Text(
+                              item.year.toString(),
+                              style: const TextStyle(
+                                color: PlixTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                height: 1.0,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                         ],
                         if (!item.isShow && !item.isSeason && item.targetType != 'season' && item.formattedDuration.isNotEmpty) ...[
-                          Text(
-                            item.formattedDuration,
-                            style: const TextStyle(
-                              color: PlixTheme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            height: 20,
+                            alignment: Alignment.center,
+                            child: Text(
+                              item.formattedDuration,
+                              style: const TextStyle(
+                                color: PlixTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                height: 1.0,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                         ],
                         if (item.contentRating != null) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            height: 20,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
                             decoration: BoxDecoration(
                               border: Border.all(color: PlixTheme.cardBorder),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
                               item.contentRating!,
-                              style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 10),
+                              style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 10, height: 1.0),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                         ],
                         if (item.formattedResolution.isNotEmpty) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            height: 20,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
                             decoration: BoxDecoration(
                               color: PlixTheme.plexGold.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(3),
@@ -1774,14 +1834,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 color: PlixTheme.plexGold,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
+                                height: 1.0,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                         ],
-                        if (item.isHdr)
+                        if (item.isHdr) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            height: 20,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
                             decoration: BoxDecoration(
                               color: PlixTheme.plexGold.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(3),
@@ -1793,8 +1856,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 color: PlixTheme.plexGold,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
+                                height: 1.0,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (RatingsService.instance.showInDetails && item.hasRatings)
+                          Container(
+                            height: 20,
+                            alignment: Alignment.center,
+                            child: MediaRatingWidget(item: item, fontSize: 11, iconSize: 14),
                           ),
                       ],
                     ),
@@ -1929,38 +2001,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               SizedBox(
                 height: 20,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (item.year != null) ...[
-                      Text(
-                        item.year.toString(),
-                        style: const TextStyle(
-                          color: PlixTheme.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        height: 20,
+                        alignment: Alignment.center,
+                        child: Text(
+                          item.year.toString(),
+                          style: const TextStyle(
+                            color: PlixTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                     ],
                     if (!item.isShow &&
                         !item.isSeason &&
                         item.targetType != 'season' &&
                         item.formattedDuration.isNotEmpty) ...[
-                      Text(
-                        item.formattedDuration,
-                        style: const TextStyle(
-                          color: PlixTheme.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        height: 20,
+                        alignment: Alignment.center,
+                        child: Text(
+                          item.formattedDuration,
+                          style: const TextStyle(
+                            color: PlixTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                     ],
                     if (item.contentRating != null) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                        height: 20,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
                           border: Border.all(color: PlixTheme.cardBorder),
                           borderRadius: BorderRadius.circular(3),
@@ -1970,17 +2052,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           style: const TextStyle(
                             color: PlixTheme.textSecondary,
                             fontSize: 11,
+                            height: 1.0,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                     ],
-                    if (item.formattedResolution.isNotEmpty)
+                    if (item.formattedResolution.isNotEmpty) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                        height: 20,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
                           color: PlixTheme.plexGold.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(3),
@@ -1991,16 +2073,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             color: PlixTheme.plexGold,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
+                            height: 1.0,
                           ),
                         ),
                       ),
-                    if (item.isHdr) ...[
                       const SizedBox(width: 8),
+                    ],
+                    if (item.isHdr) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                        height: 20,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
                           color: PlixTheme.plexGold.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(3),
@@ -2015,10 +2098,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             color: PlixTheme.plexGold,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
+                            height: 1.0,
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                     ],
+                    if (RatingsService.instance.showInDetails && item.hasRatings)
+                      Container(
+                        height: 20,
+                        alignment: Alignment.center,
+                        child: MediaRatingWidget(item: item, fontSize: 11, iconSize: 14),
+                      ),
                   ],
                 ),
               ),
@@ -2243,11 +2334,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MediaQuery.sizeOf(context).width,
       cap: PlixImageCache.backdropWidth,
     );
-    final heroDecodeHeight = PlixImageCache.decodeHeight(
-      context,
-      480,
-      cap: PlixImageCache.backdropHeight,
-    );
 
     Widget mainContentArea = Stack(
       fit: StackFit.expand,
@@ -2258,7 +2344,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       top: 0,
                       left: 0,
                       right: 0,
-                      height: 480,
+                      height: 560,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -2281,7 +2367,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 width: double.infinity,
                                 height: double.infinity,
                                 memCacheWidth: heroDecodeWidth,
-                                memCacheHeight: heroDecodeHeight,
                               ),
                             ),
                           ),

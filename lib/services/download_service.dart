@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
 import 'plix_device_helper.dart';
@@ -190,12 +191,28 @@ class DownloadService extends ChangeNotifier {
   Future<void> init() async {
     if (_initialized) return;
     try {
-      final docDir = await getApplicationDocumentsDirectory();
-      final targetDir = Directory(p.join(docDir.path, 'plix_downloads'));
-      if (!await targetDir.exists()) {
-        await targetDir.create(recursive: true);
+      final prefs = await SharedPreferences.getInstance();
+      final customPath = prefs.getString('custom_download_path');
+      if (customPath != null && customPath.trim().isNotEmpty) {
+        final customDir = Directory(customPath.trim());
+        if (!await customDir.exists()) {
+          try {
+            await customDir.create(recursive: true);
+          } catch (_) {}
+        }
+        if (await customDir.exists()) {
+          _downloadDirPath = customDir.path;
+        }
       }
-      _downloadDirPath = targetDir.path;
+
+      if (_downloadDirPath == null) {
+        final docDir = await getApplicationDocumentsDirectory();
+        final targetDir = Directory(p.join(docDir.path, 'plix_downloads'));
+        if (!await targetDir.exists()) {
+          await targetDir.create(recursive: true);
+        }
+        _downloadDirPath = targetDir.path;
+      }
 
       // Load index
       final indexFile = File(p.join(_downloadDirPath!, 'downloads_index.json'));
@@ -225,8 +242,74 @@ class DownloadService extends ChangeNotifier {
     }
   }
 
+  static Future<String> getDefaultDownloadDir() async {
+    final docDir = await getApplicationDocumentsDirectory();
+    return p.join(docDir.path, 'plix_downloads');
+  }
+
+  static Future<bool> testWritePermissions(String dirPath) async {
+    try {
+      final dir = Directory(dirPath);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      final testFile = File(p.join(dir.path, '.plix_perm_test_${DateTime.now().millisecondsSinceEpoch}'));
+      await testFile.writeAsString('write_test', flush: true);
+      await testFile.delete();
+      return true;
+    } catch (e) {
+      debugPrint('[DownloadService] Write permission check failed on $dirPath: $e');
+      return false;
+    }
+  }
+
+  Future<bool> setCustomDownloadDir(String? newPath) async {
+    if (newPath == null || newPath.trim().isEmpty) {
+      final defaultDir = await getDefaultDownloadDir();
+      final target = Directory(defaultDir);
+      if (!await target.exists()) {
+        await target.create(recursive: true);
+      }
+      _downloadDirPath = target.path;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('custom_download_path');
+      await _saveIndex();
+      notifyListeners();
+      return true;
+    }
+
+    final trimmed = newPath.trim();
+    final canWrite = await testWritePermissions(trimmed);
+    if (!canWrite) return false;
+
+    final target = Directory(trimmed);
+    if (!await target.exists()) {
+      await target.create(recursive: true);
+    }
+    _downloadDirPath = target.path;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('custom_download_path', _downloadDirPath!);
+    await _saveIndex();
+    notifyListeners();
+    return true;
+  }
+
   Future<String> getDownloadDir() async {
     if (_downloadDirPath != null) return _downloadDirPath!;
+    final prefs = await SharedPreferences.getInstance();
+    final customPath = prefs.getString('custom_download_path');
+    if (customPath != null && customPath.trim().isNotEmpty) {
+      final customDir = Directory(customPath.trim());
+      if (!await customDir.exists()) {
+        try {
+          await customDir.create(recursive: true);
+        } catch (_) {}
+      }
+      if (await customDir.exists()) {
+        _downloadDirPath = customDir.path;
+        return _downloadDirPath!;
+      }
+    }
     final docDir = await getApplicationDocumentsDirectory();
     final targetDir = Directory(p.join(docDir.path, 'plix_downloads'));
     if (!await targetDir.exists()) {

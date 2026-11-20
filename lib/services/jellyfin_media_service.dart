@@ -86,14 +86,10 @@ class JellyfinMediaService {
 
 
   static const String _itemFields =
-
-      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path,AncestorIds,Genres,DateCreated';
-
-
+      'Overview,PrimaryImageAspectRatio,MediaStreams,MediaSources,Chapters,OfficialRating,CommunityRating,CriticRating,ProviderIds,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,People,Path,AncestorIds,Genres,DateCreated';
 
   static const String _libraryFields =
-
-      'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,Path,AncestorIds,Genres,DateCreated';
+      'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating,CriticRating,ProviderIds,ProductionYear,Studios,ParentId,SeriesId,SeriesName,SeasonName,SeasonId,IndexNumber,ParentIndexNumber,Path,AncestorIds,Genres,DateCreated';
 
 
 
@@ -653,7 +649,25 @@ class JellyfinMediaService {
       index: json['IndexNumber'] as int?,
 
       rating: (json['CommunityRating'] is num) ? (json['CommunityRating'] as num).toDouble() : null,
-
+      ratingImage: (json['CriticRating'] is num)
+          ? ((json['CriticRating'] as num) >= 60 ? 'rottentomatoes://image.rating.ripe' : 'rottentomatoes://image.rating.rotten')
+          : 'themoviedb://image.rating',
+      audienceRating: (json['CommunityRating'] is num) ? (json['CommunityRating'] as num).toDouble() : null,
+      audienceRatingImage: 'themoviedb://image.rating',
+      ratings: [
+        if (json['CriticRating'] is num)
+          {
+            'image': (json['CriticRating'] as num) >= 60 ? 'rottentomatoes://image.rating.ripe' : 'rottentomatoes://image.rating.rotten',
+            'value': (json['CriticRating'] as num).toDouble(),
+            'type': 'critic',
+          },
+        if (json['CommunityRating'] is num)
+          {
+            'image': 'themoviedb://image.rating',
+            'value': (json['CommunityRating'] as num).toDouble(),
+            'type': 'themoviedb',
+          },
+      ],
       contentRating: json['OfficialRating']?.toString(),
 
       studio: (json['Studios'] is List && (json['Studios'] as List).isNotEmpty) ? (json['Studios'] as List)[0]['Name']?.toString() : null,

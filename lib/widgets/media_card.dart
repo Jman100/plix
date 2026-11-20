@@ -6,6 +6,8 @@ import '../app_theme.dart';
 import '../models/plex_media_item.dart';
 import '../services/plex_media_service.dart';
 import '../services/plix_image_cache.dart';
+import '../services/ratings_service.dart';
+import 'ratings_badge.dart';
 
 class MediaCard extends StatefulWidget {
   final PlexMediaItem item;
@@ -391,7 +393,42 @@ class _MediaCardState extends State<MediaCard> {
                             ),
                           ),
 
-
+                        // Poster rating overlay at bottom of poster
+                        ListenableBuilder(
+                          listenable: RatingsService.instance,
+                          builder: (context, _) {
+                            if (!RatingsService.instance.showOnPosters || !widget.item.hasRatings) {
+                              return const SizedBox.shrink();
+                            }
+                            return Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: widget.item.isInProgress ? 4 : 0,
+                              child: Container(
+                                padding: const EdgeInsets.only(top: 14, bottom: 4, left: 4, right: 4),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      Colors.black.withOpacity(0.85),
+                                      Colors.black.withOpacity(0.55),
+                                      Colors.transparent,
+                                    ],
+                                    stops: const [0.0, 0.65, 1.0],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: MediaRatingWidget(
+                                    item: widget.item,
+                                    fontSize: widget.width < 125 ? 9.5 : 10.5,
+                                    iconSize: widget.width < 125 ? 11 : 12,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),

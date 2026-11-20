@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.10.3"
-$versionCode = 55
+$version = "1.10.4"
+$versionCode = 56
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,10 +45,14 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Left Nav Log Out Navigation: Sign out / Log out in the left sidebar navigation now consistently navigates directly to the Who's Watching / Switch Profile screen across all platforms (TV, mobile, desktop).
-- Plex Watchlist Playback & Fast Loading: Resolved Plex Discover watchlist items directly to local server media, eliminating empty toast errors, removing phantom specials seasons, and pre-resolving items in the background with session-wide caching for instant sub-second page loads.
-- Android Build Toolchain Modernization: Upgraded Android toolchain to Gradle 8.8, Android Gradle Plugin 8.6.0, Kotlin 2.0.21, and Java 17 for enhanced build performance and runtime stability.
-- App Version Bump: v1.10.3 (versionCode 55)
+- Media Ratings (Rotten Tomatoes, IMDb, TMDb): Added Rotten Tomatoes critic & audience review scores for movies, IMDb ratings for TV shows & episodes, and TMDb community ratings. By default, ratings are set to 'Show in Details Only' (displayed in the hero section and detail pages), but users can customize this in Settings -> Playback & Streaming -> Show Ratings (Off, Show in Details Only, Show on Posters).
+- Poster Ratings Overlay: When 'Show on Posters' is enabled, ratings are elegantly displayed on top of the bottom of movie & show posters with a subtle dark gradient backdrop.
+- Official Ratings Assets: Integrated official Rotten Tomatoes (fresh, certified fresh, rotten, popcorn buckets), IMDb, and TMDb logos.
+- Episode Ratings & Fallback: TV shows and episode rows display ratings next to resolution tags, and newly added episodes without individual scores seamlessly inherit the series rating.
+- Client Identification with App Version: Server client name reporting now dynamically includes the app version across all platforms (e.g., Plix TV v1.10.4, Plix Android v1.10.4, Plix Windows v1.10.4).
+- Desktop Download Directory Setting: Added customizable download directory settings for Windows and Linux with write permission validation.
+- UI & Layout Enhancements: Perfectly aligned tag badges in the hero section, fixed hero background aspect ratio scaling, moved mobile movie release dates to their own line, and improved offline server notices.
+- App Version Bump: v1.10.4 (versionCode 56)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'update_service.dart';
 
 class PlixDeviceHelper {
   static String? _cachedDeviceName;
@@ -30,11 +31,12 @@ class PlixDeviceHelper {
   }
 
   static String get clientName {
-    if (Platform.isWindows) return 'Plix for Windows';
-    if (Platform.isLinux) return 'Plix for Linux';
-    if (Platform.isMacOS) return 'Plix for macOS';
-    if (Platform.isIOS) return 'Plix for iOS';
-    return _isTelevision ? 'Plix for Android TV' : 'Plix for Android';
+    final v = UpdateService.currentVersion;
+    if (Platform.isWindows) return 'Plix Windows v$v';
+    if (Platform.isLinux) return 'Plix Linux v$v';
+    if (Platform.isMacOS) return 'Plix macOS v$v';
+    if (Platform.isIOS) return 'Plix iOS v$v';
+    return _isTelevision ? 'Plix TV v$v' : 'Plix Android v$v';
   }
 
   static String get clientPlatform {

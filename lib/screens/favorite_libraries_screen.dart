@@ -128,6 +128,9 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
         final cached = await widget.serverService.getCachedServerLibraries(server.clientIdentifier, server);
         if (cached.isNotEmpty) {
           _serverLibraries[server.clientIdentifier] = cached;
+          for (final lib in cached) {
+            _cardFocusNodes.putIfAbsent(lib.compositeId, () => FocusNode());
+          }
           if (!hasSaved && server.owned) {
             for (final lib in cached) {
               _selectedCompositeIds.add(lib.compositeId);
@@ -160,13 +163,21 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
       // Fetch fresh libraries from each server concurrently (only titles & types)
       await Future.wait(servers.map((server) async {
         try {
+          if (server.isJellyfin) {
+            // Small delay for Jellyfin servers so newly connected instances finish initialization
+            await Future.delayed(const Duration(milliseconds: 1200));
+          }
           if (server.activeConnectionUri == null || server.activeConnectionUri!.isEmpty) {
             await widget.serverService.testAndResolveBestConnection(server);
           }
           final mediaService = PlexMediaService(server: server);
-          final libs = await mediaService.getLibraries().timeout(const Duration(seconds: 3));
+          final libs = await mediaService.getLibraries().timeout(const Duration(seconds: 5));
           _serverLibraries[server.clientIdentifier] = libs;
           await widget.serverService.cacheServerLibraries(server.clientIdentifier, libs);
+
+          for (final lib in libs) {
+            _cardFocusNodes.putIfAbsent(lib.compositeId, () => FocusNode());
+          }
 
           if (!hasSaved && server.owned) {
             for (final lib in libs) {
@@ -317,6 +328,20 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
     }
   }
 
+  FocusNode? get _firstLibraryFocusNode {
+    for (final server in _servers) {
+      final libs = _serverLibraries[server.clientIdentifier];
+      if (libs != null && libs.isNotEmpty) {
+        final firstLib = libs.first;
+        final node = _cardFocusNodes[firstLib.compositeId];
+        if (node != null && node.canRequestFocus) {
+          return node;
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isCompact = PlixDeviceHelper.isCompact(context);
@@ -374,8 +399,9 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
                 }
               },
               onDown: () {
-                if (_cardFocusNodes.isNotEmpty) {
-                  _cardFocusNodes.values.first.requestFocus();
+                final target = _firstLibraryFocusNode ?? (_cardFocusNodes.isNotEmpty ? _cardFocusNodes.values.first : null);
+                if (target != null && target.canRequestFocus) {
+                  target.requestFocus();
                 } else {
                   _bottomSaveBtnFocusNode.requestFocus();
                 }
@@ -398,8 +424,9 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 onLeft: () => _refreshBtnFocusNode.requestFocus(),
                 onDown: () {
-                  if (_cardFocusNodes.isNotEmpty) {
-                    _cardFocusNodes.values.first.requestFocus();
+                  final target = _firstLibraryFocusNode ?? (_cardFocusNodes.isNotEmpty ? _cardFocusNodes.values.first : null);
+                  if (target != null && target.canRequestFocus) {
+                    target.requestFocus();
                   } else {
                     _bottomSaveBtnFocusNode.requestFocus();
                   }

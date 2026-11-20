@@ -1,5 +1,8 @@
 import 'profiles_screen.dart';
 import '../services/profile_service.dart';
+import '../services/ratings_service.dart';
+import '../services/download_service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +55,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _themeFocusNode = FocusNode();
   final FocusNode _screenOffFocusNode = FocusNode();
   final FocusNode _hwdecFocusNode = FocusNode();
+  final FocusNode _showRatingsFocusNode = FocusNode();
+  final FocusNode _downloadDirFocusNode = FocusNode();
+  String _downloadDirPath = '';
   String _hwdecMode = NativePlayerService.hwdecMode;
   int _quickRewindSeconds = 10;
   int _skipAheadSeconds = 30;
@@ -149,8 +155,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final autoCheck = await UpdateService.isAutoCheckEnabled();
+    String dDir = '';
+    if (PlixDeviceHelper.isDesktop) {
+      try {
+        dDir = await DownloadService.instance.getDownloadDir();
+      } catch (_) {}
+    }
     if (mounted) {
       setState(() {
+        _downloadDirPath = dDir;
         _autoCheckUpdates = autoCheck;
         final forceAlwaysAsk = ProfileService.instance.shouldForceAlwaysAsk;
         _alwaysAskProfile = forceAlwaysAsk || (prefs.getBool('plix_always_ask_profile') ?? false);
@@ -206,6 +219,148 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     setState(() => _hwdecMode = next);
     await NativePlayerService().setHwdecMode(next);
+  }
+
+  String _shortenPath(String p) {
+    if (p.isEmpty) return 'Default';
+    if (p.length <= 32) return p;
+    return '...${p.substring(p.length - 28)}';
+  }
+
+  Future<void> _changeDownloadDirDialog() async {
+    final current = _downloadDirPath.isNotEmpty ? _downloadDirPath : await DownloadService.instance.getDownloadDir();
+    final defaultDir = await DownloadService.getDefaultDownloadDir();
+    final controller = TextEditingController(text: current);
+    String? errorMessage;
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: PlixTheme.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: PlixTheme.cardBorder),
+              ),
+              title: const Text(
+                'Download Location',
+                style: TextStyle(color: PlixTheme.textPrimary, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Specify the folder path on your computer where downloaded movies and TV episodes will be stored:',
+                      style: TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: controller,
+                      style: const TextStyle(color: PlixTheme.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.black26,
+                        hintText: defaultDir,
+                        hintStyle: const TextStyle(color: PlixTheme.textMuted),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: PlixTheme.cardBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: PlixTheme.plexGold, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.folder_open_rounded, size: 16),
+                          label: const Text('Browse...'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: PlixTheme.textPrimary,
+                            side: BorderSide(color: PlixTheme.cardBorder),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onPressed: () async {
+                            try {
+                              final selected = await FilePicker.getDirectoryPath(
+                                initialDirectory: controller.text.isNotEmpty ? controller.text : defaultDir,
+                              );
+                              if (selected != null && selected.isNotEmpty) {
+                                controller.text = selected;
+                                setDialogState(() => errorMessage = null);
+                              }
+                            } catch (e) {
+                              setDialogState(() => errorMessage = 'Could not open folder picker: $e');
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () {
+                            controller.text = defaultDir;
+                            setDialogState(() => errorMessage = null);
+                          },
+                          child: const Text('Reset to Default', style: TextStyle(color: PlixTheme.textMuted, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: PlixTheme.textMuted)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PlixTheme.plexGold,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () async {
+                    final targetPath = controller.text.trim();
+                    if (targetPath.isEmpty) {
+                      setDialogState(() => errorMessage = 'Path cannot be empty.');
+                      return;
+                    }
+                    final success = await DownloadService.instance.setCustomDownloadDir(targetPath);
+                    if (!success) {
+                      setDialogState(() => errorMessage = 'Write permission denied for this folder. Please choose a folder with write permissions.');
+                      return;
+                    }
+                    if (mounted) {
+                      setState(() => _downloadDirPath = targetPath);
+                      _showToast('Download location updated');
+                    }
+                    if (dialogCtx.mounted) {
+                      Navigator.of(dialogCtx).pop();
+                    }
+                  },
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _switchServer() async {
@@ -404,6 +559,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _screenOffFocusNode.dispose();
     _tvCastCrewFocusNode.dispose();
     _hwdecFocusNode.dispose();
+    _showRatingsFocusNode.dispose();
+    _downloadDirFocusNode.dispose();
     _rewindFocusNode.dispose();
     _skipFocusNode.dispose();
     _autoUpdateFocusNode.dispose();
@@ -605,24 +762,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _skipFocusNode,
                     onUp: () => _rewindFocusNode.requestFocus(),
-                    onDown: () => isMobile
-                        ? _screenOffFocusNode.requestFocus()
-                        : (PlixDeviceHelper.isDesktop
-                            ? _hwdecFocusNode.requestFocus()
-                            : (PlixDeviceHelper.isTelevision
-                                ? _tvCastCrewFocusNode.requestFocus()
-                                : _autoUpdateFocusNode.requestFocus())),
+                    onDown: () => _showRatingsFocusNode.requestFocus(),
                     title: 'Skip Ahead Duration',
                     subtitle: 'Seconds skipped forward when pressing D-pad Right or Fast Forward on remote',
                     trailing: '${_skipAheadSeconds}s',
                     isInteractive: true,
                     onTap: _cycleSkip,
                   ),
+                  const SizedBox(height: 10),
+                  ListenableBuilder(
+                    listenable: RatingsService.instance,
+                    builder: (context, _) {
+                      return _SettingsActionTile(
+                        focusNode: _showRatingsFocusNode,
+                        onUp: () => _skipFocusNode.requestFocus(),
+                        onDown: () => isMobile
+                            ? _screenOffFocusNode.requestFocus()
+                            : (PlixDeviceHelper.isDesktop
+                                ? _hwdecFocusNode.requestFocus()
+                                : (PlixDeviceHelper.isTelevision
+                                    ? _tvCastCrewFocusNode.requestFocus()
+                                    : _autoUpdateFocusNode.requestFocus())),
+                        title: 'Show Ratings',
+                        subtitle: 'Display Rotten Tomatoes scores for movies and IMDb ratings for TV shows',
+                        trailing: RatingsService.instance.mode.label,
+                        isInteractive: true,
+                        onTap: () async {
+                          await RatingsService.instance.cycleMode();
+                        },
+                      );
+                    },
+                  ),
                   if (PlixDeviceHelper.isTelevision) ...[
                     const SizedBox(height: 10),
                     _SettingsActionTile(
                       focusNode: _tvCastCrewFocusNode,
-                      onUp: () => _skipFocusNode.requestFocus(),
+                      onUp: () => _showRatingsFocusNode.requestFocus(),
                       onDown: () => _autoUpdateFocusNode.requestFocus(),
                       title: 'Cast & Crew in Player',
                       subtitle: 'Display cast & crew quick view row below playback controls on TV',
@@ -635,7 +810,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     _SettingsActionTile(
                       focusNode: _screenOffFocusNode,
-                      onUp: () => _skipFocusNode.requestFocus(),
+                      onUp: () => _showRatingsFocusNode.requestFocus(),
                       onDown: () => _autoUpdateFocusNode.requestFocus(),
                       title: 'Continue playback with screen off',
                       subtitle: 'Keep playing audio in the background when your screen is turned off',
@@ -647,13 +822,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     _SettingsActionTile(
                       focusNode: _hwdecFocusNode,
-                      onUp: () => _skipFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      onUp: () => _showRatingsFocusNode.requestFocus(),
+                      onDown: () => _downloadDirFocusNode.requestFocus(),
                       title: 'Hardware Video Decoding',
                       subtitle: 'Video decoding engine (Software pure CPU recommended on Linux to match official Plex app and eliminate driver pixelation)',
                       trailing: _hwdecLabel,
                       isInteractive: true,
                       onTap: _cycleHwdecMode,
+                    ),
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _downloadDirFocusNode,
+                      onUp: () => _hwdecFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Download Location',
+                      subtitle: 'Choose where downloaded media is saved on this computer',
+                      trailing: _shortenPath(_downloadDirPath),
+                      isInteractive: true,
+                      onTap: _changeDownloadDirDialog,
                     ),
                   ],
 
@@ -683,10 +869,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onUp: () => isMobile
                         ? _screenOffFocusNode.requestFocus()
                         : (PlixDeviceHelper.isDesktop
-                            ? _hwdecFocusNode.requestFocus()
+                            ? _downloadDirFocusNode.requestFocus()
                             : (PlixDeviceHelper.isTelevision
                                 ? _tvCastCrewFocusNode.requestFocus()
-                                : _skipFocusNode.requestFocus())),
+                                : _showRatingsFocusNode.requestFocus())),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',

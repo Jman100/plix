@@ -1,4 +1,6 @@
 import '../services/guest_mode_service.dart';
+import '../services/ratings_service.dart';
+import '../widgets/ratings_badge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/profile_service.dart';
 import 'dart:async';
@@ -356,12 +358,16 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     setState(() => _isLoadingDetails = true);
 
     // If item is a cloud/Discover item, resolve to server item BEFORE fetching metadata.
-    // Skip resolving if it already belongs to a local Jellyfin server or local Plex server with library section.
+    // Skip resolving if it already belongs to a local Jellyfin server or local Plex server.
     final isJellyfinItem = _mediaService.server.isJellyfin || (_item.server?.isJellyfin == true);
     final isCloudItem = int.tryParse(_item.ratingKey) == null && !isJellyfinItem;
-    final needsResolution = !isJellyfinItem &&
+    final hasLocalServer = (_item.server?.activeConnectionUri?.isNotEmpty ?? false) ||
+        (_mediaService.server.activeConnectionUri?.isNotEmpty ?? false);
+    final isLocalPlexItem = !isJellyfinItem && int.tryParse(_item.ratingKey) != null && hasLocalServer;
+
+    final needsResolution = !isJellyfinItem && !isLocalPlexItem &&
         (isCloudItem ||
-            ((_item.isMovie || _item.isEpisode || _item.isShow) &&
+            ((_item.isMovie || _item.isEpisode) &&
                 (_item.partKey == null || _item.partKey!.isEmpty) &&
                 _item.librarySectionId == null));
     bool didResolveLocal = false;
@@ -394,6 +400,20 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         if (mounted) {
           setState(() {
             _item = full.copyWith(server: _mediaService.server, serverId: _mediaService.server.clientIdentifier);
+            if (_item.hasRatings && _episodes.isNotEmpty) {
+              _episodes = _episodes.map((e) {
+                if (!e.hasRatings) {
+                  return e.copyWith(
+                    rating: _item.rating,
+                    ratingImage: _item.ratingImage,
+                    audienceRating: _item.audienceRating,
+                    audienceRatingImage: _item.audienceRatingImage,
+                    ratings: _item.ratings,
+                  );
+                }
+                return e;
+              }).toList();
+            }
           });
           _resolveThumbnailAspectRatio();
         }
@@ -912,6 +932,20 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         }
       }
       if (mounted && generation == _seasonLoadGeneration) {
+        if (_item.hasRatings) {
+          eps = eps.map((e) {
+            if (!e.hasRatings) {
+              return e.copyWith(
+                rating: _item.rating,
+                ratingImage: _item.ratingImage,
+                audienceRating: _item.audienceRating,
+                audienceRatingImage: _item.audienceRatingImage,
+                ratings: _item.ratings,
+              );
+            }
+            return e;
+          }).toList();
+        }
         for (final ep in eps) {
           _episodeFocusNodes.putIfAbsent(ep.ratingKey, () => FocusNode());
         }
@@ -1256,6 +1290,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       art: _item.art,
       theme: _item.theme,
       server: targetServer,
+      librarySectionId: _item.librarySectionId,
     );
     Navigator.of(context)
         .push(
@@ -1652,6 +1687,12 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
 
         const SizedBox(height: 12),
 
+        // Release date tag on its own line above other tags for movies on mobile
+        if (_item.isMovie && _item.formattedAirDate.isNotEmpty) ...[
+          Center(child: _Badge(label: _item.formattedAirDate)),
+          const SizedBox(height: 8),
+        ],
+
         // Metadata Badges (centered)
         Wrap(
           alignment: WrapAlignment.center,
@@ -1659,7 +1700,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           runSpacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (_item.formattedAirDate.isNotEmpty) _Badge(label: _item.formattedAirDate),
+            if (!_item.isMovie && _item.formattedAirDate.isNotEmpty) _Badge(label: _item.formattedAirDate),
             if (!_item.isShow && _item.duration != null && _item.duration! > 0) _Badge(label: _item.formattedDuration),
             if (_item.contentRating != null) _Badge(label: _item.contentRating!),
             if (_item.formattedResolution.isNotEmpty)
@@ -1675,8 +1716,18 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             if (_item.videoCodec != null) _Badge(label: _item.videoCodec!.toUpperCase()),
             if (_item.audioCodec != null) _Badge(label: _item.audioCodec!.toUpperCase()),
             if (_item.formattedBitrate.isNotEmpty) _Badge(label: _item.formattedBitrate),
+            if (RatingsService.instance.showInDetails && !_item.isMovie && _item.hasRatings)
+              MediaRatingWidget(item: _item, fontSize: 12, iconSize: 15),
           ],
         ),
+
+        // Ratings for movies on mobile placed below the tags and above the play button
+        if (RatingsService.instance.showInDetails && _item.isMovie && _item.hasRatings) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: MediaRatingWidget(item: _item, fontSize: 12, iconSize: 15),
+          ),
+        ],
 
         const SizedBox(height: 16),
 
@@ -2242,6 +2293,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                         if (_item.videoCodec != null) _Badge(label: _item.videoCodec!.toUpperCase()),
                                         if (_item.audioCodec != null) _Badge(label: _item.audioCodec!.toUpperCase()),
                                         if (_item.formattedBitrate.isNotEmpty) _Badge(label: _item.formattedBitrate),
+                                        if (RatingsService.instance.showInDetails && _item.hasRatings)
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 4),
+                                            child: MediaRatingWidget(item: _item, fontSize: 12, iconSize: 15),
+                                          ),
                                       ],
                                     ),
 
@@ -3201,9 +3257,18 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                                 ),
                               ),
                             ],
+                            if (!isPortraitMode && RatingsService.instance.showInDetails && ep.hasRatings) ...[
+                              const SizedBox(width: 8),
+                              MediaRatingWidget(
+                                item: ep,
+                                isEpisodeRow: true,
+                                fontSize: 10.5,
+                                iconSize: 12,
+                              ),
+                            ],
                           ],
                         ),
-                        if (isPortraitMode && (ep.formattedResolution.isNotEmpty || ep.isHdr)) ...[
+                        if (isPortraitMode && (ep.formattedResolution.isNotEmpty || ep.isHdr || (RatingsService.instance.showInDetails && ep.hasRatings))) ...[
                           const SizedBox(height: 5),
                           Row(
                             children: [
@@ -3243,6 +3308,15 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                ),
+                              ],
+                              if (RatingsService.instance.showInDetails && ep.hasRatings) ...[
+                                if (ep.formattedResolution.isNotEmpty || ep.isHdr) const SizedBox(width: 8),
+                                MediaRatingWidget(
+                                  item: ep,
+                                  isEpisodeRow: true,
+                                  fontSize: 10,
+                                  iconSize: 11,
                                 ),
                               ],
                             ],

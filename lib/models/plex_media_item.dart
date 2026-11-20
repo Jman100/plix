@@ -245,6 +245,10 @@ class PlexMediaItem {
   final int? parentIndex; // Season number
   final int? index; // Episode number
   final double? rating;
+  final String? ratingImage;
+  final double? audienceRating;
+  final String? audienceRatingImage;
+  final List<Map<String, dynamic>> ratings;
   final String? contentRating;
   final String? studio;
   final String? videoCodec;
@@ -319,6 +323,10 @@ class PlexMediaItem {
     this.parentIndex,
     this.index,
     this.rating,
+    this.ratingImage,
+    this.audienceRating,
+    this.audienceRatingImage,
+    this.ratings = const [],
     this.contentRating,
     this.studio,
     this.videoCodec,
@@ -384,6 +392,247 @@ class PlexMediaItem {
       (type == 'clip' && title.toLowerCase().contains('trailer'));
   PlexMarker? get introMarker => markers.where((m) => m.isIntro).firstOrNull;
   PlexMarker? get creditsMarker => markers.where((m) => m.isCredits).firstOrNull;
+
+  /// True if this item originates from a Jellyfin server
+  bool get isJellyfin =>
+      (server != null && server!.isJellyfin) ||
+      key.startsWith('/Items/') ||
+      (partKey != null && partKey!.contains('/Videos/'));
+
+  /// Rotten Tomatoes critic score (0 - 100), if available
+  int? get rtCriticScore {
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if (type == 'audience' || img.contains('upright') || img.contains('spilled') || img.contains('popcorn')) {
+        continue;
+      }
+      if ((img.contains('rottentomatoes') || img.contains('tomatometer') || type.contains('critic') || img.contains('.ripe') || img.contains('.rotten') || img.contains('certified')) &&
+          !img.contains('thetvdb') &&
+          !img.contains('tvdb') &&
+          !img.contains('imdb')) {
+        final val = r['value'];
+        if (val is num) {
+          final d = val.toDouble();
+          return (d <= 10.0 ? (d * 10).round() : d.round()).clamp(0, 100);
+        }
+      }
+    }
+    // Check top-level fallback
+    if (rating != null && rating! > 0) {
+      final rImg = (ratingImage ?? '').toLowerCase();
+      if ((rImg.contains('rottentomatoes') || rImg.contains('tomatometer') || rImg.contains('.ripe') || rImg.contains('.rotten') || rImg.contains('certified')) &&
+          !rImg.contains('tvdb') &&
+          !rImg.contains('imdb') &&
+          !rImg.contains('upright') &&
+          !rImg.contains('spilled')) {
+        return (rating! <= 10.0 ? (rating! * 10).round() : rating!.round()).clamp(0, 100);
+      }
+    }
+    return null;
+  }
+
+  /// Whether the RT critic score has Certified Fresh status
+  bool get isRtCertified {
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if ((img.contains('rottentomatoes') || type.contains('critic')) && img.contains('certified')) {
+        return true;
+      }
+    }
+    return (ratingImage ?? '').toLowerCase().contains('certified');
+  }
+
+  /// Whether the RT critic score is Fresh (>= 60%) or Rotten (< 60%)
+  bool get isRtFresh {
+    if (isRtCertified) return true;
+    final score = rtCriticScore;
+    if (score != null) return score >= 60;
+    final rImg = (ratingImage ?? '').toLowerCase();
+    if (rImg.contains('.rotten') || rImg.endsWith('rotten')) return false;
+    return rImg.contains('ripe') || rImg.contains('fresh') || true;
+  }
+
+  /// Rotten Tomatoes audience score (0 - 100), if available
+  int? get rtAudienceScore {
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if (type == 'critic' || img.contains('certified') || img.contains('.ripe') || img.contains('.rotten')) {
+        continue;
+      }
+      final isRt = img.contains('rottentomatoes') ||
+          img.contains('popcorn') ||
+          img.contains('upright') ||
+          img.contains('spilled') ||
+          type.contains('rottentomatoes');
+      if (isRt &&
+          !img.contains('thetvdb') &&
+          !img.contains('tvdb') &&
+          !img.contains('themoviedb') &&
+          !img.contains('moviedb') &&
+          !img.contains('tmdb') &&
+          !img.contains('imdb')) {
+        final val = r['value'];
+        if (val is num) {
+          final d = val.toDouble();
+          return (d <= 10.0 ? (d * 10).round() : d.round()).clamp(0, 100);
+        }
+      }
+    }
+    // Check top-level fallback
+    if (audienceRating != null && audienceRating! > 0) {
+      final aImg = (audienceRatingImage ?? '').toLowerCase();
+      if ((aImg.contains('popcorn') || aImg.contains('upright') || aImg.contains('spilled') || aImg.contains('rottentomatoes')) &&
+          !aImg.contains('tvdb') &&
+          !aImg.contains('thetvdb') &&
+          !aImg.contains('themoviedb') &&
+          !aImg.contains('moviedb') &&
+          !aImg.contains('tmdb') &&
+          !aImg.contains('imdb') &&
+          !aImg.contains('certified') &&
+          !aImg.contains('.ripe') &&
+          !aImg.contains('.rotten')) {
+        return (audienceRating! <= 10.0 ? (audienceRating! * 10).round() : audienceRating!.round()).clamp(0, 100);
+      }
+    }
+    return null;
+  }
+
+  /// Whether the RT audience score is Upright (Fresh >= 60%) or Spilled (< 60%)
+  bool get isRtAudienceFresh {
+    final score = rtAudienceScore;
+    if (score != null) return score >= 60;
+    final aImg = (audienceRatingImage ?? '').toLowerCase();
+    if (aImg.contains('spilled')) return false;
+    return aImg.contains('upright') || true;
+  }
+
+  /// True if movie has at least one RT score (critic or audience)
+  bool get hasRtRatings => rtCriticScore != null || rtAudienceScore != null;
+
+  /// TheTVDB rating (e.g. 7.7), if available
+  double? get tvdbRating {
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if (img.contains('tvdb') || img.contains('thetvdb') || type.contains('tvdb')) {
+        final val = r['value'];
+        if (val is num && val > 0) return val.toDouble();
+      }
+    }
+    final rImg = (ratingImage ?? '').toLowerCase();
+    if ((rImg.contains('tvdb') || rImg.contains('thetvdb')) && rating != null && rating! > 0) {
+      return rating;
+    }
+    final aImg = (audienceRatingImage ?? '').toLowerCase();
+    if ((aImg.contains('tvdb') || aImg.contains('thetvdb')) && audienceRating != null && audienceRating! > 0) {
+      return audienceRating;
+    }
+    return null;
+  }
+
+  /// Formatted TheTVDB rating string e.g. "7.7"
+  String get formattedTvdbRating {
+    final r = tvdbRating;
+    if (r == null || r <= 0) return '';
+    return r.toStringAsFixed(1);
+  }
+
+  /// True if item has TheTVDB rating
+  bool get hasTvdbRating => formattedTvdbRating.isNotEmpty;
+
+  /// TheMovieDb (TMDb) rating (e.g. 7.7), if available
+  double? get tmdbRating {
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if (img.contains('themoviedb') || img.contains('moviedb') || type.contains('tmdb') || img.contains('tmdb')) {
+        final val = r['value'];
+        if (val is num && val > 0) return val.toDouble();
+      }
+    }
+    final rImg = (ratingImage ?? '').toLowerCase();
+    if ((rImg.contains('themoviedb') || rImg.contains('moviedb') || rImg.contains('tmdb')) && rating != null && rating! > 0) {
+      return rating;
+    }
+    final aImg = (audienceRatingImage ?? '').toLowerCase();
+    if ((aImg.contains('themoviedb') || aImg.contains('moviedb') || aImg.contains('tmdb')) && audienceRating != null && audienceRating! > 0) {
+      return audienceRating;
+    }
+    // For Jellyfin items where ratings are provided by community rating (standard TheMovieDb)
+    if (isJellyfin) {
+      if (rating != null && rating! > 0) return rating;
+      if (audienceRating != null && audienceRating! > 0) return audienceRating;
+    }
+    return null;
+  }
+
+  /// Formatted TheMovieDb rating string e.g. "7.7"
+  String get formattedTmdbRating {
+    final r = tmdbRating;
+    if (r == null || r <= 0) return '';
+    return r.toStringAsFixed(1);
+  }
+
+  /// True if item has TheMovieDb rating
+  bool get hasTmdbRating => formattedTmdbRating.isNotEmpty;
+
+  /// IMDb rating (e.g. 8.7), if available
+  double? get imdbRating {
+    // If it's a Jellyfin item and has no explicit IMDb tag, prefer TVDB instead of IMDb
+    if (isJellyfin && !ratings.any((r) => (r['image']?.toString() ?? '').toLowerCase().contains('imdb'))) {
+      return null;
+    }
+    for (final r in ratings) {
+      final img = (r['image']?.toString() ?? '').toLowerCase();
+      final type = (r['type']?.toString() ?? '').toLowerCase();
+      if (img.contains('imdb') || type == 'imdb') {
+        final val = r['value'];
+        if (val is num && val > 0) return val.toDouble();
+      }
+    }
+    if ((ratingImage ?? '').toLowerCase().contains('imdb') && rating != null && rating! > 0) {
+      return rating;
+    }
+    if ((audienceRatingImage ?? '').toLowerCase().contains('imdb') && audienceRating != null && audienceRating! > 0) {
+      return audienceRating;
+    }
+    // Fallback for TV show or episode where server provided general rating and it's not TVDB or TMDB
+    if (isShow || isEpisode) {
+      final rImg = (ratingImage ?? '').toLowerCase();
+      final aImg = (audienceRatingImage ?? '').toLowerCase();
+      if (!rImg.contains('tvdb') && !aImg.contains('tvdb') &&
+          !rImg.contains('thetvdb') && !aImg.contains('thetvdb') &&
+          !rImg.contains('themoviedb') && !aImg.contains('themoviedb') &&
+          !rImg.contains('moviedb') && !aImg.contains('moviedb') &&
+          !rImg.contains('tmdb') && !aImg.contains('tmdb') &&
+          !isJellyfin) {
+        if (rating != null && rating! > 0) return rating;
+        if (audienceRating != null && audienceRating! > 0) return audienceRating;
+      }
+    }
+    return null;
+  }
+
+  /// Formatted IMDb rating string e.g. "8.7"
+  String get formattedImdbRating {
+    final r = imdbRating;
+    if (r == null || r <= 0) return '';
+    return r.toStringAsFixed(1);
+  }
+
+  /// True if TV show or episode has IMDb rating
+  bool get hasImdbRating => formattedImdbRating.isNotEmpty;
+
+  /// True if item has any relevant rating (RT/TMDB/TVDB/IMDb for movies, IMDb/TVDB/TMDB for TV shows/episodes)
+  bool get hasRatings {
+    if (isMovie) {
+      return hasRtRatings || hasTmdbRating || hasTvdbRating || hasImdbRating || (rating != null && rating! > 0) || (audienceRating != null && audienceRating! > 0);
+    }
+    return hasImdbRating || hasTvdbRating || hasTmdbRating || (rating != null && rating! > 0) || (audienceRating != null && audienceRating! > 0);
+  }
 
   bool get isWatched => (viewCount ?? 0) > 0;
   bool get isInProgress => (viewOffset ?? 0) > 0;
@@ -678,6 +927,12 @@ class PlexMediaItem {
   String get cardTitle {
     if (addedSubtitle != null) {
       return title;
+    }
+    if (isEpisode) {
+      // For TV episode cards on Continue Watching, strip any Sx•Ex prefix
+      // because the episode badge is already displayed on the top left of the poster.
+      final clean = title.replaceFirst(RegExp(r'^[Ss]\d+[·:xX][Ee]\d+\s*[-·:]*\s*'), '').trim();
+      return clean.isNotEmpty ? clean : title;
     }
     return displayTitle;
   }
@@ -1203,6 +1458,30 @@ class PlexMediaItem {
       rating: (json['rating'] is num)
           ? (json['rating'] as num).toDouble()
           : double.tryParse(json['rating']?.toString() ?? ''),
+      ratingImage: json['ratingImage']?.toString(),
+      audienceRating: (json['audienceRating'] is num)
+          ? (json['audienceRating'] as num).toDouble()
+          : double.tryParse(json['audienceRating']?.toString() ?? ''),
+      audienceRatingImage: json['audienceRatingImage']?.toString(),
+      ratings: () {
+        final raw = json['Rating'] ?? json['ratings'];
+        if (raw is List) {
+          final list = <Map<String, dynamic>>[];
+          for (final item in raw) {
+            if (item is Map) {
+              list.add({
+                'image': item['image']?.toString() ?? '',
+                'value': (item['value'] is num)
+                    ? (item['value'] as num).toDouble()
+                    : double.tryParse(item['value']?.toString() ?? ''),
+                'type': item['type']?.toString() ?? '',
+              });
+            }
+          }
+          return list;
+        }
+        return const <Map<String, dynamic>>[];
+      }(),
       contentRating: json['contentRating']?.toString(),
       studio: json['studio'] as String?,
       videoCodec: vCodec,
@@ -1287,6 +1566,11 @@ class PlexMediaItem {
     String? parentRatingKey,
     int? parentIndex,
     int? index,
+    double? rating,
+    String? ratingImage,
+    double? audienceRating,
+    String? audienceRatingImage,
+    List<Map<String, dynamic>>? ratings,
     String? contentRating,
     String? studio,
     String? videoCodec,
@@ -1360,7 +1644,11 @@ class PlexMediaItem {
       parentRatingKey: parentRatingKey ?? this.parentRatingKey,
       parentIndex: parentIndex ?? this.parentIndex,
       index: index ?? this.index,
-      rating: rating,
+      rating: rating ?? this.rating,
+      ratingImage: ratingImage ?? this.ratingImage,
+      audienceRating: audienceRating ?? this.audienceRating,
+      audienceRatingImage: audienceRatingImage ?? this.audienceRatingImage,
+      ratings: ratings ?? this.ratings,
       contentRating: contentRating ?? this.contentRating,
       studio: studio ?? this.studio,
       videoCodec: videoCodec ?? this.videoCodec,
