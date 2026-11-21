@@ -6,6 +6,8 @@ import AVFoundation
 @objc class AppDelegate: FlutterAppDelegate {
   private var channel: FlutterMethodChannel?
   private var simulatedDuoPosture: String?
+  private var lastHingeStatusRaw: Int? // 0: closed, 1: partiallyOpen, 2: fullyOpen
+  private var lastHingeAngle: Double = 0.0
 
   override func application(
     _ application: UIApplication,
@@ -28,6 +30,34 @@ import AVFoundation
     nativeChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       self?.handleMethodCall(call: call, result: result, controller: controller)
     }
+
+    #if compiler(>=6.4)
+    if #available(iOS 27.1, *) {
+      let hingeInteraction = UIHingeInteraction { [weak self] _, update in
+        Task { @MainActor in
+          guard let self = self else { return }
+          if let hinge = update.hinge {
+            switch hinge.status {
+            case .closed:
+              self.lastHingeStatusRaw = 0
+            case .partiallyOpen:
+              self.lastHingeStatusRaw = 1
+            case .fullyOpen:
+              self.lastHingeStatusRaw = 2
+            @unknown default:
+              self.lastHingeStatusRaw = nil
+            }
+            self.lastHingeAngle = Double(hinge.angle)
+          } else {
+            self.lastHingeStatusRaw = nil
+            self.lastHingeAngle = 0.0
+          }
+          self.handleOrientationOrLayoutChange()
+        }
+      }
+      controller.view.addInteraction(hingeInteraction)
+    }
+    #endif
 
     NotificationCenter.default.addObserver(
       self,
@@ -107,13 +137,24 @@ import AVFoundation
     return identifier
   }
 
-  private var isIphoneDuo: Bool {
+  private func isIphoneDuo(controller: FlutterViewController) -> Bool {
     let id = getDeviceIdentifier()
-    return id == "iPhone19,4"
+    if id == "iPhone19,4" || id.hasPrefix("iPhone19,") || id.lowercased().contains("duo") {
+      return true
+    }
+    #if compiler(>=6.4)
+    if #available(iOS 27.1, *) {
+      if !controller.view.reservedRegions(of: .division).isEmpty {
+        return true
+      }
+    }
+    #endif
+    return false
   }
 
   private func getDuoInfo(controller: FlutterViewController) -> [String: Any] {
-    guard isIphoneDuo else {
+    let isDuoDevice = isIphoneDuo(controller: controller)
+    guard isDuoDevice else {
       return [
         "isDuo": false,
         "posture": "none",
@@ -136,7 +177,24 @@ import AVFoundation
     let bounds = controller.view.bounds
     let width = bounds.width
     let height = bounds.height
-    let isLandscape = width > height
+
+    let windowScene = controller.view.window?.windowScene ?? (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+    let isLandscape: Bool
+    #if compiler(>=6.4)
+    if #available(iOS 27.1, *), let effectiveOrientation = windowScene?.effectiveGeometry.interfaceOrientation {
+      isLandscape = effectiveOrientation.isLandscape
+    } else if let orientation = windowScene?.interfaceOrientation {
+      isLandscape = orientation.isLandscape
+    } else {
+      isLandscape = width > height
+    }
+    #else
+    if let orientation = windowScene?.interfaceOrientation {
+      isLandscape = orientation.isLandscape
+    } else {
+      isLandscape = width > height
+    }
+    #endif
 
     // Inner display native portrait: 669 x 951 pt
     // Outer display native portrait: 466 x 678 pt
@@ -144,22 +202,46 @@ import AVFoundation
 
     var posture = "closed"
     var angle = 0.0
-    var foldCoord = 475.5
-    let foldBand = 40.0
+    var foldCoord = isLandscape ? (width / 2.0) : (height / 2.0)
+    var foldBand = 40.0
 
     if !isInnerDisplay {
       posture = "closed"
+      angle = 0.0
     } else {
       #if compiler(>=6.4)
       if #available(iOS 27.1, *) {
-        var hasDivision = false
+        var activeDivision: UIViewReservedRegion?
         for region in controller.view.reservedRegions(of: .division) {
           if region.isActive {
-            hasDivision = true
+            activeDivision = region
             break
           }
         }
-        if hasDivision {
+
+        if let division = activeDivision {
+          foldBand = isLandscape ? Double(division.frame.width) : Double(division.frame.height)
+          foldCoord = isLandscape ? Double(division.frame.midX) : Double(division.frame.midY)
+        } else {
+          foldCoord = isLandscape ? (width / 2.0) : 475.5
+          foldBand = 40.0
+        }
+
+        if let statusRaw = lastHingeStatusRaw {
+          switch statusRaw {
+          case 0: // closed
+            posture = "closed"
+            angle = 0.0
+          case 2: // fullyOpen
+            posture = "fullyOpen"
+            angle = lastHingeAngle > 0 ? lastHingeAngle : 3.14159
+          case 1: // partiallyOpen
+            posture = isLandscape ? "book" : "tabletop"
+            angle = lastHingeAngle > 0 ? lastHingeAngle : 1.57
+          default:
+            posture = "fullyOpen"
+          }
+        } else if activeDivision != nil {
           posture = isLandscape ? "book" : "tabletop"
           angle = 1.57
         } else {
@@ -169,16 +251,9 @@ import AVFoundation
         posture = "fullyOpen"
       }
       #else
-      // Fallback on size class / aspect ratio
       posture = isLandscape ? "book" : "tabletop"
       angle = 1.57
       #endif
-    }
-
-    if isLandscape {
-      foldCoord = width / 2.0
-    } else {
-      foldCoord = height / 2.0
     }
 
     return [

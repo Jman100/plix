@@ -9,7 +9,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-latest
+    runs-on: xcode-27
     permissions:
       contents: write
     timeout-minutes: 45
@@ -24,6 +24,15 @@ jobs:
           flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
+
+      - name: Select Xcode 27.1
+        run: |
+          if [ -d "/Applications/Xcode_27.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_27.1.app
+          elif [ -d "/Applications/Xcode_27.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_27.app
+          fi
+          xcodebuild -version
 
       - name: Install Dependencies
         run: flutter pub get
@@ -49,10 +58,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload to Release (if tagged)
-        if: always() && startsWith(github.ref, 'refs/tags/v') && hashFiles('build/ios/iphoneos/plix_ios.ipa') != ''
+      - name: Upload to Release
+        if: always() && hashFiles('build/ios/iphoneos/plix_ios.ipa') != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.10.4' }}
           files: build/ios/iphoneos/plix_ios.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
