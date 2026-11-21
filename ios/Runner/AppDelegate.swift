@@ -13,15 +13,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   ) {
     guard let windowScene = scene as? UIWindowScene else { return }
 
-    DispatchQueue.main.async { [weak self] in
-      let controller = (self?.window?.rootViewController as? FlutterViewController)
-        ?? (windowScene.windows.compactMap { $0.rootViewController as? FlutterViewController }.first)
-        ?? (UIApplication.shared.windows.compactMap { $0.rootViewController as? FlutterViewController }.first)
-
-      if let controller = controller, let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-        appDelegate.configureFlutterViewController(controller)
-      }
+    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+    let engine = appDelegate.flutterEngine
+    if !engine.isRunning {
+      engine.run()
+      GeneratedPluginRegistrant.register(with: engine)
     }
+
+    let controller = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+    let window = UIWindow(windowScene: windowScene)
+    window.rootViewController = controller
+    self.window = window
+    appDelegate.window = window
+    window.makeKeyAndVisible()
+
+    appDelegate.configureFlutterViewController(controller)
   }
 
   func sceneDidBecomeActive(_ scene: UIScene) {
@@ -33,20 +39,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  lazy var flutterEngine = FlutterEngine(name: "plix_flutter_engine")
   private var channel: FlutterMethodChannel?
   private var simulatedDuoPosture: String?
   private var lastHingeStatusRaw: Int? // 0: closed, 1: partiallyOpen, 2: fullyOpen
   private var lastHingeAngle: Double = 0.0
   private var isConfigured = false
+  weak var activeController: FlutterViewController?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
+    flutterEngine.run()
+    GeneratedPluginRegistrant.register(with: flutterEngine)
     setupAudioSession()
 
-    if let controller = window?.rootViewController as? FlutterViewController {
+    // Non-scene fallback (older iOS or legacy window environments)
+    if let window = self.window {
+      let controller = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+      window.rootViewController = controller
+      window.makeKeyAndVisible()
       configureFlutterViewController(controller)
     }
 
@@ -65,6 +78,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   }
 
   func configureFlutterViewController(_ controller: FlutterViewController) {
+    self.activeController = controller
     guard !isConfigured else { return }
     isConfigured = true
 
@@ -115,7 +129,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   }
 
   @objc func handleOrientationOrLayoutChange() {
-    guard let controller = window?.rootViewController as? FlutterViewController
+    guard let controller = activeController
+      ?? (window?.rootViewController as? FlutterViewController)
       ?? (UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
