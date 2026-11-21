@@ -251,8 +251,7 @@ import AVFoundation
         posture = "fullyOpen"
       }
       #else
-      posture = isLandscape ? "book" : "tabletop"
-      angle = 1.57
+      posture = "fullyOpen"
       #endif
     }
 
