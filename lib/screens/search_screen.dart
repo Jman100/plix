@@ -9,11 +9,14 @@ import '../models/plex_server.dart';
 import '../services/native_player_service.dart';
 import '../services/plex_media_service.dart';
 import '../services/plix_device_helper.dart';
+import '../services/seerr_service.dart';
 import '../widgets/media_card.dart';
+import '../widgets/plix_button.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_home_button.dart';
 import '../widgets/plix_tv_text_field.dart';
 import 'details_screen.dart';
+import 'seerr_request_screen.dart';
 import '../widgets/plix_bottom_nav.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -89,6 +92,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final FocusNode _homeButtonFocus = FocusNode();
   final FocusNode _micButtonFocus = FocusNode();
   final FocusNode _clearButtonFocus = FocusNode();
+  final FocusNode _requestButtonFocus = FocusNode();
 
   final List<FocusNode> _resultFocusNodes = [];
 
@@ -101,6 +105,9 @@ class _SearchScreenState extends State<SearchScreen> {
       _hasMultiServerFavorites = widget.isMultiServer!;
     }
     _checkMultiServer();
+    SeerrService.instance.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
 
     _textFieldFocusNode.addListener(_handleTextFieldFocusChange);
 
@@ -156,6 +163,7 @@ class _SearchScreenState extends State<SearchScreen> {
     _homeButtonFocus.dispose();
     _micButtonFocus.dispose();
     _clearButtonFocus.dispose();
+    _requestButtonFocus.dispose();
     for (final node in _resultFocusNodes) {
       node.dispose();
     }
@@ -348,6 +356,16 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  bool get _seerrEnabled => SeerrService.instance.isConfigured;
+
+  void _openSeerrRequests() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SeerrRequestScreen(initialQuery: _query.trim()),
+      ),
+    );
+  }
+
   void _openItem(PlexMediaItem item) {
     final effectiveServer = item.server ?? widget.server;
     Navigator.of(context).push(
@@ -537,6 +555,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               _clearButtonFocus.requestFocus();
                             } else if (!(Platform.isWindows || Platform.isLinux)) {
                               _micButtonFocus.requestFocus();
+                            } else if (_seerrEnabled) {
+                              _requestButtonFocus.requestFocus();
                             }
                           },
                           onDown: () {
@@ -557,7 +577,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           onLeft: () => _textFieldFocusNode.requestFocus(),
                           onRight: !(Platform.isWindows || Platform.isLinux)
                               ? () => _micButtonFocus.requestFocus()
-                              : null,
+                              : (_seerrEnabled ? () => _requestButtonFocus.requestFocus() : null),
                           onDown: _results.isNotEmpty ? _focusFirstResult : null,
                         ),
                       ],
@@ -579,6 +599,27 @@ class _SearchScreenState extends State<SearchScreen> {
               tooltip: 'Voice Search',
               onPressed: _startVoiceSearch,
               onLeft: () => _query.isNotEmpty ? _clearButtonFocus.requestFocus() : _textFieldFocusNode.requestFocus(),
+              onRight: _seerrEnabled ? () => _requestButtonFocus.requestFocus() : null,
+              onDown: _results.isNotEmpty ? _focusFirstResult : null,
+            ),
+          ],
+
+          if (_seerrEnabled) ...[
+            SizedBox(width: isCompact ? 8 : 14),
+            _TvIconButton(
+              focusNode: _requestButtonFocus,
+              icon: Icons.add_to_queue_rounded,
+              tooltip: 'Request on Seerr',
+              onPressed: _openSeerrRequests,
+              onLeft: () {
+                if (!(Platform.isWindows || Platform.isLinux)) {
+                  _micButtonFocus.requestFocus();
+                } else if (_query.isNotEmpty) {
+                  _clearButtonFocus.requestFocus();
+                } else {
+                  _textFieldFocusNode.requestFocus();
+                }
+              },
               onDown: _results.isNotEmpty ? _focusFirstResult : null,
             ),
           ],
@@ -673,6 +714,15 @@ class _SearchScreenState extends State<SearchScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: PlixTheme.textMuted, fontSize: 13),
               ),
+              if (_seerrEnabled) ...[
+                const SizedBox(height: 20),
+                PlixButton(
+                  label: 'Request "${_query.trim()}" on Seerr',
+                  icon: const Icon(Icons.add_to_queue_rounded, size: 18),
+                  onPressed: _openSeerrRequests,
+                  onUp: () => _textFieldFocusNode.requestFocus(),
+                ),
+              ],
             ],
           ),
         ),

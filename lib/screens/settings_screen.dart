@@ -2,6 +2,9 @@ import 'profiles_screen.dart';
 import '../services/profile_service.dart';
 import '../services/ratings_service.dart';
 import '../services/download_service.dart';
+import '../services/seerr_service.dart';
+import '../widgets/plix_tv_text_field.dart';
+import 'seerr_request_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -57,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _hwdecFocusNode = FocusNode();
   final FocusNode _showRatingsFocusNode = FocusNode();
   final FocusNode _downloadDirFocusNode = FocusNode();
+  final FocusNode _seerrConfigFocusNode = FocusNode();
+  final FocusNode _seerrRequestFocusNode = FocusNode();
   String _downloadDirPath = '';
   String _hwdecMode = NativePlayerService.hwdecMode;
   int _quickRewindSeconds = 10;
@@ -86,6 +91,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     PlixTheme.themeRevision.addListener(_onThemeChanged);
     _loadSettings();
     _loadConnectedServers();
+    SeerrService.instance.addListener(_onSeerrChanged);
+    SeerrService.instance.ensureLoaded();
 
     // Default focus to the first settings action tile on TV
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -150,6 +157,348 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _onThemeChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onSeerrChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _openSeerrRequests() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SeerrRequestScreen()),
+    );
+  }
+
+  Widget _seerrInputBox(Widget child) {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: PlixTheme.cardBorder),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _seerrFieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(color: PlixTheme.textPrimary, fontSize: 12.5, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  String get _seerrTileSubtitle {
+    final seerr = SeerrService.instance;
+    if (!seerr.isConfigured) {
+      return 'Choose a request server and sign in with your Plex or Jellyfin account to request movies and TV shows';
+    }
+    final via = seerr.authMode?.label ?? '';
+    final who = seerr.userName.isNotEmpty ? seerr.userName : via;
+    return 'Signed in as $who${via.isNotEmpty && via != who ? ' ($via)' : ''} on ${seerr.server?.name ?? seerr.baseUrl}';
+  }
+
+  Future<void> _configureSeerrDialog() async {
+    final seerr = SeerrService.instance;
+    await seerr.ensureLoaded();
+    final hasPlex = await seerr.hasPlexAccount();
+    String plexName = '';
+    if (hasPlex) {
+      try {
+        plexName = (await PlexAuthService().getSavedUser())?.username ?? '';
+      } catch (_) {}
+    }
+
+    final servers = SeerrService.servers;
+    final userController = TextEditingController();
+    final passController = TextEditingController();
+    final userFocus = FocusNode();
+    final passFocus = FocusNode();
+    final signInFocus = FocusNode();
+    final cancelFocus = FocusNode();
+    final signOutFocus = FocusNode();
+    final serverFocus = {for (final s in servers) s.id: FocusNode()};
+    final modeFocus = {for (final m in SeerrAuthMode.values) m: FocusNode()};
+
+    List<SeerrAuthMode> modesFor(SeerrServerOption server) {
+      return [
+        if (server.serverType != SeerrAuthMode.plex || hasPlex) server.serverType,
+        SeerrAuthMode.local,
+      ];
+    }
+
+    SeerrServerOption server = seerr.server ??
+        servers.firstWhere(
+          (s) => hasPlex ? s.serverType == SeerrAuthMode.plex : s.serverType == SeerrAuthMode.jellyfin,
+          orElse: () => servers.first,
+        );
+    SeerrAuthMode mode = seerr.authMode != null && seerr.server?.id == server.id && modesFor(server).contains(seerr.authMode)
+        ? seerr.authMode!
+        : modesFor(server).first;
+    String? errorMessage;
+    bool busy = false;
+    bool initialFocusDone = false;
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (initialFocusDone) return;
+          initialFocusDone = true;
+          serverFocus[server.id]!.requestFocus();
+        });
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final modes = modesFor(server);
+            final needsCredentials = mode != SeerrAuthMode.plex;
+
+            Future<void> signIn() async {
+              if (busy) return;
+              setDialogState(() {
+                busy = true;
+                errorMessage = null;
+              });
+              try {
+                final String user;
+                switch (mode) {
+                  case SeerrAuthMode.plex:
+                    user = await seerr.signInWithPlex(server);
+                    break;
+                  case SeerrAuthMode.jellyfin:
+                    user = await seerr.signInWithJellyfin(server, userController.text, passController.text);
+                    break;
+                  case SeerrAuthMode.local:
+                    user = await seerr.signInWithLocal(server, userController.text, passController.text);
+                    break;
+                }
+                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                _showToast('Signed in to ${server.name} as $user');
+              } catch (e) {
+                setDialogState(() {
+                  busy = false;
+                  errorMessage = e.toString();
+                });
+              }
+            }
+
+            void selectServer(SeerrServerOption next) {
+              setDialogState(() {
+                server = next;
+                final nextModes = modesFor(next);
+                if (!nextModes.contains(mode)) mode = nextModes.first;
+                errorMessage = null;
+              });
+            }
+
+            String modeHint() {
+              switch (mode) {
+                case SeerrAuthMode.plex:
+                  return plexName.isNotEmpty
+                      ? 'Uses the Plex account $plexName that this profile is signed in with. No password needed.'
+                      : 'Uses the Plex account this profile is signed in with. No password needed.';
+                case SeerrAuthMode.jellyfin:
+                  return 'Use the same username and password you use for Jellyfin.';
+                case SeerrAuthMode.local:
+                  return 'Use an account created directly on ${server.name}.';
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: PlixTheme.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: PlixTheme.cardBorder),
+              ),
+              title: const Text(
+                'Sign in to Requests',
+                style: TextStyle(color: PlixTheme.textPrimary, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Choose the server you want to request from, then sign in with your own account. Requests follow the permissions and limits set for you on that server.',
+                        style: TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
+                      ),
+                      const SizedBox(height: 14),
+                      _seerrFieldLabel('Request Server'),
+                      for (int i = 0; i < servers.length; i++) ...[
+                        PlixButton(
+                          focusNode: serverFocus[servers[i].id],
+                          isPrimary: servers[i].id == server.id,
+                          width: double.infinity,
+                          label: '${servers[i].name}  ·  ${servers[i].host}',
+                          icon: Icon(
+                            servers[i].id == server.id ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                            size: 18,
+                          ),
+                          fontSize: 13,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          onUp: i > 0 ? () => serverFocus[servers[i - 1].id]!.requestFocus() : null,
+                          onDown: i < servers.length - 1
+                              ? () => serverFocus[servers[i + 1].id]!.requestFocus()
+                              : () => modeFocus[mode]!.requestFocus(),
+                          blockUp: i == 0,
+                          blockLeft: true,
+                          blockRight: true,
+                          onPressed: () => selectServer(servers[i]),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 6),
+                      _seerrFieldLabel('Sign in with'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (int i = 0; i < modes.length; i++)
+                            PlixButton(
+                              focusNode: modeFocus[modes[i]],
+                              isPrimary: modes[i] == mode,
+                              label: modes[i].label,
+                              fontSize: 13,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                              onUp: () => serverFocus[servers.last.id]!.requestFocus(),
+                              onDown: () => needsCredentials ? userFocus.requestFocus() : signInFocus.requestFocus(),
+                              onLeft: i > 0 ? () => modeFocus[modes[i - 1]]!.requestFocus() : null,
+                              onRight: i < modes.length - 1 ? () => modeFocus[modes[i + 1]]!.requestFocus() : null,
+                              blockLeft: i == 0,
+                              blockRight: i == modes.length - 1,
+                              onPressed: () => setDialogState(() {
+                                mode = modes[i];
+                                errorMessage = null;
+                              }),
+                            ),
+                        ],
+                      ),
+                      if (server.serverType == SeerrAuthMode.plex && !hasPlex) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Plex sign-in is unavailable because this profile is not signed in to Plex.',
+                          style: TextStyle(color: PlixTheme.textMuted, fontSize: 12),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        modeHint(),
+                        style: const TextStyle(color: PlixTheme.textMuted, fontSize: 12.5),
+                      ),
+                      if (needsCredentials) ...[
+                        const SizedBox(height: 12),
+                        _seerrFieldLabel(mode == SeerrAuthMode.jellyfin ? 'Jellyfin Username' : 'Email'),
+                        _seerrInputBox(
+                          PlixTvTextField(
+                            controller: userController,
+                            focusNode: userFocus,
+                            hintText: mode == SeerrAuthMode.jellyfin ? 'Username' : 'you@example.com',
+                            imeAction: 'next',
+                            style: const TextStyle(color: PlixTheme.textPrimary, fontSize: 14),
+                            hintStyle: const TextStyle(color: PlixTheme.textMuted, fontSize: 14),
+                            onSubmitted: (_) => passFocus.requestFocus(),
+                            onUp: () => modeFocus[mode]!.requestFocus(),
+                            onDown: () => passFocus.requestFocus(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _seerrFieldLabel('Password'),
+                        _seerrInputBox(
+                          PlixTvTextField(
+                            controller: passController,
+                            focusNode: passFocus,
+                            hintText: 'Password',
+                            imeAction: 'done',
+                            obscureText: true,
+                            style: const TextStyle(color: PlixTheme.textPrimary, fontSize: 14),
+                            hintStyle: const TextStyle(color: PlixTheme.textMuted, fontSize: 14),
+                            onSubmitted: (_) => signIn(),
+                            onUp: () => userFocus.requestFocus(),
+                            onDown: () => signInFocus.requestFocus(),
+                          ),
+                        ),
+                      ],
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          errorMessage!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (seerr.isConfigured)
+                  PlixButton(
+                    focusNode: signOutFocus,
+                    isPrimary: false,
+                    label: 'Sign Out',
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    onUp: () => needsCredentials ? passFocus.requestFocus() : modeFocus[mode]!.requestFocus(),
+                    onRight: () => cancelFocus.requestFocus(),
+                    blockLeft: true,
+                    blockDown: true,
+                    onPressed: () async {
+                      await seerr.signOut();
+                      if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                      _showToast('Signed out of requests');
+                    },
+                  ),
+                PlixButton(
+                  focusNode: cancelFocus,
+                  isPrimary: false,
+                  label: 'Cancel',
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  onUp: () => needsCredentials ? passFocus.requestFocus() : modeFocus[mode]!.requestFocus(),
+                  onLeft: seerr.isConfigured ? () => signOutFocus.requestFocus() : null,
+                  onRight: () => signInFocus.requestFocus(),
+                  blockLeft: !seerr.isConfigured,
+                  blockDown: true,
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                ),
+                PlixButton(
+                  focusNode: signInFocus,
+                  label: busy ? 'Signing In...' : 'Sign In',
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  onUp: () => needsCredentials ? passFocus.requestFocus() : modeFocus[mode]!.requestFocus(),
+                  onLeft: () => cancelFocus.requestFocus(),
+                  blockRight: true,
+                  blockDown: true,
+                  onPressed: signIn,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    Future.delayed(const Duration(milliseconds: 600), () {
+      userController.dispose();
+      passController.dispose();
+      userFocus.dispose();
+      passFocus.dispose();
+      signInFocus.dispose();
+      cancelFocus.dispose();
+      signOutFocus.dispose();
+      for (final n in serverFocus.values) {
+        n.dispose();
+      }
+      for (final n in modeFocus.values) {
+        n.dispose();
+      }
+    });
+    if (mounted) _seerrConfigFocusNode.requestFocus();
   }
 
   Future<void> _loadSettings() async {
@@ -547,6 +896,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     PlixTheme.themeRevision.removeListener(_onThemeChanged);
+    SeerrService.instance.removeListener(_onSeerrChanged);
     _scrollController.dispose();
     _backButtonFocusNode.dispose();
     _homeButtonFocusNode.dispose();
@@ -561,6 +911,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _hwdecFocusNode.dispose();
     _showRatingsFocusNode.dispose();
     _downloadDirFocusNode.dispose();
+    _seerrConfigFocusNode.dispose();
+    _seerrRequestFocusNode.dispose();
     _rewindFocusNode.dispose();
     _skipFocusNode.dispose();
     _autoUpdateFocusNode.dispose();
@@ -782,7 +1134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ? _hwdecFocusNode.requestFocus()
                                 : (PlixDeviceHelper.isTelevision
                                     ? _tvCastCrewFocusNode.requestFocus()
-                                    : _autoUpdateFocusNode.requestFocus())),
+                                    : _seerrConfigFocusNode.requestFocus())),
                         title: 'Show Ratings',
                         subtitle: 'Display Rotten Tomatoes scores for movies and IMDb ratings for TV shows',
                         trailing: RatingsService.instance.mode.label,
@@ -798,7 +1150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsActionTile(
                       focusNode: _tvCastCrewFocusNode,
                       onUp: () => _showRatingsFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      onDown: () => _seerrConfigFocusNode.requestFocus(),
                       title: 'Cast & Crew in Player',
                       subtitle: 'Display cast & crew quick view row below playback controls on TV',
                       trailing: _showTvCastCrew ? 'Enabled' : 'Disabled',
@@ -811,7 +1163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsActionTile(
                       focusNode: _screenOffFocusNode,
                       onUp: () => _showRatingsFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      onDown: () => _seerrConfigFocusNode.requestFocus(),
                       title: 'Continue playback with screen off',
                       subtitle: 'Keep playing audio in the background when your screen is turned off',
                       trailing: _continuePlaybackScreenOff ? 'Enabled' : 'Disabled',
@@ -834,12 +1186,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsActionTile(
                       focusNode: _downloadDirFocusNode,
                       onUp: () => _hwdecFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      onDown: () => _seerrConfigFocusNode.requestFocus(),
                       title: 'Download Location',
                       subtitle: 'Choose where downloaded media is saved on this computer',
                       trailing: _shortenPath(_downloadDirPath),
                       isInteractive: true,
                       onTap: _changeDownloadDirDialog,
+                    ),
+                  ],
+
+                  const SizedBox(height: 28),
+                  Divider(color: PlixTheme.cardBorder),
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Icon(Icons.add_to_queue_rounded, color: PlixTheme.plexGold, size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Requests',
+                        style: TextStyle(
+                          color: PlixTheme.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  _SettingsActionTile(
+                    focusNode: _seerrConfigFocusNode,
+                    onUp: () => isMobile
+                        ? _screenOffFocusNode.requestFocus()
+                        : (PlixDeviceHelper.isDesktop
+                            ? _downloadDirFocusNode.requestFocus()
+                            : (PlixDeviceHelper.isTelevision
+                                ? _tvCastCrewFocusNode.requestFocus()
+                                : _showRatingsFocusNode.requestFocus())),
+                    onDown: () => SeerrService.instance.isConfigured
+                        ? _seerrRequestFocusNode.requestFocus()
+                        : _autoUpdateFocusNode.requestFocus(),
+                    title: 'Request Server',
+                    subtitle: _seerrTileSubtitle,
+                    trailing: SeerrService.instance.isConfigured ? 'Signed In' : 'Sign In',
+                    isInteractive: true,
+                    onTap: _configureSeerrDialog,
+                  ),
+                  if (SeerrService.instance.isConfigured) ...[
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _seerrRequestFocusNode,
+                      onUp: () => _seerrConfigFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Request Media',
+                      subtitle: 'Search for movies and TV shows to request through Seerr',
+                      trailing: 'Open',
+                      isInteractive: true,
+                      onTap: _openSeerrRequests,
                     ),
                   ],
 
@@ -866,13 +1270,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoUpdateFocusNode,
-                    onUp: () => isMobile
-                        ? _screenOffFocusNode.requestFocus()
-                        : (PlixDeviceHelper.isDesktop
-                            ? _downloadDirFocusNode.requestFocus()
-                            : (PlixDeviceHelper.isTelevision
-                                ? _tvCastCrewFocusNode.requestFocus()
-                                : _showRatingsFocusNode.requestFocus())),
+                    onUp: () => SeerrService.instance.isConfigured
+                        ? _seerrRequestFocusNode.requestFocus()
+                        : _seerrConfigFocusNode.requestFocus(),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',
