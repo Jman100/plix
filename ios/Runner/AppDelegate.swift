@@ -241,7 +241,7 @@ import AVFoundation
           default:
             posture = "fullyOpen"
           }
-        } else if activeDivision != nil {
+        } else if activeDivisionFrame != nil {
           posture = isLandscape ? "book" : "tabletop"
           angle = 1.57
         } else {
