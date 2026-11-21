@@ -14,11 +14,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     guard let windowScene = scene as? UIWindowScene else { return }
 
     guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-    let engine = appDelegate.flutterEngine
-    if !engine.isRunning {
-      engine.run()
-      GeneratedPluginRegistrant.register(with: engine)
-    }
+    let engine = appDelegate.ensureEngineRunning()
 
     let controller = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
     let window = UIWindow(windowScene: windowScene)
@@ -40,6 +36,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   lazy var flutterEngine = FlutterEngine(name: "plix_flutter_engine")
+  private var isEngineRunning = false
   private var channel: FlutterMethodChannel?
   private var simulatedDuoPosture: String?
   private var lastHingeStatusRaw: Int? // 0: closed, 1: partiallyOpen, 2: fullyOpen
@@ -47,12 +44,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   private var isConfigured = false
   weak var activeController: FlutterViewController?
 
+  @discardableResult
+  func ensureEngineRunning() -> FlutterEngine {
+    if !isEngineRunning {
+      isEngineRunning = true
+      flutterEngine.run()
+      GeneratedPluginRegistrant.register(with: flutterEngine)
+    }
+    return flutterEngine
+  }
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    flutterEngine.run()
-    GeneratedPluginRegistrant.register(with: flutterEngine)
+    _ = ensureEngineRunning()
     setupAudioSession()
 
     // Non-scene fallback (older iOS or legacy window environments)
