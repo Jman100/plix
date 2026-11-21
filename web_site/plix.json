@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "922ae26f758e5f861d2f8ac9eb40de9022534aef59ae255e127906458bca5e10",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "a553607b312cdcd049a7e7b5ee92b8862a5f426c1d06488d07bca023310cb296",
+    "linuxSha256": "0a67b01300eadd6aaf0a1c1655409785458f594abc569c29095bc05bf5423dc2",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "947f687334421a6b8ae8901b826dbcdfa1dc645a79e1b8a754ef2b0f4029b5a7",
+    "linuxArchSha256": "1d7d8a1b96d0b84492a1f985b070d42669ab67efbb017daa8e815aa92190e37f",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "833c97feefb1d7667de8b7e2281df9c9a3ea8057f74705a567e7d000cd6a3ff9",
+    "linuxTarballSha256": "3571a6163b2a176fa562739503a20d4e72721662be249038dc93e4e52d6dabdf",
     "releaseNotes": "- Media Ratings (Rotten Tomatoes, IMDb, TMDb): Added Rotten Tomatoes critic & audience review scores for movies, IMDb ratings for TV shows & episodes, and TMDb community ratings. By default, ratings are set to 'Show in Details Only' (displayed in the hero section and detail pages), but users can customize this in Settings -> Playback & Streaming -> Show Ratings (Off, Show in Details Only, Show on Posters).\r\n- Poster Ratings Overlay: When 'Show on Posters' is enabled, ratings are elegantly displayed on top of the bottom of movie & show posters with a subtle dark gradient backdrop.\r\n- Official Ratings Assets: Integrated official Rotten Tomatoes (fresh, certified fresh, rotten, popcorn buckets), IMDb, and TMDb logos.\r\n- Episode Ratings & Fallback: TV shows and episode rows display ratings next to resolution tags, and newly added episodes without individual scores seamlessly inherit the series rating.\r\n- Client Identification with App Version: Server client name reporting now dynamically includes the app version across all platforms (e.g., Plix TV v1.10.4, Plix Android v1.10.4, Plix Windows v1.10.4).\r\n- Desktop Download Directory Setting: Added customizable download directory settings for Windows and Linux with write permission validation.\r\n- UI & Layout Enhancements: Perfectly aligned tag badges in the hero section, fixed hero background aspect ratio scaling, moved mobile movie release dates to their own line, and improved offline server notices.\r\n- App Version Bump: v1.10.4 (versionCode 56)",
     "releaseDate": "2026-11-20"
 }
