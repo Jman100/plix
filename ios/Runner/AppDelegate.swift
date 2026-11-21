@@ -144,7 +144,7 @@ import AVFoundation
     }
     #if compiler(>=6.4)
     if #available(iOS 27.1, *) {
-      if !controller.view.reservedRegions(of: .division).isEmpty {
+      if !controller.view.reservedRegions(kind: .division).isEmpty {
         return true
       }
     }
@@ -211,17 +211,17 @@ import AVFoundation
     } else {
       #if compiler(>=6.4)
       if #available(iOS 27.1, *) {
-        var activeDivision: UIViewReservedRegion?
-        for region in controller.view.reservedRegions(of: .division) {
+        var activeDivisionFrame: CGRect?
+        for region in controller.view.reservedRegions(kind: .division) {
           if region.isActive {
-            activeDivision = region
+            activeDivisionFrame = region.frame
             break
           }
         }
 
-        if let division = activeDivision {
-          foldBand = isLandscape ? Double(division.frame.width) : Double(division.frame.height)
-          foldCoord = isLandscape ? Double(division.frame.midX) : Double(division.frame.midY)
+        if let frame = activeDivisionFrame {
+          foldBand = isLandscape ? Double(frame.width) : Double(frame.height)
+          foldCoord = isLandscape ? Double(frame.midX) : Double(frame.midY)
         } else {
           foldCoord = isLandscape ? (width / 2.0) : 475.5
           foldBand = 40.0
