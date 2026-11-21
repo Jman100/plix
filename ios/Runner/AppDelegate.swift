@@ -2,24 +2,71 @@ import Flutter
 import UIKit
 import AVFoundation
 
+@objc(SceneDelegate)
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+  var window: UIWindow?
+
+  func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = scene as? UIWindowScene else { return }
+
+    DispatchQueue.main.async { [weak self] in
+      let controller = (self?.window?.rootViewController as? FlutterViewController)
+        ?? (windowScene.windows.compactMap { $0.rootViewController as? FlutterViewController }.first)
+        ?? (UIApplication.shared.windows.compactMap { $0.rootViewController as? FlutterViewController }.first)
+
+      if let controller = controller, let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+        appDelegate.configureFlutterViewController(controller)
+      }
+    }
+  }
+
+  func sceneDidBecomeActive(_ scene: UIScene) {
+    if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+      appDelegate.handleOrientationOrLayoutChange()
+    }
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var channel: FlutterMethodChannel?
   private var simulatedDuoPosture: String?
   private var lastHingeStatusRaw: Int? // 0: closed, 1: partiallyOpen, 2: fullyOpen
   private var lastHingeAngle: Double = 0.0
+  private var isConfigured = false
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-
     setupAudioSession()
 
-    guard let controller = window?.rootViewController as? FlutterViewController else {
-      return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    if let controller = window?.rootViewController as? FlutterViewController {
+      configureFlutterViewController(controller)
     }
+
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // MARK: - UISceneSession Lifecycle
+  override func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    let config = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    config.delegateClass = SceneDelegate.self
+    return config
+  }
+
+  func configureFlutterViewController(_ controller: FlutterViewController) {
+    guard !isConfigured else { return }
+    isConfigured = true
 
     controller.isViewOpaque = false
     controller.view.backgroundColor = .clear
@@ -65,12 +112,16 @@ import AVFoundation
       name: UIDevice.orientationDidChangeNotification,
       object: nil
     )
-
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  @objc private func handleOrientationOrLayoutChange() {
-    guard let controller = window?.rootViewController as? FlutterViewController else { return }
+  @objc func handleOrientationOrLayoutChange() {
+    guard let controller = window?.rootViewController as? FlutterViewController
+      ?? (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?
+            .rootViewController as? FlutterViewController)
+      ?? (UIApplication.shared.windows.compactMap { $0.rootViewController as? FlutterViewController }.first) else { return }
     let info = getDuoInfo(controller: controller)
     channel?.invokeMethod("onDuoPostureChanged", arguments: info)
   }
@@ -144,7 +195,7 @@ import AVFoundation
     }
     #if compiler(>=6.4)
     if #available(iOS 27.1, *) {
-      if !controller.view.reservedRegions(kind: .division).isEmpty {
+      if controller.view.window != nil && !controller.view.reservedRegions(kind: .division).isEmpty {
         return true
       }
     }
@@ -212,10 +263,12 @@ import AVFoundation
       #if compiler(>=6.4)
       if #available(iOS 27.1, *) {
         var activeDivisionFrame: CGRect?
-        for region in controller.view.reservedRegions(kind: .division) {
-          if region.isActive {
-            activeDivisionFrame = region.frame
-            break
+        if controller.view.window != nil {
+          for region in controller.view.reservedRegions(kind: .division) {
+            if region.isActive {
+              activeDivisionFrame = region.frame
+              break
+            }
           }
         }
 
