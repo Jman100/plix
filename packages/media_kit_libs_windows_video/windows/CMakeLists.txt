@@ -40,35 +40,57 @@ function(download_and_verify url hash_type hash_val archive_path)
   endif()
 
   if(NOT EXISTS "${archive_path}")
+    set(DOWNLOAD_SUCCESS FALSE)
     message(STATUS "Downloading ${url}...")
     file(
       DOWNLOAD
       "${url}"
       "${archive_path}"
-      EXPECTED_HASH "${hash_type}=${hash_val}"
       STATUS DOWNLOAD_STATUS
       TLS_VERIFY ON
       TIMEOUT 300
     )
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
     list(GET DOWNLOAD_STATUS 1 STATUS_MSG)
-    if(NOT STATUS_CODE EQUAL 0)
-      file(REMOVE "${archive_path}")
+    if(STATUS_CODE EQUAL 0 AND EXISTS "${archive_path}")
+      file(${hash_type} "${archive_path}" CURRENT_HASH)
+      if("${hash_val}" STREQUAL "${CURRENT_HASH}")
+        set(DOWNLOAD_SUCCESS TRUE)
+      else()
+        message(STATUS "Primary download hash mismatch for ${archive_path}")
+        file(REMOVE "${archive_path}")
+      endif()
+    else()
+      if(EXISTS "${archive_path}")
+        file(REMOVE "${archive_path}")
+      endif()
+    endif()
+
+    if(NOT DOWNLOAD_SUCCESS)
       if(FALLBACK_URL)
         message(STATUS "Primary download failed (${STATUS_MSG}). Trying fallback: ${FALLBACK_URL}...")
         file(
           DOWNLOAD
           "${FALLBACK_URL}"
           "${archive_path}"
-          EXPECTED_HASH "${hash_type}=${hash_val}"
           STATUS FALLBACK_STATUS
           TLS_VERIFY ON
           TIMEOUT 300
         )
         list(GET FALLBACK_STATUS 0 FB_STATUS_CODE)
         list(GET FALLBACK_STATUS 1 FB_STATUS_MSG)
-        if(NOT FB_STATUS_CODE EQUAL 0)
-          file(REMOVE "${archive_path}")
+        if(FB_STATUS_CODE EQUAL 0 AND EXISTS "${archive_path}")
+          file(${hash_type} "${archive_path}" CURRENT_HASH)
+          if("${hash_val}" STREQUAL "${CURRENT_HASH}")
+            set(DOWNLOAD_SUCCESS TRUE)
+          else()
+            file(REMOVE "${archive_path}")
+            message(FATAL_ERROR "Fallback hash mismatch for ${archive_path}")
+          endif()
+        else()
+          if(EXISTS "${archive_path}")
+            file(REMOVE "${archive_path}")
+          endif()
           message(FATAL_ERROR "Fallback download failed: ${FB_STATUS_MSG}")
         endif()
       else()
@@ -82,8 +104,8 @@ endfunction()
 if(IS_ARM64)
   message(STATUS "Configuring media_kit_libs_windows_video for ARM64")
   set(LIBMPV "mpv-dev-aarch64-20261031-git-41f6a64506.7z")
-  set(LIBMPV_URL "https://github.com/Carapacik/libmpv-win32-video-cmake/releases/download/20261031/${LIBMPV}")
-  set(LIBMPV_FALLBACK_URL "https://github.com/Jman100/plix/releases/download/v1.5.3/${LIBMPV}")
+  set(LIBMPV_URL "https://github.com/Jman100/plix/releases/download/v1.5.3/${LIBMPV}")
+  set(LIBMPV_FALLBACK_URL "https://github.com/Carapacik/libmpv-win32-video-cmake/releases/download/20261031/${LIBMPV}")
   set(LIBMPV_HASH_TYPE "SHA256")
   set(LIBMPV_HASH "497841ee27697d816ff3aa14a0e1cce0ce639b593d28b53fb4e06e4410c37df6")
 
