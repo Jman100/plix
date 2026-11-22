@@ -1619,17 +1619,74 @@ class _NavItemState extends State<_NavItem> {
                       : null,
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: widget.subtitle != null ? 8 : 12,
+                      horizontal: widget.isExpanded ? 14 : 0,
+                      vertical: widget.isExpanded ? (widget.subtitle != null ? 8 : 12) : 12,
                     ),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: 245.0 - 48.0,
-                        child: Row(
-                          children: [
-                            Opacity(
+                    child: widget.isExpanded
+                        ? SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const NeverScrollableScrollPhysics(),
+                            clipBehavior: Clip.none,
+                            child: SizedBox(
+                              width: 245.0 - 48.0,
+                              child: Row(
+                                children: [
+                                  Opacity(
+                                    opacity: widget.isOffline && !isHighlighted ? 0.4 : 1.0,
+                                    child: Icon(
+                                      widget.icon,
+                                      size: 22,
+                                      color: fgColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Opacity(
+                                      opacity: widget.isOffline && !isHighlighted ? 0.4 : 1.0,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            widget.isOffline ? '${widget.label} (Offline)' : widget.label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: fgColor,
+                                              fontSize: 13.5,
+                                              fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              widget.subtitle!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isHighlighted
+                                                    ? Colors.black.withOpacity(0.7)
+                                                    : PlixTheme.textMuted,
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.w500,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (widget.trailing != null) ...[
+                                    const SizedBox(width: 8),
+                                    widget.trailing!,
+                                  ],
+                                ],
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Opacity(
                               opacity: widget.isOffline && !isHighlighted ? 0.4 : 1.0,
                               child: Icon(
                                 widget.icon,
@@ -1637,55 +1694,8 @@ class _NavItemState extends State<_NavItem> {
                                 color: fgColor,
                               ),
                             ),
-                        if (widget.isExpanded) ...[
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Opacity(
-                              opacity: widget.isOffline && !isHighlighted ? 0.4 : 1.0,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.isOffline ? '${widget.label} (Offline)' : widget.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: fgColor,
-                                      fontSize: 13.5,
-                                      fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      widget.subtitle!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isHighlighted
-                                            ? Colors.black.withOpacity(0.7)
-                                            : PlixTheme.textMuted,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
                           ),
-                          if (widget.trailing != null) ...[
-                            const SizedBox(width: 8),
-                            widget.trailing!,
-                          ],
-                        ],
-                      ],
-                    ),
                   ),
-                ),
-              ),
                 ),
               ),
             ),
