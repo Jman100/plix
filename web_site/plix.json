@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "fe3c08f5cba63957959e54b4ec47e49c683b6c5d93ddf8cc97d2446bb987ea78",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "9c4c3c596cbd2aa71eb4880019de4c30c035d8493348d57a5515661645d9f193",
+    "linuxSha256": "ae851cc9871f6251bc9e788bcaa93c23bf74742c4574da5d39221f759cefc03c",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "2a256e7272f2285a6d34bd9d5ef1817ffdf05722842644042fcc5d1dca7dea1f",
+    "linuxArchSha256": "3ae7dd46050d92ccde2d917b43cbdd3ab4138d454175ed4bad66d975c589d60c",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "aa9d645a461cc2c26460569e927d3cf3c3eb8bdecd8289d38a7dda61678a7f87",
+    "linuxTarballSha256": "c73c94fb673d2fbc01ca2e598282d59d966d18bb723f2487d6436ca4850ee383",
     "releaseNotes": "- Transparent Sidebar & Interactive Controls: Added integrated transparency and blur slider controls for the sidebar and playback overlay buttons. In Appearance settings, users can adjust sidebar and control transparency (1-5) and backdrop blur (5%, 10%, 20%, 30%, 40%) with an interactive live preview bar showcasing dynamic blur and Plix watermark pass-through.\r\n- Atmosphere Rainbow Theme: Introduced an all-new Rainbow Atmosphere theme featuring deep nebula backdrops with vibrant animated rainbow borders on active items and subtle rainbow styling on player and menu controls.\r\n- Dynamic TV Remote Navigation: Optimized D-pad focus transitions across Android TV and desktop navigation, removing border layout shifts and silver drawing artifacts with instant snapping and seamless gradient outline borders.\r\n- Accent Color & Appearance Refinements: Streamlined accent color names, added pure vibrant Green and Rainbow accents, and reorganized palettes into clean 8-wide rows optimized for TV viewing.\r\n- Expanded Profile Avatars: Added 12 new high-definition profile avatar icons (Dragon, Ninja, Wizard, Trophy, Coffee, Lightning, Skull, Pizza, Guitar, Heart, Ghost, Mask).\r\n- App Version Bump: v1.10.5 (versionCode 57)",
     "releaseDate": "2026-11-21"
 }
