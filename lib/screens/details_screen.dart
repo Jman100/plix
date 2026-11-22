@@ -2077,11 +2077,19 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       MediaQuery.sizeOf(context).width,
       cap: PlixImageCache.backdropWidth,
     );
-    final backdropDecodeHeight = PlixImageCache.decodeHeight(
-      context,
-      520,
-      cap: PlixImageCache.backdropHeight,
-    );
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final backdropHeight = _item.isShow
+        ? (screenWidth * 9 / 16)
+        : ((isCompact && _item.isMovie)
+            ? (MediaQuery.sizeOf(context).height * 0.72).clamp(520.0, 850.0)
+            : 520.0);
+    final backdropDecodeHeight = _item.isShow
+        ? null
+        : PlixImageCache.decodeHeight(
+            context,
+            backdropHeight,
+            cap: PlixImageCache.backdropHeight,
+          );
 
     final currentSeasonIdx = _seasons.indexWhere(
       (s) => s.ratingKey == _selectedSeason?.ratingKey || s.key == _selectedSeason?.key,
@@ -2114,21 +2122,19 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                 top: 0,
                 left: 0,
                 right: 0,
-                height: (isCompact && _item.isMovie)
-                    ? (MediaQuery.sizeOf(context).height * 0.72).clamp(520.0, 850.0)
-                    : 520,
+                height: backdropHeight,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     _isLocalPath(backdropUrl)
                         ? Image.file(
                             File(backdropUrl.replaceFirst('file://', '')),
-                            fit: (isCompact && _item.isMovie) ? BoxFit.fitWidth : BoxFit.cover,
+                            fit: (_item.isShow || (isCompact && _item.isMovie)) ? BoxFit.fitWidth : BoxFit.cover,
                             alignment: Alignment.topCenter,
                           )
                         : CachedNetworkImage(
                             imageUrl: backdropUrl,
-                            fit: (isCompact && _item.isMovie) ? BoxFit.fitWidth : BoxFit.cover,
+                            fit: (_item.isShow || (isCompact && _item.isMovie)) ? BoxFit.fitWidth : BoxFit.cover,
                             alignment: Alignment.topCenter,
                             memCacheWidth: backdropDecodeWidth,
                             memCacheHeight: backdropDecodeHeight,
@@ -2138,18 +2144,27 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: (isCompact && _item.isMovie)
+                          colors: _item.isShow
                               ? [
                                   PlixTheme.background.withOpacity(0.15),
-                                  PlixTheme.background.withOpacity(0.75),
+                                  PlixTheme.background.withOpacity(0.55),
+                                  PlixTheme.background.withOpacity(0.9),
                                   PlixTheme.background,
                                 ]
-                              : [
-                                  PlixTheme.background.withOpacity(0.3),
-                                  PlixTheme.background.withOpacity(0.8),
-                                  PlixTheme.background,
-                                ],
-                          stops: const [0.0, 0.6, 1.0],
+                              : (isCompact && _item.isMovie)
+                                  ? [
+                                      PlixTheme.background.withOpacity(0.15),
+                                      PlixTheme.background.withOpacity(0.75),
+                                      PlixTheme.background,
+                                    ]
+                                  : [
+                                      PlixTheme.background.withOpacity(0.3),
+                                      PlixTheme.background.withOpacity(0.8),
+                                      PlixTheme.background,
+                                    ],
+                          stops: _item.isShow
+                              ? const [0.0, 0.45, 0.8, 1.0]
+                              : const [0.0, 0.6, 1.0],
                         ),
                       ),
                     ),
@@ -3072,7 +3087,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               },
               borderRadius: BorderRadius.circular(8),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
+                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 120),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isHighlighted
@@ -3081,17 +3096,17 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           ? const Color(0xFF000000)
                           : (PlixTheme.isGlass ? const Color(0x331C283E) : PlixTheme.surface)),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isHighlighted
-                        ? PlixTheme.plexGold
-                        : (PlixTheme.isGlass ? const Color(0x40FFFFFF) : PlixTheme.cardBorder),
-                    width: isHighlighted ? 2.0 : 1.0,
+                  border: PlixTheme.outlineBorder(
+                    isHighlighted: isHighlighted,
+                    unhighlightColor: (PlixTheme.isGlass ? const Color(0x40FFFFFF) : PlixTheme.cardBorder),
+                    highlightWidth: 2.2,
+                    unhighlightWidth: 1.0,
                   ),
-                  boxShadow: isHighlighted
+                  boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                       ? [
                           BoxShadow(
                             color: PlixTheme.plexGold.withOpacity(0.35),
-                            blurRadius: 10,
+                            blurRadius: 8,
                             spreadRadius: 1,
                           )
                         ]

@@ -184,7 +184,11 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
               _selectedCompositeIds.add(lib.compositeId);
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          if (server.isJellyfin && (e.toString().contains('401') || e.toString().toLowerCase().contains('unauthorized') || e.toString().toLowerCase().contains('timed out'))) {
+            server.isAuthExpired = true;
+          }
+        }
       }));
 
       if (mounted) {
@@ -636,11 +640,19 @@ class _FavoriteLibrariesScreenState extends State<FavoriteLibrariesScreen> {
         const SizedBox(height: 12),
 
         if (libs.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(left: 8, bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 8),
             child: Text(
-              'No libraries found or server is unreachable.',
-              style: TextStyle(color: PlixTheme.textMuted, fontSize: 13, fontStyle: FontStyle.italic),
+              (server.isJellyfin && server.isAuthExpired)
+                  ? 'Authentication timed out. Please reconnect in Customize Servers.'
+                  : 'No libraries found or server is unreachable.',
+              style: TextStyle(
+                color: (server.isJellyfin && server.isAuthExpired)
+                    ? const Color(0xFFFF6B6B)
+                    : PlixTheme.textMuted,
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           )
         else

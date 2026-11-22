@@ -9134,93 +9134,73 @@ void _showSubtitleSelector() {
 
 
                         GestureDetector(
-
-
-
                           onTap: _togglePlayPause,
+                          child: Builder(
+                            builder: (context) {
+                              final isGlass = PlixTheme.isGlassSidebar;
+                              final isBlur = isGlass && PlixTheme.isGlassSidebarBlur;
+                              final isRainbow = PlixTheme.isRainbow;
+                              final alpha = PlixTheme.glassButtonAlpha;
 
-
-
-                          child: Container(
-
-
-
-                            width: 52,
-
-
-
-                            height: 52,
-
-
-
-                            decoration: BoxDecoration(
-
-
-
-                              color: PlixTheme.plexGold,
-
-
-
-                              shape: BoxShape.circle,
-
-
-
-                              boxShadow: [
-
-
-
-                                BoxShadow(
-
-
-
-                                  color: PlixTheme.plexGold.withOpacity(0.35),
-
-
-
-                                  blurRadius: 10,
-
-
-
-                                  spreadRadius: 2,
-
-
-
+                              final boxDeco = BoxDecoration(
+                                color: isRainbow
+                                    ? null
+                                    : (isGlass ? PlixTheme.plexGold.withAlpha(alpha) : PlixTheme.plexGold),
+                                gradient: isRainbow
+                                    ? (isGlass
+                                        ? LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              const Color(0xFFFF007A).withAlpha(alpha),
+                                              const Color(0xFF7928CA).withAlpha(alpha),
+                                              const Color(0xFF0070F3).withAlpha(alpha),
+                                              const Color(0xFF00E676).withAlpha(alpha),
+                                              const Color(0xFFFFB300).withAlpha(alpha),
+                                            ],
+                                          )
+                                        : PlixTheme.rainbowButtonGradient)
+                                    : null,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isRainbow ? Colors.white.withOpacity(0.5) : (isGlass ? PlixTheme.plexGoldLight : Colors.transparent),
+                                  width: 2.0,
                                 ),
+                                boxShadow: isRainbow
+                                    ? []
+                                    : [
+                                        BoxShadow(
+                                          color: PlixTheme.plexGold.withOpacity(0.4),
+                                          blurRadius: 10,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                              );
 
+                              final inner = Container(
+                                width: 52,
+                                height: 52,
+                                decoration: boxDeco,
+                                child: Icon(
+                                  _isPlaying && !_isPaused ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  size: 34,
+                                  color: isRainbow ? Colors.white : (isGlass ? Colors.white : Colors.black),
+                                ),
+                              );
 
-
-                              ],
-
-
-
-                            ),
-
-
-
-                            child: Icon(
-
-
-
-                              _isPlaying && !_isPaused ? Icons.pause_rounded : Icons.play_arrow_rounded,
-
-
-
-                              size: 34,
-
-
-
-                              color: Colors.black,
-
-
-
-                            ),
-
-
-
+                              return ClipOval(
+                                child: isBlur
+                                    ? BackdropFilter(
+                                        filter: ui.ImageFilter.blur(
+                                          sigmaX: PlixTheme.glassSidebarBlurSigma,
+                                          sigmaY: PlixTheme.glassSidebarBlurSigma,
+                                        ),
+                                        child: inner,
+                                      )
+                                    : inner,
+                              );
+                            },
                           ),
-
-
-
                         ),
 
 
@@ -16822,63 +16802,158 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
 
 
 
-    final bgColor = isPri
+    final isGlass = PlixTheme.isGlassSidebar;
+    final isBlur = isGlass && PlixTheme.isGlassSidebarBlur;
+    final isRainbow = PlixTheme.isRainbow;
+    final isRainbowBorder = PlixTheme.isRainbowBorder;
+    final alpha = PlixTheme.glassButtonAlpha;
 
+    Gradient? bgGradient;
+    Color? bgColor;
+    Color fgColor;
+    BoxBorder border;
+    List<BoxShadow> boxShadows = [];
 
+    if (isRainbow) {
+      if (isPri) {
+        bgGradient = PlixTheme.rainbowButtonGradient;
+        fgColor = Colors.white;
+        border = activeGlow
+            ? PlixTheme.rainbowOutlineBorder(width: 2.2)
+            : Border.all(color: Colors.white.withOpacity(0.35), width: 1.5);
+        if (activeGlow && isEnabled) {
+          boxShadows = isRainbow
+              ? []
+              : [
+                  BoxShadow(
+                    color: PlixTheme.plexGold.withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ];
+        }
+      } else {
+        if (isGlass) {
+          bgColor = activeGlow
+              ? PlixTheme.cardFocused.withAlpha((alpha + 0x40).clamp(0, 255))
+              : Colors.white.withAlpha((alpha * 0.35).round());
+        } else {
+          bgColor = activeGlow ? PlixTheme.cardFocused : Colors.white.withOpacity(0.12);
+        }
+        fgColor = activeGlow ? Colors.white : (widget.iconColor ?? Colors.white);
+        border = activeGlow
+            ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+            : Border.all(color: Colors.white.withOpacity(0.2), width: 1.2);
+        if (activeGlow && isEnabled) {
+          boxShadows = isRainbow
+              ? []
+              : [
+                  BoxShadow(
+                    color: PlixTheme.plexGold.withOpacity(0.35),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ];
+        }
+      }
+    } else {
+      if (isGlass) {
+        if (isPri) {
+          final pAlpha = activeGlow ? (alpha + 0x45).clamp(0, 255) : alpha;
+          bgColor = PlixTheme.plexGold.withAlpha(pAlpha);
+          border = activeGlow && isRainbowBorder
+              ? PlixTheme.rainbowOutlineBorder(width: 2.2)
+              : Border.all(
+                  color: activeGlow ? PlixTheme.plexGoldLight : Colors.white.withOpacity(0.4),
+                  width: 2.0,
+                );
+          fgColor = activeGlow
+              ? (ThemeData.estimateBrightnessForColor(PlixTheme.plexGold) == Brightness.light ? Colors.black : Colors.white)
+              : Colors.white;
+          if (activeGlow && isEnabled) {
+            boxShadows = isRainbowBorder
+                ? []
+                : [
+                    BoxShadow(
+                      color: PlixTheme.plexGold.withOpacity(0.55),
+                      blurRadius: 14,
+                      spreadRadius: 2,
+                    ),
+                  ];
+          }
+        } else {
+          if (!isEnabled) {
+            bgColor = activeGlow ? Colors.white.withAlpha(0x18) : Colors.white.withAlpha(0x0C);
+            border = Border.all(
+              color: activeGlow ? Colors.white38 : Colors.transparent,
+              width: 1.5,
+            );
+            fgColor = activeGlow ? Colors.white54 : Colors.white24;
+          } else {
+            bgColor = activeGlow
+                ? PlixTheme.cardFocused.withAlpha((alpha + 0x40).clamp(0, 255))
+                : Colors.white.withAlpha((alpha * 0.35).round());
+            border = activeGlow && isRainbowBorder
+                ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+                : Border.all(
+                    color: activeGlow ? PlixTheme.plexGold : Colors.white.withOpacity(0.25),
+                    width: 2.0,
+                  );
+            fgColor = activeGlow
+                ? (isRainbowBorder ? Colors.white : PlixTheme.plexGold)
+                : (widget.iconColor ?? Colors.white);
+            if (activeGlow) {
+              boxShadows = isRainbowBorder
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: PlixTheme.plexGold.withOpacity(0.45),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ];
+            }
+          }
+        }
+      } else {
+        bgColor = isPri
+            ? (activeGlow ? PlixTheme.plexGoldLight : PlixTheme.plexGold)
+            : !isEnabled
+                ? (activeGlow ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.04))
+                : (activeGlow ? PlixTheme.cardFocused : Colors.white.withOpacity(0.15));
 
-        ? (activeGlow ? PlixTheme.plexGoldLight : PlixTheme.plexGold)
+        fgColor = isPri
+            ? Colors.black
+            : !isEnabled
+                ? (activeGlow ? Colors.white54 : Colors.white24)
+                : (activeGlow
+                    ? (isRainbowBorder ? Colors.white : PlixTheme.plexGold)
+                    : (widget.iconColor ?? Colors.white));
 
+        border = !isEnabled
+            ? Border.all(
+                color: activeGlow ? Colors.white38 : Colors.transparent,
+                width: 1.5,
+              )
+            : (activeGlow
+                ? (isRainbowBorder
+                    ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+                    : Border.all(color: PlixTheme.plexGold, width: 2.0))
+                : Border.all(color: Colors.transparent, width: 2.0));
 
-
-        : !isEnabled
-
-
-
-            ? (activeGlow ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.04))
-
-
-
-            : (activeGlow ? PlixTheme.cardFocused : Colors.white.withOpacity(0.15));
-
-
-
-
-
-
-
-    final fgColor = isPri
-
-
-
-        ? Colors.black
-
-
-
-        : !isEnabled
-
-
-
-            ? (activeGlow ? Colors.white54 : Colors.white24)
-
-
-
-            : (activeGlow ? PlixTheme.plexGold : (widget.iconColor ?? Colors.white));
-
-
-
-
-
-
-
-    final borderColor = !isEnabled
-
-
-
-        ? (activeGlow ? Colors.white38 : Colors.transparent)
-
-
-
-        : (activeGlow ? PlixTheme.plexGold : Colors.transparent);
+        if (activeGlow && isEnabled) {
+          boxShadows = isRainbowBorder
+              ? []
+              : [
+                  BoxShadow(
+                    color: PlixTheme.plexGold.withOpacity(0.5),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ];
+        }
+      }
+    }
 
 
 
@@ -17103,101 +17178,42 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
 
 
           borderRadius: BorderRadius.circular(size / 2),
-
-
-
-          child: Container(
-
-
-
-            width: size,
-
-
-
-            height: size,
-
-
-
-            decoration: BoxDecoration(
-
-
-
-              color: bgColor,
-
-
-
-              shape: BoxShape.circle,
-
-
-
-              border: Border.all(
-
-
-
-                color: borderColor,
-
-
-
-                width: 2.0,
-
-
-
-              ),
-
-
-
-              boxShadow: (activeGlow && isEnabled)
-
-
-
-                  ? [
-
-
-
-                      BoxShadow(
-
-
-
-                        color: PlixTheme.plexGold.withOpacity(0.5),
-
-
-
-                        blurRadius: 12,
-
-
-
-                        spreadRadius: 2,
-
-
-
+          child: ClipOval(
+            child: isBlur
+                ? BackdropFilter(
+                    filter: ui.ImageFilter.blur(
+                      sigmaX: PlixTheme.glassSidebarBlurSigma,
+                      sigmaY: PlixTheme.glassSidebarBlurSigma,
+                    ),
+                    child: Container(
+                      width: size,
+                      height: size,
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        gradient: bgGradient,
+                        shape: BoxShape.circle,
+                        border: border,
+                        boxShadow: boxShadows,
                       ),
-
-
-
-                    ]
-
-
-
-                  : [],
-
-
-
-            ),
-
-
-
-            child: Center(
-
-
-
-              child: Icon(widget.icon, color: fgColor, size: iconSize),
-
-
-
-            ),
-
-
-
+                      child: Center(
+                        child: Icon(widget.icon, color: fgColor, size: iconSize),
+                      ),
+                    ),
+                  )
+                : Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      gradient: bgGradient,
+                      shape: BoxShape.circle,
+                      border: border,
+                      boxShadow: boxShadows,
+                    ),
+                    child: Center(
+                      child: Icon(widget.icon, color: fgColor, size: iconSize),
+                    ),
+                  ),
           ),
 
 
@@ -19014,89 +19030,37 @@ class _SubtitleDialogOptionState extends State<_SubtitleDialogOption> {
 
 
         child: AnimatedContainer(
-
-
-
-          duration: const Duration(milliseconds: 150),
-
-
-
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-
-
-
           margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-
-
-
           decoration: BoxDecoration(
-
-
-
             color: highlighted
-
-
-
                 ? PlixTheme.cardFocused
-
-
-
                 : (widget.isSelected ? PlixTheme.plexGold.withOpacity(0.15) : Colors.transparent),
-
-
-
             borderRadius: BorderRadius.circular(8),
-
-
-
-            border: Border.all(
-
-
-
-              color: highlighted
-
-
-
-                  ? PlixTheme.plexGold
-
-
-
-                  : (widget.isSelected ? PlixTheme.plexGold.withOpacity(0.5) : Colors.transparent),
-
-
-
-              width: 1.5,
-
-
-
+            border: PlixTheme.outlineBorder(
+              isHighlighted: highlighted,
+              unhighlightColor: widget.isSelected
+                  ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold.withOpacity(0.5))
+                  : Colors.transparent,
+              highlightWidth: 2.0,
+              unhighlightWidth: 1.5,
             ),
-
-
-
+            boxShadow: (highlighted && !PlixTheme.isRainbowBorder)
+                ? [
+                    BoxShadow(
+                      color: PlixTheme.plexGold.withOpacity(0.35),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
-
-
-
           child: Row(
-
-
-
             children: [
-
-
-
               Icon(
-
-
-
                 widget.isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-
-
-
-                color: widget.isSelected ? PlixTheme.plexGold : Colors.white38,
-
-
-
+                color: widget.isSelected ? (PlixTheme.isRainbowBorder ? const Color(0xFF00E676) : PlixTheme.plexGold) : Colors.white38,
                 size: 20,
 
 
@@ -19340,15 +19304,12 @@ class _SubtitleSearchButtonState extends State<_SubtitleSearchButton> {
             color: _isFocused ? PlixTheme.cardFocused : Colors.white.withOpacity(0.06),
 
             borderRadius: BorderRadius.circular(10),
-
-            border: Border.all(
-
-              color: _isFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.15),
-
-              width: _isFocused ? 2.0 : 1.0,
-
+            border: PlixTheme.outlineBorder(
+              isHighlighted: _isFocused,
+              unhighlightColor: Colors.white.withOpacity(0.15),
+              highlightWidth: 2.0,
+              unhighlightWidth: 1.0,
             ),
-
           ),
 
           child: Row(
@@ -20021,15 +19982,12 @@ class _SubtitleSearchResultTileState extends State<_SubtitleSearchResultTile> {
             color: _isFocused ? PlixTheme.cardFocused : Colors.white.withOpacity(0.04),
 
             borderRadius: BorderRadius.circular(8),
-
-            border: Border.all(
-
-              color: _isFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.08),
-
-              width: _isFocused ? 2.0 : 1.0,
-
+            border: PlixTheme.outlineBorder(
+              isHighlighted: _isFocused,
+              unhighlightColor: Colors.white.withOpacity(0.08),
+              highlightWidth: 2.0,
+              unhighlightWidth: 1.0,
             ),
-
           ),
 
           child: Row(
@@ -20337,15 +20295,12 @@ class _LanguageFilterChipState extends State<_LanguageFilterChip> {
                 : (_isFocused ? PlixTheme.cardFocused : Colors.white.withOpacity(0.08)),
 
             borderRadius: BorderRadius.circular(16),
-
-            border: Border.all(
-
-              color: _isFocused ? PlixTheme.plexGold : Colors.transparent,
-
-              width: 1.5,
-
+            border: PlixTheme.outlineBorder(
+              isHighlighted: _isFocused,
+              unhighlightColor: Colors.transparent,
+              highlightWidth: 1.8,
+              unhighlightWidth: 1.5,
             ),
-
           ),
 
           child: Text(
@@ -21006,78 +20961,26 @@ class _PlayerDialogButtonState extends State<_PlayerDialogButton> {
 
 
 
-          duration: const Duration(milliseconds: 140),
-
-
-
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-
-
-
           decoration: BoxDecoration(
-
-
-
             color: bgColor,
-
-
-
             borderRadius: BorderRadius.circular(8),
-
-
-
-            border: Border.all(
-
-
-
-              color: _isFocused ? PlixTheme.plexGold : Colors.transparent,
-
-
-
-              width: 2.0,
-
-
-
+            border: PlixTheme.outlineBorder(
+              isHighlighted: _isFocused,
+              unhighlightColor: Colors.transparent,
+              highlightWidth: 2.0,
+              unhighlightWidth: 1.5,
             ),
-
-
-
-            boxShadow: _isFocused
-
-
-
+            boxShadow: (_isFocused && !PlixTheme.isRainbowBorder)
                 ? [
-
-
-
                     BoxShadow(
-
-
-
                       color: PlixTheme.plexGold.withOpacity(0.4),
-
-
-
                       blurRadius: 10,
-
-
-
                       spreadRadius: 2,
-
-
-
                     )
-
-
-
                   ]
-
-
-
                 : [],
-
-
-
           ),
 
 

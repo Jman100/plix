@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -82,6 +83,9 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
   final Map<String, FocusNode> _colorFocusNodes = {};
 
   final FocusNode _customColorFocusNode = FocusNode();
+  final FocusNode _glassSidebarFocusNode = FocusNode();
+  final FocusNode _glassBlurFocusNode = FocusNode();
+  final FocusNode _glassSliderFocusNode = FocusNode();
 
 
 
@@ -152,6 +156,9 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
     }
 
     _customColorFocusNode.dispose();
+    _glassSidebarFocusNode.dispose();
+    _glassBlurFocusNode.dispose();
+    _glassSliderFocusNode.dispose();
 
     super.dispose();
 
@@ -249,797 +256,1158 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
           : null,
 
-      body: SafeArea(
-
-        child: SingleChildScrollView(
-
-          physics: const BouncingScrollPhysics(),
-
-          child: Padding(
-
-            padding: EdgeInsets.symmetric(
-
-              horizontal: isCompact ? 16 : 36,
-
-              vertical: isCompact ? 10 : (isTv ? 10 : 16),
-
+      body: Container(
+        decoration: PlixTheme.backgroundDecoration,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 16 : 36,
+                vertical: isCompact ? 10 : (isTv ? 10 : 16),
+              ),
+              child: isTv
+                  ? _buildTvLayout(context)
+                  : _buildStandardLayout(context, isCompact),
             ),
-
-            child: Column(
-
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-
-              // Top Bar
-
-              Row(
-
-                children: [
-
-                  if (!Platform.isAndroid || PlixDeviceHelper.isTelevision || MediaQuery.of(context).orientation == Orientation.landscape) ...[
-
-                    PlixBackButton(
-
-                      focusNode: _backButtonFocusNode,
-
-                      autofocus: false,
-
-                      onDown: () {
-
-                        final activeId = PlixTheme.currentPreset.value.id;
-
-                        _presetFocusNodes[activeId]?.requestFocus();
-
-                      },
-
-                    ),
-
-                    const SizedBox(width: 16),
-
-                  ],
-
-                  Icon(
-
-                    Icons.palette_rounded,
-
-                    color: PlixTheme.plexGold,
-
-                    size: 26,
-
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  const Text(
-
-                    'Appearance & Themes',
-
-                    style: TextStyle(
-
-                      color: PlixTheme.textPrimary,
-
-                      fontSize: 24,
-
-                      fontWeight: FontWeight.bold,
-
-                    ),
-
-                  ),
-
-                  const Spacer(),
-
-                  // Edit Custom Theme Quick Button
-
-                  ValueListenableBuilder<ThemePresetOption>(
-
-                    valueListenable: PlixTheme.currentPreset,
-
-                    builder: (context, activePreset, _) {
-
-                      if (activePreset.id == 'custom') {
-
-                        return Container(
-
-                          margin: const EdgeInsets.only(right: 8),
-
-                          child: OutlinedButton.icon(
-
-                            style: OutlinedButton.styleFrom(
-
-                              foregroundColor: PlixTheme.plexGold,
-
-                              side: BorderSide(color: PlixTheme.plexGold.withOpacity(0.6)),
-
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-
-                            ),
-
-                            icon: const Icon(Icons.tune_rounded, size: 16),
-
-                            label: const Text('Edit Custom Palette', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-
-                            onPressed: _showCustomThemeDialog,
-
-                          ),
-
-                        );
-
-                      }
-
-                      return const SizedBox.shrink();
-
-                    },
-
-                  ),
-
-                ],
-
-              ),
-
-              const SizedBox(height: 14),
-
-
-
-              // Live Theme Preview Bar
-
-              _LiveThemePreviewBar(),
-
-              SizedBox(height: isTv ? 8 : 14),
-
-
-
-              // Atmosphere Presets Header
-
-              Row(
-
-                children: [
-
-                  Icon(Icons.style_rounded, color: PlixTheme.plexGold, size: 16),
-
-                  const SizedBox(width: 6),
-
-                  const Text(
-
-                    'Base Atmosphere Themes',
-
-                    style: TextStyle(
-
-                      color: PlixTheme.textPrimary,
-
-                      fontSize: 14,
-
-                      fontWeight: FontWeight.bold,
-
-                    ),
-
-                  ),
-
-                ],
-
-              ),
-
-              const SizedBox(height: 8),
-
-
-
-              // Presets Grid
-
-              ValueListenableBuilder<ThemePresetOption>(
-
-                valueListenable: PlixTheme.currentPreset,
-
-                builder: (context, activePreset, _) {
-
-                  final cols = isCompact ? 2 : 4;
-
-                  final totalPresets = PlixTheme.presetOptions.length;
-
-                  final rows = (totalPresets / cols).ceil();
-
-
-
-                  return Column(
-
-                    children: [
-
-                      for (int row = 0; row < rows; row++) ...[
-
-                        Row(
-
-                          children: [
-
-                            for (int col = 0; col < cols; col++) ...[
-
-                              Expanded(
-
-                                child: Builder(
-
-                                  builder: (context) {
-
-                                    final index = row * cols + col;
-
-                                    if (index >= totalPresets) {
-
-                                      return const SizedBox();
-
-                                    }
-
-                                    final preset = PlixTheme.presetOptions[index];
-
-                                    return _ThemePresetTile(
-
-                                      preset: preset,
-
-                                      isSelected: preset.id == activePreset.id,
-
-                                      focusNode: _presetFocusNodes[preset.id]!,
-
-                                      onSelect: () {
-
-                                        if (preset.id == 'custom') {
-
-                                          PlixTheme.setPreset(preset, updateDefaultAccent: false);
-
-                                          _showCustomThemeDialog();
-
-                                        } else {
-
-                                          PlixTheme.setPreset(preset);
-                                          if (mounted) setState(() {});
-
-                                        }
-
-                                      },
-
-                                      onLeft: col > 0
-
-                                          ? () => _presetFocusNodes[PlixTheme.presetOptions[index - 1].id]?.requestFocus()
-
-                                          : null,
-
-                                      onRight: col < cols - 1 && index < totalPresets - 1
-
-                                          ? () => _presetFocusNodes[PlixTheme.presetOptions[index + 1].id]?.requestFocus()
-
-                                          : null,
-
-                                      onUp: row == 0
-
-                                          ? () => _backButtonFocusNode.requestFocus()
-
-                                          : () => _presetFocusNodes[PlixTheme.presetOptions[index - cols].id]?.requestFocus(),
-
-                                      onDown: row == rows - 1
-
-                                          ? () {
-
-                                              final colorCols = isCompact ? 2 : 6;
-
-                                              final targetColorCol = (col * (colorCols / cols)).floor();
-
-                                              if (targetColorCol < PlixTheme.colorOptions.length) {
-
-                                                _colorFocusNodes[PlixTheme.colorOptions[targetColorCol].id]?.requestFocus();
-
-                                              }
-
-                                            }
-
-                                          : () => _presetFocusNodes[PlixTheme.presetOptions[(index + cols).clamp(0, totalPresets - 1)].id]?.requestFocus(),
-
-                                    );
-
-                                  },
-
-                                ),
-
-                              ),
-
-                              if (col < cols - 1) const SizedBox(width: 8),
-
-                            ],
-
-                          ],
-
-                        ),
-
-                        if (row < rows - 1) SizedBox(height: isTv ? 6 : 8),
-
-                      ],
-
-                    ],
-
-                  );
-
-                },
-
-              ),
-
-
-
-              SizedBox(height: isTv ? 10 : 14),
-
-
-
-              // Accent Colors Header
-
-              Row(
-
-                children: [
-
-                  Icon(Icons.color_lens_rounded, color: PlixTheme.plexGold, size: 16),
-
-                  const SizedBox(width: 6),
-
-                  const Text(
-
-                    'Accent Highlight Colors',
-
-                    style: TextStyle(
-
-                      color: PlixTheme.textPrimary,
-
-                      fontSize: 14,
-
-                      fontWeight: FontWeight.bold,
-
-                    ),
-
-                  ),
-
-                ],
-
-              ),
-
-              const SizedBox(height: 8),
-
-
-
-              // Accent Colors Grid (3 rows of 6)
-
-              ValueListenableBuilder<ThemeColorOption>(
-
-                valueListenable: PlixTheme.currentThemeOption,
-
-                builder: (context, currentOption, _) {
-
-                  final cols = isCompact ? 2 : 6;
-
-                  final totalItems = PlixTheme.colorOptions.length + 1; // +1 for Custom Color
-
-                  final rows = (totalItems / cols).ceil();
-
-                  final isCustomActive = currentOption.id.startsWith('custom_');
-
-
-
-                  FocusNode nodeFor(int idx) {
-
-                    if (idx == totalItems - 1) return _customColorFocusNode;
-
-                    return _colorFocusNodes[PlixTheme.colorOptions[idx].id]!;
-
-                  }
-
-
-
-                  return Column(
-
-                    children: [
-
-                      for (int row = 0; row < rows; row++) ...[
-
-                        Row(
-
-                          children: [
-
-                            for (int col = 0; col < cols; col++) ...[
-
-                              Expanded(
-
-                                child: Builder(
-
-                                  builder: (context) {
-
-                                    final index = row * cols + col;
-
-                                    if (index >= totalItems) {
-
-                                      return const SizedBox();
-
-                                    }
-
-
-
-                                    final onLeft = col > 0 ? () => nodeFor(index - 1).requestFocus() : null;
-
-                                    final onRight = col < cols - 1 && index < totalItems - 1 ? () => nodeFor(index + 1).requestFocus() : null;
-
-                                    final onUp = row == 0
-
-                                        ? () {
-
-                                            final presetCols = isCompact ? 2 : 4;
-
-                                            final presetRows = (PlixTheme.presetOptions.length / presetCols).ceil();
-
-                                            final targetPresetCol = (col / cols * presetCols).floor().clamp(0, presetCols - 1);
-
-                                            final targetIndex = (presetRows - 1) * presetCols + targetPresetCol;
-
-                                            _presetFocusNodes[PlixTheme.presetOptions[targetIndex.clamp(0, PlixTheme.presetOptions.length - 1)].id]?.requestFocus();
-
-                                          }
-
-                                        : () => nodeFor(index - cols).requestFocus();
-
-                                    final onDown = (row == rows - 1 || index + cols >= totalItems)
-
-                                        ? null
-
-                                        : () => nodeFor(index + cols).requestFocus();
-
-
-
-                                    // Custom Color Tile
-
-                                    if (index == totalItems - 1) {
-
-                                      return _CustomColorTile(
-
-                                        isSelected: isCustomActive,
-
-                                        activeColor: isCustomActive ? currentOption.primary : null,
-
-                                        focusNode: _customColorFocusNode,
-
-                                        onSelect: _showCustomColorDialog,
-
-                                        onLeft: onLeft,
-
-                                        onRight: onRight,
-
-                                        onUp: onUp,
-
-                                        onDown: onDown,
-
-                                      );
-
-                                    }
-
-
-
-                                    final opt = PlixTheme.colorOptions[index];
-
-                                    return _ThemeColorTile(
-
-                                      option: opt,
-
-                                      isSelected: !isCustomActive && opt.id == currentOption.id,
-
-                                      focusNode: _colorFocusNodes[opt.id]!,
-
-                                      onSelect: () {
-                                        PlixTheme.setTheme(opt);
-                                        if (mounted) setState(() {});
-                                      },
-
-                                      onLeft: onLeft,
-
-                                      onRight: onRight,
-
-                                      onUp: onUp,
-
-                                      onDown: onDown,
-
-                                    );
-
-                                  },
-
-                                ),
-
-                              ),
-
-                              if (col < cols - 1) const SizedBox(width: 8),
-
-                            ],
-
-                          ],
-
-                        ),
-
-                        if (row < rows - 1) SizedBox(height: isTv ? 5 : 8),
-
-                      ],
-
-                    ],
-
-                  );
-
-                },
-
-              ),
-
-            ],
-
           ),
-
         ),
-
       ),
-
-      ),
-
     );
-
   }
 
+  Widget _buildTvLayout(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTopBar(context, isCompact: false, isTv: true),
+        const SizedBox(height: 10),
+        const _LiveThemePreviewBar(),
+        const SizedBox(height: 12),
+        _buildPresetsHeader(),
+        const SizedBox(height: 8),
+        _buildPresetsGrid(cols: 5, isTv: true, isCompact: false),
+        const SizedBox(height: 10),
+        _TransparentSidebarTile(
+          focusNode: _glassSidebarFocusNode,
+          onUp: () => _presetFocusNodes[PlixTheme.presetOptions[15].id]?.requestFocus(),
+          onDown: () => _glassBlurFocusNode.requestFocus(),
+        ),
+        const SizedBox(height: 8),
+        _SidebarBlurTile(
+          focusNode: _glassBlurFocusNode,
+          onUp: () => _glassSidebarFocusNode.requestFocus(),
+          onDown: () => _colorFocusNodes[PlixTheme.colorOptions.first.id]?.requestFocus(),
+        ),
+        const SizedBox(height: 12),
+        _buildAccentHeader(),
+        const SizedBox(height: 8),
+        _buildAccentColorsGrid(cols: 8, isTv: true, isCompact: false),
+      ],
+    );
+  }
+
+  Widget _buildStandardLayout(BuildContext context, bool isCompact) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTopBar(context, isCompact: isCompact, isTv: false),
+        const SizedBox(height: 14),
+        const _LiveThemePreviewBar(),
+        const SizedBox(height: 14),
+        _buildPresetsHeader(),
+        const SizedBox(height: 8),
+        _buildPresetsGrid(cols: isCompact ? 2 : 4, isTv: false, isCompact: isCompact),
+        const SizedBox(height: 12),
+        _TransparentSidebarTile(
+          focusNode: _glassSidebarFocusNode,
+          onUp: () => _presetFocusNodes[PlixTheme.presetOptions.last.id]?.requestFocus(),
+          onDown: () => _glassBlurFocusNode.requestFocus(),
+        ),
+        const SizedBox(height: 8),
+        _SidebarBlurTile(
+          focusNode: _glassBlurFocusNode,
+          onUp: () => _glassSidebarFocusNode.requestFocus(),
+          onDown: () => _colorFocusNodes[PlixTheme.colorOptions.first.id]?.requestFocus(),
+        ),
+        const SizedBox(height: 14),
+        _buildAccentHeader(),
+        const SizedBox(height: 8),
+        _buildAccentColorsGrid(cols: isCompact ? 2 : 8, isTv: false, isCompact: isCompact),
+      ],
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context, {required bool isCompact, required bool isTv}) {
+    return Row(
+      children: [
+        if (!Platform.isAndroid || isTv || MediaQuery.of(context).orientation == Orientation.landscape) ...[
+          PlixBackButton(
+            focusNode: _backButtonFocusNode,
+            autofocus: false,
+            onDown: () {
+              final activeId = PlixTheme.currentPreset.value.id;
+              _presetFocusNodes[activeId]?.requestFocus();
+            },
+          ),
+          const SizedBox(width: 16),
+        ],
+        Icon(
+          Icons.palette_rounded,
+          color: PlixTheme.plexGold,
+          size: isTv ? 22 : 26,
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'Appearance & Themes',
+          style: TextStyle(
+            color: PlixTheme.textPrimary,
+            fontSize: isTv ? 20 : 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPresetsHeader() {
+    return Row(
+      children: [
+        Icon(Icons.style_rounded, color: PlixTheme.plexGold, size: 16),
+        const SizedBox(width: 6),
+        const Flexible(
+          child: Text(
+            'Base Atmosphere Themes',
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPresetsGrid({required int cols, required bool isTv, required bool isCompact}) {
+    return ValueListenableBuilder<ThemePresetOption>(
+      valueListenable: PlixTheme.currentPreset,
+      builder: (context, activePreset, _) {
+        final totalPresets = PlixTheme.presetOptions.length;
+        final rows = (totalPresets / cols).ceil();
+
+        return Column(
+          children: [
+            for (int row = 0; row < rows; row++) ...[
+              Row(
+                children: [
+                  for (int col = 0; col < cols; col++) ...[
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          final index = row * cols + col;
+                          if (index >= totalPresets) {
+                            return const SizedBox();
+                          }
+                          final preset = PlixTheme.presetOptions[index];
+
+                          VoidCallback? onLeft;
+                          VoidCallback? onRight;
+                          VoidCallback? onUp;
+                          VoidCallback? onDown;
+
+                          if (isTv) {
+                            onLeft = col > 0
+                                ? () => _presetFocusNodes[PlixTheme.presetOptions[index - 1].id]?.requestFocus()
+                                : null;
+                            onRight = col < cols - 1 && index < totalPresets - 1
+                                ? () => _presetFocusNodes[PlixTheme.presetOptions[index + 1].id]?.requestFocus()
+                                : null;
+                            onUp = row == 0
+                                ? () => _backButtonFocusNode.requestFocus()
+                                : () => _presetFocusNodes[PlixTheme.presetOptions[index - cols].id]?.requestFocus();
+                            onDown = row == rows - 1
+                                ? () => _glassSidebarFocusNode.requestFocus()
+                                : () => _presetFocusNodes[PlixTheme.presetOptions[(index + cols).clamp(0, totalPresets - 1)].id]?.requestFocus();
+                          } else {
+                            onLeft = col > 0
+                                ? () => _presetFocusNodes[PlixTheme.presetOptions[index - 1].id]?.requestFocus()
+                                : null;
+                            onRight = col < cols - 1 && index < totalPresets - 1
+                                ? () => _presetFocusNodes[PlixTheme.presetOptions[index + 1].id]?.requestFocus()
+                                : null;
+                            onUp = row == 0
+                                ? () => _backButtonFocusNode.requestFocus()
+                                : () => _presetFocusNodes[PlixTheme.presetOptions[index - cols].id]?.requestFocus();
+                            onDown = row == rows - 1
+                                ? () => _glassSidebarFocusNode.requestFocus()
+                                : () => _presetFocusNodes[PlixTheme.presetOptions[(index + cols).clamp(0, totalPresets - 1)].id]?.requestFocus();
+                          }
+
+                          return _ThemePresetTile(
+                            preset: preset,
+                            isSelected: preset.id == activePreset.id,
+                            focusNode: _presetFocusNodes[preset.id]!,
+                            onSelect: () {
+                              if (preset.id == 'custom') {
+                                PlixTheme.setPreset(preset, updateDefaultAccent: false);
+                                _showCustomThemeDialog();
+                              } else {
+                                PlixTheme.setPreset(preset);
+                                if (mounted) setState(() {});
+                              }
+                            },
+                            onLeft: onLeft,
+                            onRight: onRight,
+                            onUp: onUp,
+                            onDown: onDown,
+                          );
+                        },
+                      ),
+                    ),
+                    if (col < cols - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+              if (row < rows - 1) SizedBox(height: isTv ? 5 : 8),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAccentHeader() {
+    return Row(
+      children: [
+        Icon(Icons.color_lens_rounded, color: PlixTheme.plexGold, size: 16),
+        const SizedBox(width: 6),
+        const Flexible(
+          child: Text(
+            'Accent Highlight Colors',
+            style: TextStyle(
+              color: PlixTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccentColorsGrid({required int cols, required bool isTv, required bool isCompact}) {
+    return ValueListenableBuilder<ThemeColorOption>(
+      valueListenable: PlixTheme.currentThemeOption,
+      builder: (context, currentOption, _) {
+        final totalItems = PlixTheme.colorOptions.length + 1; // +1 for Custom Color
+        final rows = (totalItems / cols).ceil();
+        final isCustomActive = currentOption.id.startsWith('custom_');
+
+        FocusNode nodeFor(int idx) {
+          if (idx == totalItems - 1) return _customColorFocusNode;
+          return _colorFocusNodes[PlixTheme.colorOptions[idx].id]!;
+        }
+
+        return Column(
+          children: [
+            for (int row = 0; row < rows; row++) ...[
+              Row(
+                children: [
+                  for (int col = 0; col < cols; col++) ...[
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          final index = row * cols + col;
+                          if (index >= totalItems) {
+                            return const SizedBox();
+                          }
+
+                          VoidCallback? onLeft;
+                          VoidCallback? onRight;
+                          VoidCallback? onUp;
+                          VoidCallback? onDown;
+
+                          if (isTv) {
+                            onLeft = col > 0
+                                ? () => nodeFor(index - 1).requestFocus()
+                                : null;
+                            onRight = col < cols - 1 && index < totalItems - 1
+                                ? () => nodeFor(index + 1).requestFocus()
+                                : null;
+                            onUp = row == 0
+                                ? () => _glassBlurFocusNode.requestFocus()
+                                : () => nodeFor(index - cols).requestFocus();
+                            onDown = (row == rows - 1 || index + cols >= totalItems)
+                                ? (index < totalItems - 1 && row == rows - 2 ? () => nodeFor(totalItems - 1).requestFocus() : null)
+                                : () => nodeFor(index + cols).requestFocus();
+                          } else {
+                            onLeft = col > 0 ? () => nodeFor(index - 1).requestFocus() : null;
+                            onRight = col < cols - 1 && index < totalItems - 1 ? () => nodeFor(index + 1).requestFocus() : null;
+                            onUp = row == 0
+                                ? () => _glassBlurFocusNode.requestFocus()
+                                : () => nodeFor(index - cols).requestFocus();
+                            onDown = (row == rows - 1 || index + cols >= totalItems)
+                                ? (index < totalItems - 1 && row == rows - 2 ? () => nodeFor(totalItems - 1).requestFocus() : null)
+                                : () => nodeFor(index + cols).requestFocus();
+                          }
+
+                          // Custom Color Tile
+                          if (index == totalItems - 1) {
+                            return _CustomColorTile(
+                              isSelected: isCustomActive,
+                              activeColor: isCustomActive ? currentOption.primary : null,
+                              focusNode: _customColorFocusNode,
+                              onSelect: _showCustomColorDialog,
+                              onLeft: onLeft,
+                              onRight: onRight,
+                              onUp: onUp,
+                              onDown: onDown,
+                            );
+                          }
+
+                          final opt = PlixTheme.colorOptions[index];
+                          return _ThemeColorTile(
+                            option: opt,
+                            isSelected: !isCustomActive && opt.id == currentOption.id,
+                            focusNode: _colorFocusNodes[opt.id]!,
+                            onSelect: () {
+                              PlixTheme.setTheme(opt);
+                              if (mounted) setState(() {});
+                            },
+                            onLeft: onLeft,
+                            onRight: onRight,
+                            onUp: onUp,
+                            onDown: onDown,
+                          );
+                        },
+                      ),
+                    ),
+                    if (col < cols - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+              if (row < rows - 1) SizedBox(height: isTv ? 5 : 8),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Full-width Transparent Sidebar Tile combining Checkbox and Level 1-5 Slider
+class _TransparentSidebarTile extends StatefulWidget {
+  final FocusNode focusNode;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+
+  const _TransparentSidebarTile({
+    required this.focusNode,
+    this.onUp,
+    this.onDown,
+  });
+
+  @override
+  State<_TransparentSidebarTile> createState() => _TransparentSidebarTileState();
+}
+
+class _TransparentSidebarTileState extends State<_TransparentSidebarTile> {
+  bool _isFocused = false;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocus);
+  }
+
+  void _handleFocus() {
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.4,
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isHighlighted = _isFocused || _isHovered;
+    final isGlass = PlixTheme.isGlass;
+    final isTv = PlixDeviceHelper.isTelevision;
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        PlixTheme.glassSidebar,
+        PlixTheme.glassSidebarLevel,
+      ]),
+      builder: (context, _) {
+        final enabled = PlixTheme.isGlassSidebar;
+        final level = PlixTheme.glassSidebarLevel.value;
+
+        return Focus(
+          focusNode: widget.focusNode,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+                widget.onUp!();
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowDown && widget.onDown != null) {
+                widget.onDown!();
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowLeft) {
+                if (level > 1) {
+                  PlixTheme.setGlassSidebarLevel(level - 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowRight) {
+                if (level < 5) {
+                  PlixTheme.setGlassSidebarLevel(level + 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent && _isActivationKey(key)) {
+                PlixTheme.setGlassSidebar(!enabled);
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: InkWell(
+            canRequestFocus: false,
+            onTap: () => PlixTheme.setGlassSidebar(!enabled),
+            onHover: (hovered) {
+              if (Platform.isWindows || Platform.isLinux) setState(() => _isHovered = hovered);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: AnimatedContainer(
+              duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
+              height: isTv ? 38 : 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: isGlass
+                  ? PlixTheme.glassBoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      isHighlighted: isHighlighted,
+                      accent: PlixTheme.plexGold,
+                      borderWidth: isHighlighted ? 2.0 : 1.2,
+                    )
+                  : BoxDecoration(
+                      color: isHighlighted
+                          ? PlixTheme.cardFocused
+                          : (PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.card),
+                      borderRadius: BorderRadius.circular(10),
+                      border: isHighlighted && PlixTheme.isRainbowBorder
+                          ? PlixTheme.rainbowOutlineBorder(width: 2.2)
+                          : Border.all(
+                              color: isHighlighted
+                                  ? PlixTheme.plexGold
+                                  : (enabled ? PlixTheme.plexGold.withOpacity(0.5) : PlixTheme.cardBorder),
+                              width: isHighlighted ? 2.2 : 1.2,
+                            ),
+                      boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
+                          ? [
+                              BoxShadow(
+                                color: PlixTheme.plexGold.withOpacity(0.35),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: enabled ? (PlixTheme.isRainbowBorder ? null : PlixTheme.plexGold) : Colors.transparent,
+                      gradient: (enabled && PlixTheme.isRainbowBorder) ? PlixTheme.vividRainbowGradient : null,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: enabled ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold) : Colors.white54,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: enabled
+                        ? const Icon(Icons.check_rounded, size: 14, color: Colors.black)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.opacity_rounded,
+                    size: 17,
+                    color: isHighlighted ? PlixTheme.plexGold : (enabled ? PlixTheme.plexGold : PlixTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Transparent Sidebar/Buttons',
+                            style: TextStyle(
+                              color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          !enabled
+                              ? '(Disabled)'
+                              : level == 1
+                                  ? '(Level 1 · Barely)'
+                                  : level == 5
+                                      ? '(Level 5 · Crystal Clear)'
+                                      : '(Level $level / 5)',
+                          style: TextStyle(
+                            color: enabled ? PlixTheme.textSecondary : PlixTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.remove_rounded, size: 16),
+                    color: (enabled && level > 1) ? PlixTheme.plexGold : PlixTheme.textMuted,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                    onPressed: (enabled && level > 1)
+                        ? () => PlixTheme.setGlassSidebarLevel(level - 1)
+                        : null,
+                  ),
+                  SizedBox(
+                    width: isTv ? 140 : 120,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: enabled ? PlixTheme.plexGold : Colors.white24,
+                        inactiveTrackColor: Colors.white12,
+                        thumbColor: enabled ? PlixTheme.plexGold : Colors.white38,
+                        overlayColor: PlixTheme.plexGold.withOpacity(0.2),
+                        trackHeight: 3.0,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                      ),
+                      child: Slider(
+                        value: level.toDouble(),
+                        min: 1.0,
+                        max: 5.0,
+                        divisions: 4,
+                        onChanged: enabled
+                            ? (val) => PlixTheme.setGlassSidebarLevel(val.round())
+                            : null,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    color: (enabled && level < 5) ? PlixTheme.plexGold : PlixTheme.textMuted,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                    onPressed: (enabled && level < 5)
+                        ? () => PlixTheme.setGlassSidebarLevel(level + 1)
+                        : null,
+                  ),
+                  Container(
+                    width: 24,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$level',
+                      style: TextStyle(
+                        color: enabled ? PlixTheme.plexGold : PlixTheme.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Full-width Sidebar Blur Tile combining Checkbox and 20%-100% Slider
+class _SidebarBlurTile extends StatefulWidget {
+  final FocusNode focusNode;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+
+  const _SidebarBlurTile({
+    required this.focusNode,
+    this.onUp,
+    this.onDown,
+  });
+
+  @override
+  State<_SidebarBlurTile> createState() => _SidebarBlurTileState();
+}
+
+class _SidebarBlurTileState extends State<_SidebarBlurTile> {
+  bool _isFocused = false;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocus);
+  }
+
+  void _handleFocus() {
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.4,
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isHighlighted = _isFocused || _isHovered;
+    final isGlass = PlixTheme.isGlass;
+    final isTv = PlixDeviceHelper.isTelevision;
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        PlixTheme.glassSidebarBlur,
+        PlixTheme.glassSidebarBlurLevel,
+      ]),
+      builder: (context, _) {
+        final enabled = PlixTheme.isGlassSidebarBlur;
+        final blurLevel = PlixTheme.glassSidebarBlurLevel.value;
+
+        return Focus(
+          focusNode: widget.focusNode,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+                widget.onUp!();
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowDown && widget.onDown != null) {
+                widget.onDown!();
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowLeft) {
+                if (blurLevel > 1) {
+                  PlixTheme.setGlassSidebarBlurLevel(blurLevel - 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowRight) {
+                if (blurLevel < 5) {
+                  PlixTheme.setGlassSidebarBlurLevel(blurLevel + 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent && _isActivationKey(key)) {
+                PlixTheme.setGlassSidebarBlur(!enabled);
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: InkWell(
+            canRequestFocus: false,
+            onTap: () => PlixTheme.setGlassSidebarBlur(!enabled),
+            onHover: (hovered) {
+              if (Platform.isWindows || Platform.isLinux) setState(() => _isHovered = hovered);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: AnimatedContainer(
+              duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
+              height: isTv ? 38 : 42,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: isGlass
+                  ? PlixTheme.glassBoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      isHighlighted: isHighlighted,
+                      accent: PlixTheme.plexGold,
+                      borderWidth: isHighlighted ? 2.0 : 1.2,
+                    )
+                  : BoxDecoration(
+                      color: isHighlighted
+                          ? PlixTheme.cardFocused
+                          : (PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.card),
+                      borderRadius: BorderRadius.circular(10),
+                      border: isHighlighted && PlixTheme.isRainbowBorder
+                          ? PlixTheme.rainbowOutlineBorder(width: 2.2)
+                          : Border.all(
+                              color: isHighlighted
+                                  ? PlixTheme.plexGold
+                                  : (enabled ? PlixTheme.plexGold.withOpacity(0.5) : PlixTheme.cardBorder),
+                              width: isHighlighted ? 2.2 : 1.2,
+                            ),
+                      boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
+                          ? [
+                              BoxShadow(
+                                color: PlixTheme.plexGold.withOpacity(0.35),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+              child: Row(
+                children: [
+                  // Checkbox
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: enabled ? (PlixTheme.isRainbowBorder ? null : PlixTheme.plexGold) : Colors.transparent,
+                      gradient: (enabled && PlixTheme.isRainbowBorder) ? PlixTheme.vividRainbowGradient : null,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: enabled ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold) : Colors.white54,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: enabled
+                        ? const Icon(Icons.check_rounded, size: 14, color: Colors.black)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.blur_on_rounded,
+                    size: 17,
+                    color: isHighlighted ? PlixTheme.plexGold : (enabled ? PlixTheme.plexGold : PlixTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Sidebar Blur',
+                            style: TextStyle(
+                              color: isHighlighted ? PlixTheme.plexGold : PlixTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          !enabled
+                              ? '(Disabled)'
+                              : '(Level $blurLevel / 5)',
+                          style: TextStyle(
+                            color: enabled ? PlixTheme.textSecondary : PlixTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Slider section on right
+                  IconButton(
+                    icon: const Icon(Icons.remove_rounded, size: 16),
+                    color: (enabled && blurLevel > 1) ? PlixTheme.plexGold : PlixTheme.textMuted,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                    onPressed: (enabled && blurLevel > 1)
+                        ? () => PlixTheme.setGlassSidebarBlurLevel(blurLevel - 1)
+                        : null,
+                  ),
+                  SizedBox(
+                    width: isTv ? 140 : 120,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: enabled ? PlixTheme.plexGold : Colors.white24,
+                        inactiveTrackColor: Colors.white12,
+                        thumbColor: enabled ? PlixTheme.plexGold : Colors.white38,
+                        overlayColor: PlixTheme.plexGold.withOpacity(0.2),
+                        trackHeight: 3.0,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                      ),
+                      child: Slider(
+                        value: blurLevel.toDouble(),
+                        min: 1.0,
+                        max: 5.0,
+                        divisions: 4,
+                        onChanged: enabled
+                            ? (val) => PlixTheme.setGlassSidebarBlurLevel(val.round())
+                            : null,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    color: (enabled && blurLevel < 5) ? PlixTheme.plexGold : PlixTheme.textMuted,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                    onPressed: (enabled && blurLevel < 5)
+                        ? () => PlixTheme.setGlassSidebarBlurLevel(blurLevel + 1)
+                        : null,
+                  ),
+                  Container(
+                    width: 24,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$blurLevel',
+                      style: TextStyle(
+                        color: enabled ? PlixTheme.plexGold : PlixTheme.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 
 
-/// Compact Live theme preview bar with liquid glass shine support
 
+/// Compact Live theme preview bar with liquid glass shine and sidebar transparency preview support
 class _LiveThemePreviewBar extends StatelessWidget {
+  const _LiveThemePreviewBar();
 
   @override
-
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        PlixTheme.themeRevision,
+        PlixTheme.currentPreset,
+        PlixTheme.currentThemeOption,
+        PlixTheme.glassSidebar,
+        PlixTheme.glassSidebarLevel,
+        PlixTheme.glassSidebarBlur,
+        PlixTheme.glassSidebarBlurLevel,
+      ]),
+      builder: (context, _) {
+        final preset = PlixTheme.currentPreset.value;
+        final accent = PlixTheme.plexGold;
+        final isGlassPreset = preset.isGlass;
+        final isGlassSidebar = PlixTheme.isGlassSidebar;
+        final isTranslucent = isGlassPreset || isGlassSidebar;
+        final shouldBlur = PlixTheme.isGlassSidebarBlur && isTranslucent;
+        final level = PlixTheme.glassSidebarLevel.value;
 
-    final preset = PlixTheme.currentPreset.value;
-
-    final accent = PlixTheme.plexGold;
-
-    final isGlass = preset.isGlass;
-
-
-
-    return Container(
-
-      height: 46,
-
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-
-      decoration: isGlass
-
-          ? PlixTheme.glassBoxDecoration(
-
-              borderRadius: BorderRadius.circular(10),
-
-              isHighlighted: false,
-
-              accent: accent,
-
-            )
-
-          : BoxDecoration(
-
-              color: PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.card,
-
-              borderRadius: BorderRadius.circular(10),
-
-              border: Border.all(
-
-                color: PlixTheme.cardBorder,
-
-                width: 1.2,
-
-              ),
-
-              boxShadow: [
-
-                BoxShadow(
-
-                  color: Colors.black.withOpacity(0.3),
-
-                  blurRadius: 10,
-
-                  offset: const Offset(0, 2),
-
+        final previewBarDecoration = isTranslucent
+            ? BoxDecoration(
+                gradient: PlixTheme.glassSidebarGradient(level),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.28),
+                  width: 1.2,
                 ),
+              )
+            : BoxDecoration(
+                color: PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.card,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: PlixTheme.cardBorder,
+                  width: 1.2,
+                ),
+              );
 
-              ],
-
-            ),
-
-      child: Stack(
-
-        alignment: Alignment.centerLeft,
-
-        children: [
-
-          if (isGlass) PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(10)),
-
-          Align(
-
-            alignment: Alignment.centerLeft,
-
-            child: Row(
-
-              crossAxisAlignment: CrossAxisAlignment.center,
-
+        return Container(
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
               children: [
-
-              const PlixAppLogo(size: 22, showWordmark: false, borderRadius: 6),
-
-              const SizedBox(width: 8),
-
-              const Text(
-
-                'Live Preview',
-
-                style: TextStyle(
-
-                  color: PlixTheme.textPrimary,
-
-                  fontSize: 12.5,
-
-                  fontWeight: FontWeight.bold,
-
-                ),
-
-              ),
-
-              const SizedBox(width: 14),
-
-              // Sample mini button using Accent Highlight color
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withOpacity(0.4),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.star_rounded,
-                      size: 13,
-                      color: ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      'Accent',
-                      style: TextStyle(
-                        color: ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                // 1. Background layer: Vibrant multi-color gradient + repeated plix wordmarks
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFFF007A), // vibrant neon pink
+                          Color(0xFF7928CA), // rich violet
+                          Color(0xFF2E5BFF), // vivid royal blue
+                          Color(0xFF00C6FF), // vibrant sky cyan
+                          Color(0xFF00E676), // bright neon emerald
+                          Color(0xFFFFB300), // vivid amber gold
+                          Color(0xFFFF3366), // vibrant crimson
+                        ],
+                        stops: [0.0, 0.18, 0.36, 0.52, 0.68, 0.84, 1.0],
                       ),
                     ),
-                  ],
+                    child: _buildRepeatedWordmarkBackground(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
 
-              // Sample mini button using Sidebar & Surfaces color
+                // 2. Translucent / Blurred / Opaque Preview Bar surface
+                Positioned.fill(
+                  child: shouldBlur
+                      ? BackdropFilter(
+                          filter: ui.ImageFilter.blur(
+                            sigmaX: PlixTheme.glassSidebarBlurSigma,
+                            sigmaY: PlixTheme.glassSidebarBlurSigma,
+                          ),
+                          child: Container(
+                            decoration: previewBarDecoration,
+                          ),
+                        )
+                      : Container(
+                          decoration: previewBarDecoration,
+                        ),
+                ),
 
-              Container(
-
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-
-                decoration: isGlass
-
-                    ? BoxDecoration(
-
-                        color: Colors.white.withOpacity(0.18),
-
-                        borderRadius: BorderRadius.circular(5),
-
-                        border: Border.all(color: Colors.white30),
-
-                      )
-
-                    : BoxDecoration(
-
-                        color: PlixTheme.surface,
-
-                        borderRadius: BorderRadius.circular(5),
-
-                        border: Border.all(color: PlixTheme.cardBorder),
-
-                      ),
-
-                child: const Row(
-
-                  mainAxisSize: MainAxisSize.min,
-
-                  children: [
-
-                    Icon(Icons.play_arrow_rounded, size: 13, color: Colors.white),
-
-                    SizedBox(width: 3),
-
-                    Text(
-
-                      'Watch',
-
-                      style: TextStyle(
-
-                        color: PlixTheme.textPrimary,
-
-                        fontSize: 10,
-
-                        fontWeight: FontWeight.bold,
-
-                      ),
-
+                // 3. Liquid Glass reflection shine if preset is glass
+                if (isGlassPreset)
+                  Positioned.fill(
+                    child: PlixTheme.buildGlassReflectionLayer(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-
-                  ],
-
-                ),
-
-              ),
-
-              const SizedBox(width: 8),
-
-              Container(
-
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-
-                decoration: isGlass
-
-                    ? BoxDecoration(
-
-                        color: Colors.white.withOpacity(0.12),
-
-                        borderRadius: BorderRadius.circular(5),
-
-                        border: Border.all(color: Colors.white24),
-
-                      )
-
-                    : BoxDecoration(
-
-                        color: PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.surfaceLight,
-
-                        borderRadius: BorderRadius.circular(5),
-
-                        border: Border.all(color: PlixTheme.cardBorder),
-
-                      ),
-
-                child: const Text(
-
-                  'Details',
-
-                  style: TextStyle(
-
-                    color: Colors.white,
-
-                    fontSize: 10,
-
-                    fontWeight: FontWeight.w600,
-
                   ),
 
+                // 4. Content layer: Logo, "Live Preview", Accent button, Watch button, Details button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  alignment: Alignment.centerLeft,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const PlixAppLogo(size: 22, showWordmark: false, borderRadius: 6),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Live Preview',
+                          style: TextStyle(
+                            color: PlixTheme.textPrimary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Sample mini button using Accent Highlight color
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: PlixTheme.isRainbowAccent ? null : accent,
+                            gradient: PlixTheme.isRainbowAccent ? PlixTheme.vividRainbowGradient : null,
+                            borderRadius: BorderRadius.circular(5),
+                            boxShadow: PlixTheme.isRainbowAccent
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: accent.withOpacity(0.4),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.star_rounded,
+                                size: 13,
+                                color: PlixTheme.isRainbowAccent
+                                    ? Colors.white
+                                    : (ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Accent',
+                                style: TextStyle(
+                                  color: PlixTheme.isRainbowAccent
+                                      ? Colors.white
+                                      : (ThemeData.estimateBrightnessForColor(accent) == Brightness.light ? Colors.black : Colors.white),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Sample mini button using Sidebar & Surfaces color (or Rainbow gradient if preset is rainbow)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: preset.isRainbow
+                              ? BoxDecoration(
+                                  gradient: PlixTheme.rainbowButtonGradient,
+                                  borderRadius: BorderRadius.circular(5),
+                                  boxShadow: preset.isRainbow
+                                      ? null
+                                      : [
+                                          BoxShadow(
+                                            color: PlixTheme.plexGold.withOpacity(0.4),
+                                            blurRadius: 6,
+                                          ),
+                                        ],
+                                )
+                              : isTranslucent
+                                  ? BoxDecoration(
+                                      color: Colors.white.withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(color: Colors.white30),
+                                    )
+                                  : BoxDecoration(
+                                      color: PlixTheme.surface,
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(color: PlixTheme.cardBorder),
+                                    ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 13, color: Colors.white),
+                              SizedBox(width: 3),
+                              Text(
+                                'Watch',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: isTranslucent
+                              ? BoxDecoration(
+                                  color: Colors.white.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: Colors.white24),
+                                )
+                              : BoxDecoration(
+                                  color: PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: PlixTheme.cardBorder),
+                                ),
+                          child: const Text(
+                            'Details',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-
-              ),
-
-            ],
-
+              ],
+            ),
           ),
-
-        ),
-
-      ],
-
-      ),
-
+        );
+      },
     );
-
   }
 
+  Widget _buildRepeatedWordmarkBackground() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Row(
+            children: List.generate(
+              40,
+              (i) => const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: PlixWordmark(
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                  hasShadow: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 36),
+            child: Row(
+              children: List.generate(
+                40,
+                (i) => const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: PlixWordmark(
+                    fontSize: 12,
+                    letterSpacing: 0.8,
+                    hasShadow: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 
@@ -1117,9 +1485,17 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
 
 
   void _handleFocus() {
-
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
-
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      }
+    }
   }
 
 
@@ -1148,11 +1524,27 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
 
 
 
-    final borderColor = isHighlighted
-
-        ? (isGlass ? Colors.white.withOpacity(0.95) : accent)
-
-        : (widget.isSelected ? accent.withOpacity(0.85) : (isGlass ? Colors.white.withOpacity(0.3) : PlixTheme.cardBorder));
+    final BoxBorder border;
+    if (isHighlighted) {
+      border = PlixTheme.isRainbowBorder
+          ? PlixTheme.rainbowOutlineBorder(width: 2.2)
+          : Border.all(
+              color: isGlass ? Colors.white.withOpacity(0.95) : accent,
+              width: 2.2,
+            );
+    } else if (widget.isSelected) {
+      border = (widget.preset.isRainbow && PlixTheme.isRainbowBorder)
+          ? PlixTheme.rainbowOutlineBorder(width: 1.8)
+          : Border.all(
+              color: accent.withOpacity(0.85),
+              width: 1.5,
+            );
+    } else {
+      border = Border.all(
+        color: isGlass ? Colors.white.withOpacity(0.3) : PlixTheme.cardBorder,
+        width: 1.2,
+      );
+    }
 
 
 
@@ -1228,11 +1620,14 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
 
         child: AnimatedContainer(
 
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
 
-          height: PlixDeviceHelper.isTelevision ? 42 : 48,
+          height: PlixDeviceHelper.isTelevision ? 38 : 48,
 
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: EdgeInsets.symmetric(
+            horizontal: PlixDeviceHelper.isTelevision ? 7 : 10,
+            vertical: PlixDeviceHelper.isTelevision ? 5 : 6,
+          ),
 
           decoration: isGlass
 
@@ -1258,24 +1653,15 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
 
                   borderRadius: BorderRadius.circular(10),
 
-                  border: Border.all(color: borderColor, width: isHighlighted ? 2.2 : 1.2),
-
-                  boxShadow: isHighlighted
-
+                  border: border,
+                  boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                       ? [
-
                           BoxShadow(
-
                             color: accent.withOpacity(0.35),
-
-                            blurRadius: 10,
-
+                            blurRadius: 8,
                             spreadRadius: 1,
-
-                          )
-
+                          ),
                         ]
-
                       : null,
 
                 ),
@@ -1299,60 +1685,39 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
                   children: [
 
                     Container(
-
-                      width: 26,
-
-                      height: 26,
-
+                      width: PlixDeviceHelper.isTelevision ? 18 : 26,
+                      height: PlixDeviceHelper.isTelevision ? 18 : 26,
                       decoration: BoxDecoration(
-
                         gradient: LinearGradient(
-
                           colors: widget.preset.previewGradient,
-
                           begin: Alignment.topLeft,
-
                           end: Alignment.bottomRight,
-
                         ),
-
-                        borderRadius: BorderRadius.circular(6),
-
+                        borderRadius: BorderRadius.circular(5),
                         border: Border.all(color: Colors.white24, width: 0.8),
-
                       ),
-
-                      child: Icon(widget.preset.icon, size: 15, color: Colors.white),
-
+                      child: Icon(widget.preset.icon, size: PlixDeviceHelper.isTelevision ? 11 : 15, color: Colors.white),
                     ),
-
-                    const SizedBox(width: 8),
-
+                    SizedBox(width: PlixDeviceHelper.isTelevision ? 5 : 8),
                     Expanded(
-
-                      child: Text(
-
-                        widget.preset.name,
-
-                        maxLines: 1,
-
-                        overflow: TextOverflow.ellipsis,
-
-                        style: TextStyle(
-
-                          color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-
-                          fontSize: 12.5,
-
-                          fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
-
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          widget.preset.name,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                            fontSize: PlixDeviceHelper.isTelevision ? 10.5 : 12.5,
+                            fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                          ),
                         ),
-
                       ),
-
                     ),
 
-                    if (widget.preset.isGlass)
+                    if (!PlixDeviceHelper.isTelevision) ...[
+if (widget.preset.isGlass)
 
                       Container(
 
@@ -1480,16 +1845,16 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
 
                       )
 
-                    else if (widget.preset.id == 'royal')
-
+                    else if (widget.preset.id == 'rainbow')
                       Container(
-
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-
-                        decoration: BoxDecoration(color: const Color(0xFFBA68C8).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
-
-                        child: const Text('ROYAL', style: TextStyle(color: Color(0xFFCE93D8), fontSize: 8, fontWeight: FontWeight.bold)),
-
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF007A), Color(0xFF0070F3), Color(0xFF00E676)],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('RAINBOW', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                       )
 
                     else if (widget.preset.id == 'custom')
@@ -1507,24 +1872,17 @@ class _ThemePresetTileState extends State<_ThemePresetTile> {
                     const SizedBox(width: 6),
 
                     if (widget.isSelected)
-
                       Container(
-
                         width: 16,
-
                         height: 16,
-
                         decoration: BoxDecoration(
-
-                          color: accent,
-
+                          color: PlixTheme.isRainbowBorder ? null : accent,
+                          gradient: PlixTheme.isRainbowBorder ? PlixTheme.vividRainbowGradient : null,
                           shape: BoxShape.circle,
-
                         ),
-
                         child: const Icon(Icons.check, size: 11, color: Colors.black),
-
                       ),
+],
 
                   ],
 
@@ -1621,9 +1979,17 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
 
 
   void _handleFocus() {
-
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
-
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      }
+    }
   }
 
 
@@ -1645,16 +2011,24 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
   Widget build(BuildContext context) {
 
     final isHighlighted = _isFocused || _isHovered;
-
     final isGlass = PlixTheme.isGlass;
+    final isRainbowOpt = widget.option.isRainbow || widget.option.id == 'rainbow';
 
-
-
-    final borderColor = isHighlighted
-
-        ? widget.option.primary
-
-        : (widget.isSelected ? widget.option.primary.withOpacity(0.85) : (isGlass ? Colors.white.withOpacity(0.25) : PlixTheme.cardBorder));
+    final BoxBorder border;
+    if (isHighlighted) {
+      border = PlixTheme.isRainbowBorder
+          ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+          : Border.all(color: widget.option.primary, width: 2.0);
+    } else if (widget.isSelected) {
+      border = (isRainbowOpt && PlixTheme.isRainbowBorder)
+          ? PlixTheme.rainbowOutlineBorder(width: 1.6)
+          : Border.all(color: widget.option.primary.withOpacity(0.85), width: 1.2);
+    } else {
+      border = Border.all(
+        color: isGlass ? Colors.white.withOpacity(0.25) : PlixTheme.cardBorder,
+        width: 1.2,
+      );
+    }
 
 
 
@@ -1730,7 +2104,7 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
 
         child: AnimatedContainer(
 
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
 
           height: PlixDeviceHelper.isTelevision ? 32 : 36,
 
@@ -1760,93 +2134,65 @@ class _ThemeColorTileState extends State<_ThemeColorTile> {
 
                   borderRadius: BorderRadius.circular(8),
 
-                  border: Border.all(color: borderColor, width: isHighlighted ? 2.0 : 1.2),
-
-                  boxShadow: isHighlighted
-
+                  border: border,
+                  boxShadow: (isHighlighted && !(isRainbowOpt || PlixTheme.isRainbowBorder))
                       ? [
-
                           BoxShadow(
-
                             color: widget.option.primary.withOpacity(0.35),
-
                             blurRadius: 8,
-
                             spreadRadius: 1,
-
-                          )
-
+                          ),
                         ]
-
                       : null,
-
                 ),
-
           child: Stack(
-
             alignment: Alignment.centerLeft,
-
             children: [
-
               if (isGlass) PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(8)),
-
               Align(
-
                 alignment: Alignment.centerLeft,
-
                 child: Row(
-
                   crossAxisAlignment: CrossAxisAlignment.center,
-
                   children: [
-
                     Container(
-
                       width: 14,
-
                       height: 14,
-
                       decoration: BoxDecoration(
-
-                        color: widget.option.primary,
-
+                        color: isRainbowOpt ? null : widget.option.primary,
+                        gradient: isRainbowOpt
+                            ? ((isHighlighted || widget.isSelected)
+                                ? PlixTheme.vividRainbowGradient
+                                : PlixTheme.rainbowAccentGradient)
+                            : null,
                         shape: BoxShape.circle,
-
-                        border: Border.all(color: Colors.white38, width: 0.8),
-
-                      ),
-
-                    ),
-
-                    const SizedBox(width: 6),
-
-                    Expanded(
-
-                      child: Text(
-
-                        widget.option.name,
-
-                        maxLines: 1,
-
-                        overflow: TextOverflow.ellipsis,
-
-                        style: TextStyle(
-
-                          color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
-
-                          fontSize: 11,
-
-                          fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
-
+                        border: Border.all(
+                          color: isRainbowOpt ? Colors.white70 : Colors.white38,
+                          width: 0.8,
                         ),
-
+                        boxShadow: null,
                       ),
-
                     ),
-
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.option.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isHighlighted ? Colors.white : PlixTheme.textPrimary,
+                          fontSize: 11,
+                          fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ),
                     if (widget.isSelected)
-
-                      Icon(Icons.check, size: 12, color: widget.option.primary),
+                      isRainbowOpt
+                          ? ShaderMask(
+                              shaderCallback: (bounds) =>
+                                  PlixTheme.vividRainbowGradient.createShader(bounds),
+                              child: const Icon(Icons.check, size: 12, color: Colors.white),
+                            )
+                          : Icon(Icons.check, size: 12, color: widget.option.primary),
 
                   ],
 
@@ -1943,9 +2289,17 @@ class _CustomColorTileState extends State<_CustomColorTile> {
 
 
   void _handleFocus() {
-
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
-
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      }
+    }
   }
 
 
@@ -1974,11 +2328,19 @@ class _CustomColorTileState extends State<_CustomColorTile> {
 
 
 
-    final borderColor = isHighlighted
-
-        ? color
-
-        : (widget.isSelected ? color.withOpacity(0.85) : (isGlass ? Colors.white.withOpacity(0.25) : PlixTheme.cardBorder));
+    final BoxBorder border;
+    if (isHighlighted) {
+      border = PlixTheme.isRainbowBorder
+          ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+          : Border.all(color: color, width: 2.0);
+    } else if (widget.isSelected) {
+      border = Border.all(color: color.withOpacity(0.85), width: 1.2);
+    } else {
+      border = Border.all(
+        color: isGlass ? Colors.white.withOpacity(0.25) : PlixTheme.cardBorder,
+        width: 1.2,
+      );
+    }
 
 
 
@@ -2054,9 +2416,9 @@ class _CustomColorTileState extends State<_CustomColorTile> {
 
         child: AnimatedContainer(
 
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
 
-          height: 36,
+          height: PlixDeviceHelper.isTelevision ? 30 : 36,
 
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
 
@@ -2084,24 +2446,15 @@ class _CustomColorTileState extends State<_CustomColorTile> {
 
                   borderRadius: BorderRadius.circular(8),
 
-                  border: Border.all(color: borderColor, width: isHighlighted ? 2.0 : 1.2),
-
-                  boxShadow: isHighlighted
-
+                  border: border,
+                  boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                       ? [
-
                           BoxShadow(
-
                             color: color.withOpacity(0.35),
-
                             blurRadius: 8,
-
                             spreadRadius: 1,
-
-                          )
-
+                          ),
                         ]
-
                       : null,
 
                 ),
@@ -2709,9 +3062,17 @@ class _CustomThemeRowTileState extends State<_CustomThemeRowTile> {
 
 
   void _handleFocus() {
-
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
-
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      }
+    }
   }
 
 
@@ -2788,7 +3149,7 @@ class _CustomThemeRowTileState extends State<_CustomThemeRowTile> {
 
         child: AnimatedContainer(
 
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
 
           margin: const EdgeInsets.only(bottom: 10),
 
@@ -3660,9 +4021,17 @@ class _FocusableColorSwatchState extends State<_FocusableColorSwatch> {
 
 
   void _handleFocus() {
-
-    if (mounted) setState(() => _isFocused = widget.focusNode.hasFocus);
-
+    if (mounted) {
+      setState(() => _isFocused = widget.focusNode.hasFocus);
+      if (widget.focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+      }
+    }
   }
 
 
@@ -3749,7 +4118,7 @@ class _FocusableColorSwatchState extends State<_FocusableColorSwatch> {
 
         child: AnimatedContainer(
 
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
 
           height: 38,
 

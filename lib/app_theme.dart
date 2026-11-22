@@ -6,12 +6,14 @@ class ThemeColorOption {
   final String name;
   final Color primary;
   final Color light;
+  final bool isRainbow;
 
   const ThemeColorOption({
     required this.id,
     required this.name,
     required this.primary,
     required this.light,
+    this.isRainbow = false,
   });
 }
 
@@ -31,6 +33,7 @@ class ThemePresetOption {
   final bool isOLED;
   final bool isCyberpunk;
   final bool isMatrix;
+  final bool isRainbow;
   final List<Color> previewGradient;
 
   const ThemePresetOption({
@@ -49,6 +52,7 @@ class ThemePresetOption {
     this.isOLED = false,
     this.isCyberpunk = false,
     this.isMatrix = false,
+    this.isRainbow = false,
     required this.previewGradient,
   });
 }
@@ -169,7 +173,7 @@ class PlixTheme {
       card: Color(0xFF250E3A),
       cardBorder: Color(0xFF4C1D74),
       cardFocused: Color(0xFF331450),
-      defaultAccentId: 'sunset',
+      defaultAccentId: 'crimson',
       previewGradient: [Color(0xFF12061C), Color(0xFF33104E), Color(0xFFFF5722)],
     ),
     ThemePresetOption(
@@ -197,7 +201,7 @@ class PlixTheme {
       card: Color(0xFF281005),
       cardBorder: Color(0xFF5A240A),
       cardFocused: Color(0xFF3B1808),
-      defaultAccentId: 'amber',
+      defaultAccentId: 'gold',
       previewGradient: [Color(0xFF120702), Color(0xFF3B1405), Color(0xFFFF9800)],
     ),
     ThemePresetOption(
@@ -257,18 +261,81 @@ class PlixTheme {
       previewGradient: [Color(0xFF110B06), Color(0xFF35200C), Color(0xFFE5A00D)],
     ),
     ThemePresetOption(
-      id: 'royal',
-      name: 'Imperial Amethyst',
-      description: 'Opulent Byzantine obsidian with deep regal jewel-toned velvet and royal amethyst',
-      icon: Icons.diamond_rounded,
-      background: Color(0xFF0A0512),
-      surface: Color(0xFF140A22),
-      surfaceLight: Color(0xFF1E1033),
-      card: Color(0xFF190D2C),
-      cardBorder: Color(0xFF40206D),
-      cardFocused: Color(0xFF281446),
-      defaultAccentId: 'amethyst',
-      previewGradient: [Color(0xFF0A0512), Color(0xFF260E3F), Color(0xFFBA68C8)],
+      id: 'rainbow',
+      name: 'Prism Rainbow',
+      description: 'Luminous rainbow accents and buttons with deep nebula atmosphere',
+      icon: Icons.looks_rounded,
+      background: Color(0xFF090514),
+      surface: Color(0xFF130A24),
+      surfaceLight: Color(0xFF1C1034),
+      card: Color(0xFF180D2E),
+      cardBorder: Color(0xFF381F66),
+      cardFocused: Color(0xFF241445),
+      defaultAccentId: 'rainbow',
+      isRainbow: true,
+      previewGradient: [
+        Color(0xFFFF007A),
+        Color(0xFF7928CA),
+        Color(0xFF0070F3),
+        Color(0xFF00E676),
+        Color(0xFFFFB300),
+      ],
+    ),
+    ThemePresetOption(
+      id: 'sakura',
+      name: 'Sakura Blossom',
+      description: 'Ethereal midnight with blooming cherry petal pink and soft magenta undertones',
+      icon: Icons.local_florist_rounded,
+      background: Color(0xFF0F060E),
+      surface: Color(0xFF1A0A19),
+      surfaceLight: Color(0xFF261025),
+      card: Color(0xFF200D1F),
+      cardBorder: Color(0xFF4C1848),
+      cardFocused: Color(0xFF2E132D),
+      defaultAccentId: 'fuchsia',
+      previewGradient: [Color(0xFF0F060E), Color(0xFF2B0A28), Color(0xFFFF69B4)],
+    ),
+    ThemePresetOption(
+      id: 'glacier',
+      name: 'Glacier Titanium',
+      description: 'Crisp arctic permafrost with cool brushed titanium and crystalline silver-blue slate',
+      icon: Icons.terrain_rounded,
+      background: Color(0xFF080D12),
+      surface: Color(0xFF101720),
+      surfaceLight: Color(0xFF182330),
+      card: Color(0xFF141D28),
+      cardBorder: Color(0xFF2A3C52),
+      cardFocused: Color(0xFF1C2838),
+      defaultAccentId: 'frost',
+      previewGradient: [Color(0xFF080D12), Color(0xFF162536), Color(0xFFB0C4DE)],
+    ),
+    ThemePresetOption(
+      id: 'eclipse',
+      name: 'Crimson Eclipse',
+      description: 'Ominous lunar shadow with charred obsidian and incandescent scarlet aura',
+      icon: Icons.brightness_3_rounded,
+      background: Color(0xFF0E0406),
+      surface: Color(0xFF17080A),
+      surfaceLight: Color(0xFF240D10),
+      card: Color(0xFF1E0B0D),
+      cardBorder: Color(0xFF4A141A),
+      cardFocused: Color(0xFF2B1013),
+      defaultAccentId: 'crimson',
+      previewGradient: [Color(0xFF0E0406), Color(0xFF33090F), Color(0xFFFF1744)],
+    ),
+    ThemePresetOption(
+      id: 'horizon',
+      name: 'Golden Horizon',
+      description: 'Sunset savannah twilight with warm espresso obsidian and radiant champagne gold',
+      icon: Icons.wb_sunny_rounded,
+      background: Color(0xFF0E0B07),
+      surface: Color(0xFF19130D),
+      surfaceLight: Color(0xFF261D14),
+      card: Color(0xFF211810),
+      cardBorder: Color(0xFF4D3824),
+      cardFocused: Color(0xFF2E2217),
+      defaultAccentId: 'gold',
+      previewGradient: [Color(0xFF0E0B07), Color(0xFF2E1F10), Color(0xFFFFD700)],
     ),
     ThemePresetOption(
       id: 'custom',
@@ -290,99 +357,94 @@ class PlixTheme {
   static const List<ThemeColorOption> colorOptions = [
     ThemeColorOption(
       id: 'orange',
-      name: 'Plix Orange',
+      name: 'Orange',
       primary: Color(0xFFE55B13),
       light: Color(0xFFFF7A2F),
     ),
     ThemeColorOption(
       id: 'gold',
-      name: 'Classic Gold',
+      name: 'Gold',
       primary: Color(0xFFE5A00D),
       light: Color(0xFFF5B82E),
     ),
     ThemeColorOption(
-      id: 'amber',
-      name: 'Warm Amber',
-      primary: Color(0xFFFFB300),
-      light: Color(0xFFFFCA28),
-    ),
-    ThemeColorOption(
-      id: 'sunset',
-      name: 'Sunset Ember',
-      primary: Color(0xFFFF5722),
-      light: Color(0xFFFF8A65),
-    ),
-    ThemeColorOption(
       id: 'crimson',
-      name: 'Crimson Red',
+      name: 'Crimson',
       primary: Color(0xFFE53935),
       light: Color(0xFFEF5350),
     ),
     ThemeColorOption(
       id: 'ruby',
-      name: 'Deep Ruby',
+      name: 'Ruby',
       primary: Color(0xFFC2185B),
       light: Color(0xFFE91E63),
     ),
     ThemeColorOption(
       id: 'fuchsia',
-      name: 'Hot Fuchsia',
+      name: 'Fuchsia',
       primary: Color(0xFFFF1493),
       light: Color(0xFFFF69B4),
     ),
     ThemeColorOption(
-      id: 'violet',
-      name: 'Electric Violet',
-      primary: Color(0xFF9D4EDD),
-      light: Color(0xFFC77DFF),
-    ),
-    ThemeColorOption(
       id: 'amethyst',
-      name: 'Royal Amethyst',
+      name: 'Amethyst',
       primary: Color(0xFF7928CA),
       light: Color(0xFFB800FF),
     ),
     ThemeColorOption(
       id: 'indigo',
-      name: 'Electric Indigo',
+      name: 'Indigo',
       primary: Color(0xFF3F51B5),
       light: Color(0xFF7986CB),
     ),
     ThemeColorOption(
       id: 'blue',
-      name: 'Sapphire Blue',
+      name: 'Blue',
       primary: Color(0xFF2979FF),
       light: Color(0xFF82B1FF),
     ),
     ThemeColorOption(
       id: 'cyan',
-      name: 'Cyber Cyan',
+      name: 'Cyan',
       primary: Color(0xFF00E5FF),
       light: Color(0xFF84FFFF),
     ),
     ThemeColorOption(
       id: 'frost',
-      name: 'Arctic Frost',
+      name: 'Frost',
       primary: Color(0xFF88C0D0),
       light: Color(0xFFD8DEE9),
     ),
     ThemeColorOption(
       id: 'teal',
-      name: 'Seafoam Teal',
+      name: 'Teal',
       primary: Color(0xFF00897B),
       light: Color(0xFF26A69A),
     ),
     ThemeColorOption(
       id: 'mint',
-      name: 'Emerald Mint',
+      name: 'Mint',
       primary: Color(0xFF00E676),
       light: Color(0xFF69F0AE),
     ),
     ThemeColorOption(
+      id: 'green',
+      name: 'Green',
+      primary: Color(0xFF00FF00),
+      light: Color(0xFF66FF66),
+    ),
+    ThemeColorOption(
       id: 'platinum',
-      name: 'Minimal Platinum',
+      name: 'Platinum',
       primary: Color(0xFFE2E8F0),
       light: Color(0xFFFFFFFF),
+    ),
+    ThemeColorOption(
+      id: 'rainbow',
+      name: 'Rainbow',
+      primary: Color(0xFFFFFFFF),
+      light: Color(0xFF00E676),
+      isRainbow: true,
     ),
   ];
 
@@ -434,16 +496,233 @@ class PlixTheme {
   static bool get isOLED => currentPreset.value.isOLED;
   static bool get isCyberpunk => currentPreset.value.isCyberpunk;
   static bool get isMatrix => currentPreset.value.isMatrix;
+  static bool get isRainbow => currentPreset.value.isRainbow;
+
+  /// Background decoration respecting themes
+  static BoxDecoration get backgroundDecoration => BoxDecoration(color: background);
+
+  /// Vibrant rainbow gradient used for focused cursor outlines, active highlights, and vivid swatches
+  static const LinearGradient vividRainbowGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFF007A), // vivid rose/pink
+      Color(0xFF9D4EDD), // vivid violet
+      Color(0xFF0070F3), // electric blue
+      Color(0xFF00E676), // bright neon green
+      Color(0xFFFFB300), // amber gold
+    ],
+  );
+
+  /// Standard rainbow gradient for accent swatches
+  static const LinearGradient rainbowAccentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFD81B60),
+      Color(0xFF7B1FA2),
+      Color(0xFF1976D2),
+      Color(0xFF00897B),
+      Color(0xFFF57F17),
+    ],
+  );
+
+  /// Darker, more subtle rainbow gradient used for buttons when the Prism Rainbow theme is active
+  static const LinearGradient rainbowButtonGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF5A1032), // dark subtle rose
+      Color(0xFF32134D), // deep subtle violet
+      Color(0xFF102446), // deep midnight blue
+      Color(0xFF0D3B24), // deep forest emerald
+      Color(0xFF4D3308), // dark subtle amber bronze
+    ],
+  );
+
+  /// Button transparency alpha for level 1 (barely transparent) to 5 (crystal clear)
+  static int get glassButtonAlpha {
+    final lvl = glassSidebarLevel.value.clamp(1, 5);
+    const alphaMap = <int, int>{
+      1: 0xF0, // Level 1 (barely transparent, ~94% opaque)
+      2: 0xC0, // Level 2 (~75% opaque)
+      3: 0x88, // Level 3 (~53% opaque)
+      4: 0x50, // Level 4 (~31% opaque)
+      5: 0x22, // Level 5 (~13% opaque, crystal clear)
+    };
+    return alphaMap[lvl] ?? 0x50;
+  }
+
+  /// Global toggle for semi-transparent translucent liquid glass left navigation sidebar
+  static final ValueNotifier<bool> glassSidebar = ValueNotifier<bool>(true);
+  static bool get isGlassSidebar => glassSidebar.value;
+
+  /// Toggle for background frosted blur on the translucent liquid glass sidebar (5% to 40% blur)
+  static final ValueNotifier<bool> glassSidebarBlur = ValueNotifier<bool>(true);
+  static bool get isGlassSidebarBlur => glassSidebarBlur.value;
+
+  /// Blur level for the glass sidebar: 1 (5%), 2 (10%), 3 (20%), 4 (30%), 5 (40%). Default is 2 (10%).
+  static final ValueNotifier<int> glassSidebarBlurLevel = ValueNotifier<int>(2);
+  static int get isGlassSidebarBlurLevel => glassSidebarBlurLevel.value;
+
+  static const Map<int, int> _blurPercentMap = {
+    1: 5,
+    2: 10,
+    3: 20,
+    4: 30,
+    5: 40,
+  };
+
+  static const Map<int, double> _blurSigmaMap = {
+    1: 1.25,
+    2: 2.5,
+    3: 5.0,
+    4: 7.5,
+    5: 10.0,
+  };
+
+  static int get glassSidebarBlurPercent =>
+      _blurPercentMap[glassSidebarBlurLevel.value.clamp(1, 5)] ?? 10;
+
+  static double get glassSidebarBlurSigma =>
+      _blurSigmaMap[glassSidebarBlurLevel.value.clamp(1, 5)] ?? 2.5;
+
+  /// Transparency level for the glass sidebar and profile menu: 1 (barely transparent/opaque) to 5 (crystal clear/transparent). Default is 4.
+  static final ValueNotifier<int> glassSidebarLevel = ValueNotifier<int>(4);
+  static int get isGlassSidebarLevel => glassSidebarLevel.value;
+
+  static Future<void> setGlassSidebar(bool enabled) async {
+    glassSidebar.value = enabled;
+    themeRevision.value++;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(ProfileService.key('app_theme_glass_sidebar'), enabled);
+    } catch (_) {}
+  }
+
+  static Future<void> setGlassSidebarBlur(bool enabled) async {
+    glassSidebarBlur.value = enabled;
+    themeRevision.value++;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(ProfileService.key('app_theme_glass_sidebar_blur'), enabled);
+    } catch (_) {}
+  }
+
+  static Future<void> setGlassSidebarBlurLevel(int level) async {
+    final clamped = level.clamp(1, 5);
+    glassSidebarBlurLevel.value = clamped;
+    themeRevision.value++;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(ProfileService.key('app_theme_glass_sidebar_blur_level'), clamped);
+    } catch (_) {}
+  }
+
+  static Future<void> setGlassSidebarLevel(int level) async {
+    final clamped = level.clamp(1, 5);
+    glassSidebarLevel.value = clamped;
+    themeRevision.value++;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(ProfileService.key('app_theme_glass_sidebar_level'), clamped);
+    } catch (_) {}
+  }
+
+  /// Linear gradient with transparency tailored by [glassSidebarLevel] (1 = barely transparent, 5 = crystal clear)
+  /// Retains the active theme preset's atmosphere color while applying glass transparency.
+  static LinearGradient glassSidebarGradient([int? levelOverride, ThemePresetOption? presetOverride]) {
+    final lvl = (levelOverride ?? glassSidebarLevel.value).clamp(1, 5);
+    final preset = presetOverride ?? currentPreset.value;
+
+    Color base1;
+    Color base2;
+    Color base3;
+
+    if (preset.id == 'glass') {
+      base1 = const Color(0xFF1A2942);
+      base2 = const Color(0xFF101B2E);
+      base3 = const Color(0xFF0A121F);
+    } else if (preset.isOLED) {
+      base1 = const Color(0xFF080808);
+      base2 = const Color(0xFF000000);
+      base3 = const Color(0xFF000000);
+    } else if (preset.isRainbow) {
+      base1 = const Color(0xFF1C1034);
+      base2 = const Color(0xFF130A24);
+      base3 = const Color(0xFF090514);
+    } else {
+      // Retain the active theme's surface/background atmosphere colors
+      base1 = (preset.id == 'custom' ? surfaceLight : preset.surfaceLight).withAlpha(0xFF);
+      base2 = (preset.id == 'custom' ? surface : preset.surface).withAlpha(0xFF);
+      base3 = (preset.id == 'custom' ? background : preset.background).withAlpha(0xFF);
+    }
+
+    // Alpha levels: Level 1 (~95% opaque / barely transparent) to Level 5 (~10% opaque / crystal clear)
+    const alphaLevels = <int, List<int>>{
+      1: [0xF4, 0xEC, 0xE4],
+      2: [0xC4, 0xB4, 0xA4],
+      3: [0x8C, 0x78, 0x64],
+      4: [0x50, 0x40, 0x30],
+      5: [0x20, 0x14, 0x08],
+    };
+
+    final alphas = alphaLevels[lvl] ?? alphaLevels[3]!;
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        base1.withAlpha(alphas[0]),
+        base2.withAlpha(alphas[1]),
+        base3.withAlpha(alphas[2]),
+      ],
+    );
+  }
 
   static Color get plexGold => currentThemeOption.value.primary;
   static Color get plexGoldLight => currentThemeOption.value.light;
   static Color get focusHighlight => currentThemeOption.value.primary;
 
+  static bool get isRainbowAccent =>
+      currentThemeOption.value.id == 'rainbow' || currentThemeOption.value.isRainbow;
+  static bool get isRainbowBorder => isRainbowAccent || isRainbow;
+
+  /// Returns a rainbow gradient border when [isRainbowBorder] is active and item [isHighlighted],
+  /// otherwise returns standard [Border.all].
+  static BoxBorder outlineBorder({
+    required bool isHighlighted,
+    Color? highlightColor,
+    Color? unhighlightColor,
+    double highlightWidth = 2.0,
+    double unhighlightWidth = 1.2,
+  }) {
+    if (isHighlighted && isRainbowBorder) {
+      return GradientBoxBorder(
+        gradient: vividRainbowGradient,
+        width: highlightWidth,
+      );
+    }
+    return Border.all(
+      color: isHighlighted
+          ? (highlightColor ?? plexGold)
+          : (unhighlightColor ?? cardBorder),
+      width: isHighlighted ? highlightWidth : unhighlightWidth,
+    );
+  }
+
+  /// Convenience method for a guaranteed rainbow border
+  static BoxBorder rainbowOutlineBorder({double width = 2.0}) {
+    return GradientBoxBorder(
+      gradient: vividRainbowGradient,
+      width: width,
+    );
+  }
+
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFF9EA2A8);
   static const Color textMuted = Color(0xFF6B7280);
 
-  /// Generates Apple Liquid Glass decoration with specular highlights and reflections
+  /// Generates Apple Liquid Glass decoration without left specular fade smear
   static BoxDecoration glassBoxDecoration({
     BorderRadius? borderRadius,
     bool isHighlighted = false,
@@ -454,67 +733,47 @@ class PlixTheme {
     return BoxDecoration(
       borderRadius: borderRadius ?? BorderRadius.circular(10),
       gradient: LinearGradient(
-        begin: const Alignment(-0.8, -1.0),
-        end: const Alignment(0.8, 1.0),
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: isHighlighted
             ? [
-                Colors.white.withOpacity(0.24),
-                effectiveAccent.withOpacity(0.18),
+                Colors.white.withOpacity(0.22),
+                effectiveAccent.withOpacity(0.15),
                 Colors.white.withOpacity(0.08),
               ]
             : [
-                Colors.white.withOpacity(0.14),
+                Colors.white.withOpacity(0.12),
                 Colors.white.withOpacity(0.05),
                 Colors.white.withOpacity(0.02),
               ],
       ),
-      border: Border.all(
-        color: isHighlighted
-            ? Colors.white.withOpacity(0.92)
-            : Colors.white.withOpacity(0.32),
-        width: isHighlighted ? borderWidth + 0.6 : borderWidth,
-      ),
+      border: (isHighlighted && isRainbowBorder)
+          ? GradientBoxBorder(
+              gradient: vividRainbowGradient,
+              width: borderWidth + 0.6,
+            )
+          : Border.all(
+              color: isHighlighted
+                  ? Colors.white.withOpacity(0.92)
+                  : Colors.white.withOpacity(0.32),
+              width: isHighlighted ? borderWidth + 0.6 : borderWidth,
+            ),
       boxShadow: [
         BoxShadow(
           color: isHighlighted
-              ? effectiveAccent.withOpacity(0.40)
-              : Colors.black.withOpacity(0.25),
-          blurRadius: isHighlighted ? 16 : 8,
+              ? (isRainbowBorder ? Colors.transparent : effectiveAccent.withOpacity(0.35))
+              : Colors.black.withOpacity(0.20),
+          blurRadius: isHighlighted ? 12 : 6,
           spreadRadius: isHighlighted ? 1.0 : 0,
           offset: isHighlighted ? Offset.zero : const Offset(0, 2),
         ),
-        if (isHighlighted)
-          BoxShadow(
-            color: Colors.white.withOpacity(0.30),
-            blurRadius: 8,
-            spreadRadius: -1,
-          ),
       ],
     );
   }
 
-  /// Apple-style specular gloss reflection sweep layer
+  /// Apple-style specular gloss reflection sweep layer (disabled to prevent fade smear)
   static Widget buildGlassReflectionLayer({BorderRadius? borderRadius}) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius ?? BorderRadius.circular(8),
-            gradient: LinearGradient(
-              begin: const Alignment(-0.85, -1.0),
-              end: const Alignment(0.85, 1.0),
-              stops: const [0.0, 0.32, 0.33, 1.0],
-              colors: [
-                Colors.white.withOpacity(0.20),
-                Colors.white.withOpacity(0.04),
-                Colors.transparent,
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   static void resetToDefaultModern() {
@@ -533,7 +792,12 @@ class PlixTheme {
 
       final pKeyPreset = ProfileService.key('app_theme_preset_id');
       final savedPresetId = prefs.getString(pKeyPreset);
-      if (savedPresetId != null) {
+      if (savedPresetId == 'royal') {
+        // Migrate existing users on old Imperial Amethyst to Cosmic Nebula
+        final nebulaPreset = presetOptions.firstWhere((p) => p.id == 'nebula');
+        currentPreset.value = nebulaPreset;
+        await prefs.setString(pKeyPreset, 'nebula');
+      } else if (savedPresetId != null) {
         final matchPreset = presetOptions.firstWhere(
           (p) => p.id == savedPresetId,
           orElse: () => presetOptions[0],
@@ -567,6 +831,18 @@ class PlixTheme {
               light: Color.lerp(col, Colors.white, 0.25) ?? col,
             );
           }
+        } else if (savedColorId == 'sunset') {
+          final crimson = colorOptions.firstWhere((opt) => opt.id == 'crimson');
+          currentThemeOption.value = crimson;
+          await prefs.setString(ProfileService.key('app_theme_color_id'), 'crimson');
+        } else if (savedColorId == 'amber') {
+          final gold = colorOptions.firstWhere((opt) => opt.id == 'gold');
+          currentThemeOption.value = gold;
+          await prefs.setString(ProfileService.key('app_theme_color_id'), 'gold');
+        } else if (savedColorId == 'violet') {
+          final rainbow = colorOptions.firstWhere((opt) => opt.id == 'rainbow');
+          currentThemeOption.value = rainbow;
+          await prefs.setString(ProfileService.key('app_theme_color_id'), 'rainbow');
         } else {
           final match = colorOptions.firstWhere(
             (opt) => opt.id == savedColorId,
@@ -577,6 +853,29 @@ class PlixTheme {
       } else {
         currentThemeOption.value = colorOptions[1]; // Classic Gold default
       }
+
+      // Migration check: When update goes out to existing users, transparent sidebar and blur enabled,
+      // transparency set to 4, blur set to 2 (20%).
+      final migrationKey = ProfileService.key('app_theme_v185_defaults_migrated');
+      final hasMigrated = prefs.getBool(migrationKey) ?? false;
+
+      if (!hasMigrated) {
+        glassSidebar.value = true;
+        glassSidebarBlur.value = true;
+        glassSidebarLevel.value = 4;
+        glassSidebarBlurLevel.value = 2;
+        await prefs.setBool(ProfileService.key('app_theme_glass_sidebar'), true);
+        await prefs.setBool(ProfileService.key('app_theme_glass_sidebar_blur'), true);
+        await prefs.setInt(ProfileService.key('app_theme_glass_sidebar_level'), 4);
+        await prefs.setInt(ProfileService.key('app_theme_glass_sidebar_blur_level'), 2);
+        await prefs.setBool(migrationKey, true);
+      } else {
+        glassSidebar.value = prefs.getBool(ProfileService.key('app_theme_glass_sidebar')) ?? true;
+        glassSidebarBlur.value = prefs.getBool(ProfileService.key('app_theme_glass_sidebar_blur')) ?? true;
+        glassSidebarLevel.value = prefs.getInt(ProfileService.key('app_theme_glass_sidebar_level')) ?? 4;
+        glassSidebarBlurLevel.value = prefs.getInt(ProfileService.key('app_theme_glass_sidebar_blur_level')) ?? 2;
+      }
+
       themeRevision.value++;
     } catch (_) {}
   }
@@ -691,5 +990,65 @@ class PlixTheme {
       splashColor: Colors.transparent,
       cardColor: crd,
     );
+  }
+}
+
+/// A [Border] that renders a continuous stroke using a [Gradient].
+/// Extends [Border] with 4 identical sides so that [isUniform] is always true.
+/// This guarantees that [BoxBorder.lerp] and [AnimatedContainer] interpolate
+/// smoothly with [borderRadius] as a rounded rectangle at every frame,
+/// never falling back to non-uniform mitered square borders.
+class GradientBoxBorder extends Border {
+  final Gradient gradient;
+  final double width;
+
+  GradientBoxBorder({
+    required this.gradient,
+    this.width = 2.0,
+    Color sideColor = Colors.transparent,
+  }) : super(
+          top: BorderSide(color: sideColor, width: width),
+          right: BorderSide(color: sideColor, width: width),
+          bottom: BorderSide(color: sideColor, width: width),
+          left: BorderSide(color: sideColor, width: width),
+        );
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(width);
+
+  @override
+  bool get isUniform => true;
+
+  static final Paint _borderPaint = Paint()..style = PaintingStyle.stroke;
+
+  @override
+  void paint(
+    Canvas canvas,
+    Rect rect, {
+    TextDirection? textDirection,
+    BoxShape shape = BoxShape.rectangle,
+    BorderRadius? borderRadius,
+  }) {
+    if (rect.isEmpty || rect.width <= 0 || rect.height <= 0 || width <= 0) return;
+    _borderPaint
+      ..shader = gradient.createShader(rect)
+      ..strokeWidth = width;
+
+    if (shape == BoxShape.circle) {
+      final radius = (rect.width - width) / 2;
+      if (radius > 0) {
+        canvas.drawCircle(rect.center, radius, _borderPaint);
+      }
+    } else if (borderRadius != null && borderRadius != BorderRadius.zero) {
+      final rrect = borderRadius.toRRect(rect).deflate(width / 2);
+      canvas.drawRRect(rrect, _borderPaint);
+    } else {
+      canvas.drawRect(rect.deflate(width / 2), _borderPaint);
+    }
+  }
+
+  @override
+  GradientBoxBorder scale(double t) {
+    return GradientBoxBorder(gradient: gradient, width: width * t);
   }
 }

@@ -738,30 +738,38 @@ class JellyfinMediaService {
 
 
 
-  Future<List<PlexLibrary>> getLibraries() async {
-
+  Future<void> sendSessionPing() async {
     try {
+      final url = Uri.parse('$baseUrl/Sessions/Capabilities/Full');
+      await _client.post(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'PlayableMediaTypes': ['Video', 'Audio'],
+          'SupportedCommands': ['Play', 'Pause', 'Stop', 'Seek'],
+          'SupportsMediaControl': true,
+        }),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+  }
 
+  Future<List<PlexLibrary>> getLibraries() async {
+    try {
       final url = Uri.parse('$baseUrl/Users/$userId/Views');
-
-      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 4));
-
+      final response = await _client.get(url, headers: _headers).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 401) {
+        server.isAuthExpired = true;
+        return [];
+      }
       if (response.statusCode != 200) return [];
-
-
+      server.isAuthExpired = false;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-
       final items = data['Items'] as List<dynamic>? ?? [];
-
       return items.map((m) => _parseLibrary(m as Map<String, dynamic>)).toList();
-
     } catch (_) {
-
       return [];
-
     }
-
   }
 
 

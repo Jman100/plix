@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
+import '../services/plix_device_helper.dart';
 import '../models/plex_media_item.dart';
 import '../services/plex_media_service.dart';
 import '../services/plix_image_cache.dart';
@@ -238,7 +239,7 @@ class _MediaCardState extends State<MediaCard> {
                 ],
                 // Poster image with border
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
+                  duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 120),
                   height: height,
                   width: widget.width,
                   decoration: BoxDecoration(
@@ -246,28 +247,30 @@ class _MediaCardState extends State<MediaCard> {
                         ? const Color(0xFF000000)
                         : (PlixTheme.isGlass ? const Color(0x331C283E) : PlixTheme.card),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isHighlighted
-                          ? PlixTheme.plexGold
-                          : (PlixTheme.isGlass
-                              ? const Color(0x55FFFFFF)
-                              : (PlixTheme.isCyberpunk
-                                  ? const Color(0x44FF007F)
-                                  : (PlixTheme.isOLED ? const Color(0xFF222226) : Colors.transparent))),
-                      width: isHighlighted ? 3.0 : (PlixTheme.isGlass || PlixTheme.isOLED || PlixTheme.isCyberpunk ? 1.5 : 3.0),
-                    ),
-                    boxShadow: isHighlighted
+                    border: isHighlighted
+                        ? (PlixTheme.isRainbowBorder
+                            ? PlixTheme.rainbowOutlineBorder(width: 3.0)
+                            : Border.all(color: PlixTheme.plexGold, width: 3.0))
+                        : Border.all(
+                            color: PlixTheme.isGlass
+                                ? const Color(0x55FFFFFF)
+                                : (PlixTheme.isCyberpunk
+                                    ? const Color(0x44FF007F)
+                                    : (PlixTheme.isOLED ? const Color(0xFF222226) : Colors.transparent)),
+                            width: (PlixTheme.isGlass || PlixTheme.isOLED || PlixTheme.isCyberpunk ? 1.5 : 3.0),
+                          ),
+                    boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                         ? [
                             BoxShadow(
-                              color: PlixTheme.plexGold.withOpacity(0.55),
-                              blurRadius: 18,
-                              spreadRadius: 2,
+                              color: PlixTheme.plexGold.withOpacity(0.40),
+                              blurRadius: 10,
+                              spreadRadius: 1,
                             ),
                             if (PlixTheme.isCyberpunk)
                               BoxShadow(
                                 color: const Color(0xFFFF007F).withOpacity(0.4),
-                                blurRadius: 24,
-                                spreadRadius: 3,
+                                blurRadius: 16,
+                                spreadRadius: 2,
                               ),
                           ]
                         : [

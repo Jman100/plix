@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import '../app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -125,11 +126,104 @@ class _JellyfinLogoPainter extends CustomPainter {
 }
 
 
-/// Branded Plix App Logo matching the official app icon styling.
-/// Displays a rich deep-violet rounded squircle with stylized 'pli' in white and 'x' in accent color.
+/// Aerodynamic swooshy play icon painter incorporating a lowercase 'p' in orange and white.
+class _SwooshyPlayPainter extends CustomPainter {
+  final Color? accentColor;
+
+  const _SwooshyPlayPainter({this.accentColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scaleX = size.width / 100.0;
+    final scaleY = size.height / 100.0;
+    canvas.save();
+    canvas.scale(scaleX, scaleY);
+
+    final orangeGrad = ui.Gradient.linear(
+      const Offset(10, 10),
+      const Offset(90, 90),
+      [
+        const Color(0xFFFFB300),
+        accentColor ?? const Color(0xFFFF9100),
+        const Color(0xFFFF3D00),
+      ],
+      [0.0, 0.45, 1.0],
+    );
+
+    final orangePaint = Paint()
+      ..shader = orangeGrad
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    final whitePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.45)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5)
+      ..style = PaintingStyle.fill;
+
+    // Path 1: Lowercase 'p' descender stem and top shoulder arch in dynamic orange swoosh
+    final p1 = Path();
+    p1.moveTo(21, 91);
+    p1.cubicTo(14, 91, 11, 84, 13, 76);
+    p1.cubicTo(15, 64, 21, 46, 22, 33);
+    p1.cubicTo(23, 21, 31, 12.5, 45, 11.5);
+    p1.cubicTo(59, 10.5, 71, 16.5, 78, 24.5);
+    p1.cubicTo(63, 24, 50, 28.5, 41, 36.5);
+    p1.lineTo(41, 79);
+    p1.cubicTo(41, 86, 32, 91, 21, 91);
+    p1.close();
+
+    // Path 2: Aerodynamic white play arrow forming the bowl of the lowercase 'p'
+    final p2 = Path();
+    p2.moveTo(33, 19);
+    p2.cubicTo(39, 16, 47, 17.5, 53, 21);
+    p2.lineTo(91, 45.5);
+    p2.cubicTo(95, 48, 95, 53, 91, 55.5);
+    p2.lineTo(53, 80);
+    p2.cubicTo(47, 83.5, 39, 85, 33, 82);
+    p2.cubicTo(29, 80, 27.5, 76, 27.5, 71.5);
+    p2.lineTo(27.5, 29.5);
+    p2.cubicTo(27.5, 25, 29, 21, 33, 19);
+    p2.close();
+
+    // Path 3: Inner speed swoosh accent inside play triangle bowl
+    final p3 = Path();
+    p3.moveTo(40, 31);
+    p3.cubicTo(49, 38, 60, 46, 72, 50.5);
+    p3.cubicTo(60, 55, 49, 63, 40, 70);
+    p3.cubicTo(45, 61, 47.5, 55, 47.5, 50.5);
+    p3.cubicTo(47.5, 46, 45, 40, 40, 31);
+    p3.close();
+
+    // Draw drop shadows
+    canvas.save();
+    canvas.translate(0, 2.5);
+    canvas.drawPath(p1, shadowPaint);
+    canvas.drawPath(p2, shadowPaint);
+    canvas.restore();
+
+    // Draw main elements
+    canvas.drawPath(p1, orangePaint);
+    canvas.drawPath(p2, whitePaint);
+    canvas.drawPath(p3, orangePaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SwooshyPlayPainter oldDelegate) =>
+      oldDelegate.accentColor != accentColor;
+}
+
+/// Branded Plix App Logo featuring a rich deep-violet rounded squircle
+/// with an aerodynamic swooshy play symbol in orange and white.
 class PlixAppLogo extends StatelessWidget {
   final double size;
-  final bool showWordmark; // true = "plix", false = "px"
+  final bool showWordmark; // Retained for compatibility
   final double? borderRadius;
   final bool glow;
   final Color? accentColor;
@@ -147,7 +241,7 @@ class PlixAppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveAccent = accentColor ?? PlixTheme.plexGold;
+    final effectiveAccent = accentColor ?? const Color(0xFFFF9100);
     final radius = borderRadius ?? (size * 0.24);
 
     return Container(
@@ -160,9 +254,9 @@ class PlixAppLogo extends StatelessWidget {
               center: Alignment(-0.25, -0.35),
               radius: 1.15,
               colors: [
-                Color(0xFF3B156E), // Vibrant royal purple top-left highlight
-                Color(0xFF260A4B), // Deep purple core
-                Color(0xFF130326), // Midnight base
+                Color(0xFF4C1885), // Vibrant royal purple top-left highlight
+                Color(0xFF280A4E), // Deep purple core
+                Color(0xFF120324), // Midnight base
               ],
               stops: [0.0, 0.55, 1.0],
             ),
@@ -180,50 +274,14 @@ class PlixAppLogo extends StatelessWidget {
           ),
         ],
         border: Border.all(
-          color: Colors.white.withOpacity(0.14),
+          color: Colors.white.withOpacity(0.18),
           width: math.max(1.0, size * 0.02),
         ),
       ),
       child: Center(
-        child: RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: showWordmark ? 'pli' : 'p',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: showWordmark ? (size * 0.34) : (size * 0.44),
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Roboto',
-                  letterSpacing: showWordmark ? -0.5 : -0.2,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.65),
-                      offset: Offset(0, size * 0.03),
-                      blurRadius: size * 0.06,
-                    ),
-                  ],
-                ),
-              ),
-              TextSpan(
-                text: 'x',
-                style: TextStyle(
-                  color: effectiveAccent,
-                  fontSize: showWordmark ? (size * 0.34) : (size * 0.44),
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Roboto',
-                  letterSpacing: showWordmark ? -0.5 : -0.2,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.65),
-                      offset: Offset(0, size * 0.03),
-                      blurRadius: size * 0.06,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        child: CustomPaint(
+          size: Size(size * 0.88, size * 0.88),
+          painter: _SwooshyPlayPainter(accentColor: effectiveAccent),
         ),
       ),
     );

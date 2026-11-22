@@ -62,7 +62,7 @@ jobs:
         if: always() && hashFiles('build/ios/iphoneos/plix_ios.ipa') != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.10.4' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.10.5' }}
           files: build/ios/iphoneos/plix_ios.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

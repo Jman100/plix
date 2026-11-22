@@ -321,4 +321,71 @@ class JellyfinAuthService {
       isAdministrator: isAdministrator,
     );
   }
+
+  Future<JellyfinAuthResult> authenticateByName(
+    String serverUrl, {
+    required String username,
+    required String password,
+    required String clientId,
+    required String clientName,
+    required String version,
+  }) async {
+    final cleanUrl = normalizeUrl(serverUrl);
+    final endpoint = Uri.parse('$cleanUrl/Users/AuthenticateByName');
+    final authHeader = buildAuthHeader(
+      clientId: clientId,
+      clientName: clientName,
+      version: version,
+    );
+
+    final response = await http.post(
+      endpoint,
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'Username': username,
+        'Pw': password,
+      }),
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      if (response.statusCode == 401) {
+        throw Exception('Invalid username or password');
+      }
+      throw Exception('Failed to authenticate (HTTP ${response.statusCode})');
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final token = data['AccessToken']?.toString() ?? '';
+    final user = data['User'] as Map<String, dynamic>? ?? {};
+    final userId = user['Id']?.toString() ?? '';
+    final userName = user['Name']?.toString() ?? username;
+    final serverId = data['ServerId']?.toString() ?? '';
+    final policy = user['Policy'] as Map<String, dynamic>? ?? {};
+    final isAdministrator = policy['IsAdministrator'] == true;
+
+    if (token.isEmpty || userId.isEmpty) {
+      throw Exception('Incomplete authentication response from server');
+    }
+
+    String serverName = 'Jellyfin Server';
+    try {
+      final info = await testServer(cleanUrl);
+      if (info != null && info.name.isNotEmpty) {
+        serverName = info.name;
+      }
+    } catch (_) {}
+
+    return JellyfinAuthResult(
+      accessToken: token,
+      userId: userId,
+      userName: userName,
+      serverId: serverId,
+      serverName: serverName,
+      isAdministrator: isAdministrator,
+    );
+  }
 }

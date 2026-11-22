@@ -244,6 +244,18 @@ class PlixProfile {
     AvatarOption(id: 'avatar_sparkles', label: 'Cosmic', assetPath: 'assets/avatars/avatar_sparkles.png'),
     AvatarOption(id: 'avatar_globe', label: 'Explorer', assetPath: 'assets/avatars/avatar_globe.png'),
     AvatarOption(id: 'avatar_diamond', label: 'Diamond', assetPath: 'assets/avatars/avatar_diamond.png'),
+    AvatarOption(id: 'avatar_skull', label: 'Skull', assetPath: 'assets/avatars/avatar_skull.png'),
+    AvatarOption(id: 'avatar_ghost', label: 'Ghost', assetPath: 'assets/avatars/avatar_ghost.png'),
+    AvatarOption(id: 'avatar_ninja', label: 'Ninja', assetPath: 'assets/avatars/avatar_ninja.png'),
+    AvatarOption(id: 'avatar_wizard', label: 'Wizard', assetPath: 'assets/avatars/avatar_wizard.png'),
+    AvatarOption(id: 'avatar_guitar', label: 'Rockstar', assetPath: 'assets/avatars/avatar_guitar.png'),
+    AvatarOption(id: 'avatar_pizza', label: 'Foodie', assetPath: 'assets/avatars/avatar_pizza.png'),
+    AvatarOption(id: 'avatar_trophy', label: 'Champion', assetPath: 'assets/avatars/avatar_trophy.png'),
+    AvatarOption(id: 'avatar_lightning', label: 'Volt', assetPath: 'assets/avatars/avatar_lightning.png'),
+    AvatarOption(id: 'avatar_dragon', label: 'Dragon', assetPath: 'assets/avatars/avatar_dragon.png'),
+    AvatarOption(id: 'avatar_heart', label: 'Heart', assetPath: 'assets/avatars/avatar_heart.png'),
+    AvatarOption(id: 'avatar_coffee', label: 'Coffee', assetPath: 'assets/avatars/avatar_coffee.png'),
+    AvatarOption(id: 'avatar_mask', label: 'Theater', assetPath: 'assets/avatars/avatar_mask.png'),
   ];
 
   static String getAssetPath(String avatarId) {

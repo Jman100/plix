@@ -63,6 +63,8 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
     final preset = PlixTheme.currentPreset.value;
     final accent = PlixTheme.plexGold;
     final isGlass = preset.isGlass;
+    final isRainbow = PlixTheme.isRainbow;
+    final isRainbowAccent = PlixTheme.isRainbowAccent;
 
     return Focus(
       focusNode: widget.focusNode,
@@ -110,7 +112,7 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
         },
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: isGlass
               ? PlixTheme.glassBoxDecoration(
@@ -124,15 +126,17 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                       ? PlixTheme.cardFocused
                       : (preset.isOLED ? const Color(0xFF000000) : PlixTheme.card),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isHighlighted ? accent : PlixTheme.cardBorder,
-                    width: isHighlighted ? 2.0 : 1.2,
+                  border: PlixTheme.outlineBorder(
+                    isHighlighted: isHighlighted,
+                    unhighlightColor: PlixTheme.cardBorder,
+                    highlightWidth: 2.0,
+                    unhighlightWidth: 1.2,
                   ),
-                  boxShadow: isHighlighted
+                  boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                       ? [
                           BoxShadow(
                             color: accent.withOpacity(0.35),
-                            blurRadius: 14,
+                            blurRadius: 10,
                             spreadRadius: 1,
                           ),
                         ]
@@ -181,9 +185,12 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: accent.withOpacity(0.18),
+                                      color: isRainbowAccent ? null : accent.withOpacity(0.18),
+                                      gradient: isRainbowAccent ? LinearGradient(colors: PlixTheme.vividRainbowGradient.colors.map((c) => c.withOpacity(0.25)).toList()) : null,
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: accent.withOpacity(0.6), width: 1),
+                                      border: isRainbowAccent
+                                          ? PlixTheme.rainbowOutlineBorder(width: 1.0)
+                                          : Border.all(color: accent.withOpacity(0.6), width: 1),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -191,13 +198,17 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                                         Container(
                                           width: 8,
                                           height: 8,
-                                          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                                          decoration: BoxDecoration(
+                                            color: isRainbowAccent ? null : accent,
+                                            gradient: isRainbowAccent ? PlixTheme.vividRainbowGradient : null,
+                                            shape: BoxShape.circle,
+                                          ),
                                         ),
                                         const SizedBox(width: 6),
                                         Text(
                                           PlixTheme.currentThemeOption.value.name,
                                           style: TextStyle(
-                                            color: accent,
+                                            color: isRainbowAccent ? Colors.white : accent,
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -226,11 +237,16 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
-                            color: isHighlighted ? accent : PlixTheme.surface,
+                            color: isHighlighted
+                                ? (isRainbow ? null : accent)
+                                : PlixTheme.surface,
+                            gradient: (isHighlighted && isRainbow) ? PlixTheme.rainbowButtonGradient : null,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isHighlighted ? accent : PlixTheme.cardBorder,
-                            ),
+                            border: isHighlighted && isRainbow
+                                ? PlixTheme.rainbowOutlineBorder(width: 1.5)
+                                : Border.all(
+                                    color: isHighlighted ? accent : PlixTheme.cardBorder,
+                                  ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -238,13 +254,13 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                               Icon(
                                 Icons.tune_rounded,
                                 size: 15,
-                                color: isHighlighted ? Colors.black : Colors.white,
+                                color: isHighlighted ? (isRainbow ? Colors.white : Colors.black) : Colors.white,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 'Edit Appearance & Themes',
                                 style: TextStyle(
-                                  color: isHighlighted ? Colors.black : Colors.white,
+                                  color: isHighlighted ? (isRainbow ? Colors.white : Colors.black) : Colors.white,
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -296,9 +312,12 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: accent.withOpacity(0.18),
+                                    color: isRainbowAccent ? null : accent.withOpacity(0.18),
+                                    gradient: isRainbowAccent ? LinearGradient(colors: PlixTheme.vividRainbowGradient.colors.map((c) => c.withOpacity(0.25)).toList()) : null,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: accent.withOpacity(0.6), width: 1),
+                                    border: isRainbowAccent
+                                        ? PlixTheme.rainbowOutlineBorder(width: 1.0)
+                                        : Border.all(color: accent.withOpacity(0.6), width: 1),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -306,13 +325,17 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                                       Container(
                                         width: 8,
                                         height: 8,
-                                        decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                                        decoration: BoxDecoration(
+                                          color: isRainbowAccent ? null : accent,
+                                          gradient: isRainbowAccent ? PlixTheme.vividRainbowGradient : null,
+                                          shape: BoxShape.circle,
+                                        ),
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         PlixTheme.currentThemeOption.value.name,
                                         style: TextStyle(
-                                          color: accent,
+                                          color: isRainbowAccent ? Colors.white : accent,
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -340,11 +363,16 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isHighlighted ? accent : PlixTheme.surface,
+                          color: isHighlighted
+                              ? (isRainbow ? null : accent)
+                              : PlixTheme.surface,
+                          gradient: (isHighlighted && isRainbow) ? PlixTheme.rainbowButtonGradient : null,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isHighlighted ? accent : PlixTheme.cardBorder,
-                          ),
+                          border: isHighlighted && isRainbow
+                              ? PlixTheme.rainbowOutlineBorder(width: 1.5)
+                              : Border.all(
+                                  color: isHighlighted ? accent : PlixTheme.cardBorder,
+                                ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -352,13 +380,13 @@ class _AppearanceHeroTileState extends State<AppearanceHeroTile> {
                             Icon(
                               Icons.tune_rounded,
                               size: 16,
-                              color: isHighlighted ? Colors.black : Colors.white,
+                              color: isHighlighted ? (isRainbow ? Colors.white : Colors.black) : Colors.white,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'Edit Appearance & Themes',
                               style: TextStyle(
-                                color: isHighlighted ? Colors.black : Colors.white,
+                                color: isHighlighted ? (isRainbow ? Colors.white : Colors.black) : Colors.white,
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
                               ),

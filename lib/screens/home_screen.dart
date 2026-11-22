@@ -100,6 +100,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final FocusNode _sidebarSwitchServerFocusNode = FocusNode();
   final FocusNode _sidebarSignOutFocusNode = FocusNode();
   final FocusNode _firstContinueWatchingFocusNode = FocusNode();
+  final FocusNode _errorActionFocusNode = FocusNode();
+  final FocusNode _errorRetryFocusNode = FocusNode();
   PlexMediaItem? _lastWatchedItem;
   int? _lastWatchedOriginalIndex;
   bool _cursorMovedSinceReturn = false;
@@ -504,6 +506,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _sidebarSwitchServerFocusNode.dispose();
     _sidebarSignOutFocusNode.dispose();
     _firstContinueWatchingFocusNode.dispose();
+    _errorActionFocusNode.dispose();
+    _errorRetryFocusNode.dispose();
     for (final node in _viewMoreFocusNodes.values) {
       node.dispose();
     }
@@ -709,6 +713,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }));
       _activeServers = activeServers;
 
+      // Keep Jellyfin sessions alive
+      for (final s in activeServers) {
+        if (s.isJellyfin && (s.activeConnectionUri?.isNotEmpty ?? false)) {
+          PlexMediaService(server: s).sendSessionPing().catchError((_) {});
+        }
+      }
+
       final activeProfileId = ProfileService.instance.activeProfile?.id;
       if (_cachedForProfileId != activeProfileId) {
         _cachedContinueWatching.clear();
@@ -898,6 +909,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
 
+      final hasAnyContent = _libraries.isNotEmpty ||
+          _continueWatching.isNotEmpty ||
+          _recentlyAddedByLibrary.values.any((list) => list.isNotEmpty);
+
+      if (!hasAnyContent) {
+        final anyAuthExpired = activeServers.any((s) => s.isAuthExpired);
+        final allServersOffline = activeServers.isEmpty ||
+            activeServers.every((s) => s.activeConnectionUri == null || s.activeConnectionUri!.isEmpty);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isOffline = allServersOffline;
+            if (anyAuthExpired) {
+              final exp = activeServers.firstWhere((s) => s.isAuthExpired);
+              _errorMessage = 'Authentication expired for ${exp.name}. Please reconnect in Customize Servers.';
+            } else if (allServersOffline) {
+              _errorMessage = 'All your connected servers are offline';
+            } else {
+              _errorMessage = 'Could not load libraries from your connected servers.';
+            }
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _errorMessage != null && PlixDeviceHelper.isTelevision) {
+              _errorActionFocusNode.requestFocus();
+            }
+          });
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -936,6 +977,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _isLoading = false;
           _isOffline = offlineNow;
           _errorMessage = offlineNow ? 'You are offline' : 'Could not load home content: $e';
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _errorMessage != null && PlixDeviceHelper.isTelevision) {
+            _errorActionFocusNode.requestFocus();
+          }
         });
       }
     }
@@ -1890,38 +1936,55 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: PlixTheme.plexGold,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          elevation: 0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: PlixTheme.isRainbow ? PlixTheme.rainbowButtonGradient : null,
+                          color: PlixTheme.isRainbow ? null : PlixTheme.plexGold,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: null,
                         ),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 22),
-                        label: Text(
-                          item.isInProgress
-                              ? (item.formattedResumeTime.isNotEmpty
-                                  ? 'Resume from ${item.formattedResumeTime}'
-                                  : 'Resume')
-                              : 'Watch Now',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: PlixTheme.isRainbow ? Colors.white : Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                          label: Text(
+                            item.isInProgress
+                                ? (item.formattedResumeTime.isNotEmpty
+                                    ? 'Resume from ${item.formattedResumeTime}'
+                                    : 'Resume')
+                                : 'Watch Now',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          onPressed: () => _quickPlay(item),
                         ),
-                        onPressed: () => _quickPlay(item),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.15),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        elevation: 0,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        border: PlixTheme.isRainbow ? Border.all(color: const Color(0xFF0070F3).withOpacity(0.4)) : null,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      icon: const Icon(Icons.info_outline_rounded, size: 18),
-                      label: const Text('Details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      onPressed: () => _openDetails(item),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.info_outline_rounded, size: 18),
+                        label: const Text('Details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        onPressed: () => _openDetails(item),
+                      ),
                     ),
                   ],
                 ),
@@ -2448,11 +2511,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 alignment: WrapAlignment.center,
                                 children: [
                                   PlixButton(
-                                    label: 'Downloads',
-                                    icon: const Icon(Icons.download_done_rounded, size: 18),
+                                    label: 'Customize Servers',
+                                    icon: const Icon(Icons.tune_rounded, size: 18),
                                     isPrimary: true,
                                     autofocus: true,
+                                    focusNode: _errorActionFocusNode,
+                                    onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                                    onRight: () => _errorRetryFocusNode.requestFocus(),
+                                    onDown: () => _errorRetryFocusNode.requestFocus(),
+                                    onPressed: _switchServer,
+                                  ),
+                                  PlixButton(
+                                    label: 'Downloads',
+                                    icon: const Icon(Icons.download_done_rounded, size: 18),
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                    onLeft: () => _errorActionFocusNode.requestFocus(),
+                                    onRight: () => _errorRetryFocusNode.requestFocus(),
                                     onPressed: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -2469,16 +2543,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   PlixButton(
                                     label: 'Retry',
                                     icon: const Icon(Icons.refresh_rounded, size: 18),
+                                    focusNode: _errorRetryFocusNode,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    onLeft: () => _errorActionFocusNode.requestFocus(),
+                                    onUp: () => _errorActionFocusNode.requestFocus(),
                                     onPressed: _initData,
                                   ),
                                 ],
                               ),
                             ] else ...[
-                              const SizedBox(height: 16),
-                              PlixButton(
-                                label: 'Retry',
-                                onPressed: _initData,
+                              const SizedBox(height: 20),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  PlixButton(
+                                    label: 'Customize Servers',
+                                    icon: const Icon(Icons.tune_rounded, size: 18),
+                                    isPrimary: true,
+                                    autofocus: true,
+                                    focusNode: _errorActionFocusNode,
+                                    onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                                    onRight: () => _errorRetryFocusNode.requestFocus(),
+                                    onDown: () => _errorRetryFocusNode.requestFocus(),
+                                    onPressed: _switchServer,
+                                  ),
+                                  PlixButton(
+                                    label: 'Retry',
+                                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                                    focusNode: _errorRetryFocusNode,
+                                    onLeft: () => _errorActionFocusNode.requestFocus(),
+                                    onUp: () => _errorActionFocusNode.requestFocus(),
+                                    onPressed: _initData,
+                                  ),
+                                ],
                               ),
                             ],
                           ],
@@ -2543,13 +2642,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Scaffold(
           backgroundColor: PlixTheme.background,
           bottomNavigationBar: _buildPhoneBottomNav(),
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildMobileTopHeader(),
-                Expanded(child: mainContentArea),
-              ],
+          body: Container(
+            decoration: PlixTheme.backgroundDecoration,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _buildMobileTopHeader(),
+                  Expanded(child: mainContentArea),
+                ],
+              ),
             ),
           ),
         ),
@@ -2565,7 +2667,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
       child: Scaffold(
         backgroundColor: PlixTheme.background,
-        body: ExcludeFocus(
+        body: Container(
+          decoration: PlixTheme.backgroundDecoration,
+          child: ExcludeFocus(
           excluding: _isUpdateDialogOpen || _isWelcomeTourOpen,
           child: Focus(
           canRequestFocus: false,
@@ -2641,6 +2745,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onSwitchServer: _switchServer,
                     onSignOut: _signOut,
                     onNavigateRight: () {
+                      if (_errorMessage != null) {
+                        if (_errorActionFocusNode.canRequestFocus) {
+                          _errorActionFocusNode.requestFocus();
+                        }
+                        return;
+                      }
                       if (_lastFocusedContentNode != null &&
                           _lastFocusedContentNode!.canRequestFocus &&
                           _lastFocusedContentNode!.context != null &&
@@ -2667,6 +2777,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ),
+    ),
     ),
     );
   }

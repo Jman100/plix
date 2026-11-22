@@ -109,8 +109,8 @@ class ProfileAvatarWidget extends StatelessWidget {
     } else {
       innerIcon = Image.asset(
         assetPath,
-        width: size * 0.82,
-        height: size * 0.82,
+        width: size * 0.77,
+        height: size * 0.77,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return Icon(
@@ -130,14 +130,16 @@ class ProfileAvatarWidget extends StatelessWidget {
         borderRadius: isCircular ? null : BorderRadius.circular(effectiveRadius),
         gradient: gradientOption.gradient,
         boxShadow: shadows,
-        border: Border.all(
-          color: isFocused
-              ? PlixTheme.plexGold
-              : isSelected
-                  ? PlixTheme.plexGold.withOpacity(0.9)
-                  : Colors.white.withOpacity(0.20),
-          width: isFocused ? 2.5 : (isSelected ? 2.0 : 1.2),
-        ),
+        border: isFocused && PlixTheme.isRainbowBorder
+            ? PlixTheme.rainbowOutlineBorder(width: 2.5)
+            : Border.all(
+                color: isFocused
+                    ? PlixTheme.plexGold
+                    : isSelected
+                        ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold.withOpacity(0.9))
+                        : Colors.white.withOpacity(0.20),
+                width: isFocused ? 2.5 : (isSelected ? 2.0 : 1.2),
+              ),
       ),
       child: isCircular
           ? ClipOval(child: Center(child: innerIcon))

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
+import '../services/plix_device_helper.dart';
 
 class PlixButton extends StatefulWidget {
   final VoidCallback onPressed;
@@ -133,7 +134,7 @@ class _PlixButtonState extends State<PlixButton> {
         : (widget.textColor != null
             ? widget.textColor!
             : (widget.isPrimary
-                ? Colors.black
+                ? (PlixTheme.isRainbow ? Colors.white : Colors.black)
                 : (isHighlighted ? PlixTheme.textPrimary : PlixTheme.textSecondary)));
 
     final borderColor = isHighlighted
@@ -144,6 +145,13 @@ class _PlixButtonState extends State<PlixButton> {
                 : (PlixTheme.isOLED
                     ? PlixTheme.cardBorder
                     : (isGlass ? const Color(0x38FFFFFF) : Colors.transparent))));
+
+    final BoxBorder border = isHighlighted && PlixTheme.isRainbowBorder
+        ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+        : Border.all(
+            color: borderColor,
+            width: 2.0,
+          );
 
     final glowColor = widget.borderColor ??
         widget.highlightColor ??
@@ -217,7 +225,7 @@ class _PlixButtonState extends State<PlixButton> {
           },
           borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
             width: widget.width,
             alignment: Alignment.center,
             padding: widget.padding,
@@ -229,19 +237,17 @@ class _PlixButtonState extends State<PlixButton> {
                     borderWidth: 1.2,
                   )
                 : BoxDecoration(
-                    color: bgColor,
+                    color: (widget.isPrimary && PlixTheme.isRainbow) ? null : bgColor,
+                    gradient: (widget.isPrimary && PlixTheme.isRainbow) ? PlixTheme.rainbowButtonGradient : null,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: borderColor,
-                      width: 2.0,
-                    ),
-                    boxShadow: isHighlighted
+                    border: border,
+                    boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                         ? [
                             BoxShadow(
-                              color: glowColor.withOpacity(0.4),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            )
+                              color: glowColor.withOpacity(0.35),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
                           ]
                         : [],
                   ),

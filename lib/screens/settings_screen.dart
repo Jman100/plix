@@ -1114,7 +1114,7 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
         },
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
+          duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 140),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: isGlass
               ? PlixTheme.glassBoxDecoration(
@@ -1128,15 +1128,17 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                       ? PlixTheme.cardFocused
                       : (PlixTheme.isOLED ? const Color(0xFF000000) : PlixTheme.card),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isHighlighted ? accent : PlixTheme.cardBorder,
-                    width: isHighlighted ? 2.0 : 1.2,
+                  border: PlixTheme.outlineBorder(
+                    isHighlighted: isHighlighted,
+                    unhighlightColor: PlixTheme.cardBorder,
+                    highlightWidth: 2.0,
+                    unhighlightWidth: 1.2,
                   ),
-                  boxShadow: isHighlighted
+                  boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
                       ? [
                           BoxShadow(
-                            color: accent.withOpacity(0.3),
-                            blurRadius: 10,
+                            color: accent.withOpacity(0.35),
+                            blurRadius: 8,
                             spreadRadius: 1,
                           )
                         ]
@@ -1237,16 +1239,21 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isHighlighted ? accent : PlixTheme.surface,
+                              color: isHighlighted
+                                  ? (PlixTheme.isRainbow ? null : accent)
+                                  : PlixTheme.surface,
+                              gradient: (isHighlighted && PlixTheme.isRainbow) ? PlixTheme.rainbowButtonGradient : null,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isHighlighted ? accent : PlixTheme.cardBorder,
-                              ),
+                              border: isHighlighted && PlixTheme.isRainbow
+                                  ? PlixTheme.rainbowOutlineBorder(width: 1.2)
+                                  : Border.all(
+                                      color: isHighlighted ? accent : PlixTheme.cardBorder,
+                                    ),
                             ),
                             child: Text(
                               widget.trailing!,
                               style: TextStyle(
-                                color: isHighlighted ? Colors.black : Colors.white,
+                                color: isHighlighted ? (PlixTheme.isRainbow ? Colors.white : Colors.black) : Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),

@@ -474,99 +474,94 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
 
 
-      if (mounted) {
-
-        setState(() {
-
-          _items = aggregatedItems;
-
-          _isLoading = false;
-
-        });
-
-        _preResolveItems();
-
-        if (_lastSelectedIndex != null) {
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-
-            if (_focusNodes.containsKey(_lastSelectedIndex)) {
-
-              _focusNodes[_lastSelectedIndex]?.requestFocus();
-
-            }
-
-          });
-
+      await PlexMediaService.loadPersistedWatchlistCache();
+      for (int i = 0; i < aggregatedItems.length; i++) {
+        final it = aggregatedItems[i];
+        final isJellyfin = it.server?.isJellyfin == true;
+        final isCloud = int.tryParse(it.ratingKey) == null && !isJellyfin;
+        if (isCloud || it.librarySectionId == null) {
+          final cached = PlexMediaService.getCachedResolvedItem(it.guid ?? it.ratingKey);
+          if (cached != null) {
+            aggregatedItems[i] = cached;
+          }
         }
-
       }
-
-    } catch (e) {
 
       if (mounted) {
-
         setState(() {
-
+          _items = aggregatedItems;
           _isLoading = false;
-
-          _errorMessage = 'Failed to load Watchlist: $e';
-
         });
-
+        _preResolveItems();
+        if (_lastSelectedIndex != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_focusNodes.containsKey(_lastSelectedIndex)) {
+              _focusNodes[_lastSelectedIndex]?.requestFocus();
+            }
+          });
+        }
       }
-
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to load Watchlist: ';
+        });
+      }
     }
-
   }
-
-
 
   void _preResolveItems() async {
-
+    final unresolvedIndices = <int>[];
     for (int i = 0; i < _items.length; i++) {
-
-      if (!mounted) return;
-
       final it = _items[i];
-
       final isJellyfin = it.server?.isJellyfin == true;
-
       final isCloud = int.tryParse(it.ratingKey) == null && !isJellyfin;
-
       if (isCloud || it.librarySectionId == null) {
-
-        try {
-
-          final resolved = await _mediaService.resolveWatchlistItem(
-
-            it,
-
-            servers: _availableServers,
-
-            serverService: widget.serverService,
-
-            authService: widget.authService,
-
-          );
-
-          if (mounted && (resolved.ratingKey != it.ratingKey || resolved.server != it.server)) {
-
-            setState(() {
-
-              _items[i] = resolved;
-
-            });
-
-          }
-
-        } catch (_) {}
-
+        unresolvedIndices.add(i);
       }
-
     }
 
+    if (unresolvedIndices.isEmpty) return;
+
+    const chunkSize = 6;
+    for (int i = 0; i < unresolvedIndices.length; i += chunkSize) {
+      if (!mounted) return;
+      final chunk = unresolvedIndices.sublist(
+        i,
+        (i + chunkSize > unresolvedIndices.length) ? unresolvedIndices.length : i + chunkSize,
+      );
+      final results = await Future.wait(chunk.map((idx) async {
+        try {
+          final resolved = await _mediaService.resolveWatchlistItem(
+            _items[idx],
+            servers: _availableServers,
+            serverService: widget.serverService,
+            authService: widget.authService,
+          );
+          return MapEntry(idx, resolved);
+        } catch (_) {
+          return null;
+        }
+      }));
+
+      if (!mounted) return;
+      bool changed = false;
+      for (final res in results) {
+        if (res != null) {
+          final old = _items[res.key];
+          if (res.value.ratingKey != old.ratingKey || res.value.server != old.server) {
+            _items[res.key] = res.value;
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        setState(() {});
+      }
+    }
   }
+
 
 
 
@@ -574,7 +569,12 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
     _lastSelectedIndex = index;
 
-    PlexServer effectiveServer = item.server ?? widget.server;
+    PlexMediaItem effectiveItem = item;
+    final cachedItem = PlexMediaService.getCachedResolvedItem(item.guid ?? item.ratingKey);
+    if (cachedItem != null) {
+      effectiveItem = cachedItem;
+    }
+    PlexServer effectiveServer = effectiveItem.server ?? widget.server;
 
     if (effectiveServer.clientIdentifier == widget.server.clientIdentifier &&
 

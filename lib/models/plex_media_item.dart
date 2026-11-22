@@ -1541,7 +1541,48 @@ class PlexMediaItem {
       librarySectionTitle: parsedLibrarySectionTitle,
       ancestorIds: parsedAncestors,
       clearLogo: parsedClearLogo,
+      server: (json['server'] is Map<String, dynamic>)
+          ? PlexServer.fromJson(json['server'] as Map<String, dynamic>)
+          : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ratingKey': ratingKey,
+      'key': key,
+      'title': title,
+      'titleSort': titleSort,
+      'type': type,
+      'summary': summary,
+      'year': year,
+      'duration': duration,
+      'viewOffset': viewOffset,
+      'viewCount': viewCount,
+      'thumb': thumb,
+      'art': art,
+      'theme': theme,
+      'serverId': serverId,
+      'parentRatingKey': parentRatingKey,
+      'parentTitle': parentTitle,
+      'parentIndex': parentIndex,
+      'grandparentRatingKey': grandparentRatingKey,
+      'grandparentTitle': grandparentTitle,
+      'index': index,
+      'videoResolution': videoResolution,
+      'videoCodec': videoCodec,
+      'audioCodec': audioCodec,
+      'partKey': partKey,
+      'partId': partId,
+      'guid': guid,
+      'guids': guids.map((g) => {'id': g}).toList(),
+      'genres': genres.map((g) => {'tag': g}).toList(),
+      'grandparentGuid': grandparentGuid,
+      'librarySectionId': librarySectionId,
+      'librarySectionTitle': librarySectionTitle,
+      'clearLogo': clearLogo,
+      if (server != null) 'server': server!.toJson(),
+    };
   }
 
   PlexMediaItem copyWith({

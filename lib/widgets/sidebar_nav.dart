@@ -6,6 +6,7 @@ import '../models/plix_profile.dart';
 import 'profile_avatar_widget.dart';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
@@ -407,13 +408,21 @@ class _SidebarNavState extends State<SidebarNav> {
                         valueListenable: PlixTheme.themeRevision,
                         builder: (context, _, __) {
                           final accent = PlixTheme.plexGold;
-                          return Container(
+                          final isTranslucent = PlixTheme.isGlass || PlixTheme.isGlassSidebar;
+                          final shouldBlur = isTranslucent && PlixTheme.isGlassSidebarBlur;
+                          final menuCard = Container(
                             width: isGuest ? 200 : 215,
                             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
                             decoration: BoxDecoration(
-                              color: PlixTheme.surface,
+                              color: isTranslucent ? null : PlixTheme.surface,
+                              gradient: isTranslucent ? PlixTheme.glassSidebarGradient() : null,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: accent.withOpacity(0.5), width: 1.5),
+                              border: Border.all(
+                                color: isTranslucent
+                                    ? Colors.white.withOpacity(0.35)
+                                    : accent.withOpacity(0.5),
+                                width: 1.5,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: accent.withOpacity(0.25),
@@ -494,6 +503,19 @@ class _SidebarNavState extends State<SidebarNav> {
                               ],
                             ),
                           );
+                          if (shouldBlur) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: BackdropFilter(
+                                filter: ui.ImageFilter.blur(
+                                  sigmaX: PlixTheme.glassSidebarBlurSigma,
+                                  sigmaY: PlixTheme.glassSidebarBlurSigma,
+                                ),
+                                child: menuCard,
+                              ),
+                            );
+                          }
+                          return menuCard;
                         },
                       ),
                     ),
@@ -645,7 +667,11 @@ class _SidebarNavState extends State<SidebarNav> {
             }
           }
         },
-      child: AnimatedContainer(
+      child: ValueListenableBuilder<int>(
+        valueListenable: PlixTheme.themeRevision,
+        builder: (context, _, __) {
+          final shouldBlur = (PlixTheme.isGlass || PlixTheme.isGlassSidebar) && PlixTheme.isGlassSidebarBlur;
+          final sidebarBody = AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         clipBehavior: Clip.hardEdge,
@@ -653,36 +679,20 @@ class _SidebarNavState extends State<SidebarNav> {
         decoration: BoxDecoration(
           color: PlixTheme.isOLED
               ? const Color(0xFF000000)
-              : (PlixTheme.isGlass
+              : ((PlixTheme.isGlass || PlixTheme.isGlassSidebar)
                   ? null
                   : PlixTheme.surface),
-          gradient: PlixTheme.isGlass
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0x4D1A2942),
-                    Color(0x2E101B2E),
-                    Color(0x1F0A121F),
-                  ],
-                )
+          gradient: (PlixTheme.isGlass || PlixTheme.isGlassSidebar)
+              ? PlixTheme.glassSidebarGradient()
               : null,
-          border: PlixTheme.isGlass
+          border: (PlixTheme.isGlass || PlixTheme.isGlassSidebar)
               ? const Border(right: BorderSide(color: Color(0x66FFFFFF), width: 1.5))
               : (PlixTheme.isOLED
                   ? Border(right: BorderSide(color: PlixTheme.cardBorder, width: 1.0))
                   : (PlixTheme.isCyberpunk
                       ? const Border(right: BorderSide(color: Color(0x66FF007F), width: 1.2))
                       : null)),
-          boxShadow: PlixTheme.isGlass
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.55),
-                    blurRadius: 24,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : null,
+          boxShadow: null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -747,6 +757,7 @@ class _SidebarNavState extends State<SidebarNav> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
+                clipBehavior: Clip.none,
                 child: SizedBox(
                   width: effectiveExpanded ? (245.0 - 28.0) : (72.0 - 20.0),
                   child: Row(
@@ -851,22 +862,24 @@ class _SidebarNavState extends State<SidebarNav> {
                                       borderRadius: BorderRadius.circular(10),
                                       child: AnimatedContainer(
                                         key: _profileAvatarKey,
-                                        duration: const Duration(milliseconds: 160),
+                                        duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 160),
+                                        margin: const EdgeInsets.only(right: 3),
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: isFocused
                                               ? PlixTheme.plexGold.withOpacity(0.18)
                                               : Colors.transparent,
                                           borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(
-                                            color: isFocused ? PlixTheme.plexGold : Colors.transparent,
-                                            width: isFocused ? 2.0 : 1.0,
-                                          ),
-                                          boxShadow: isFocused
+                                          border: isFocused
+                                              ? (PlixTheme.isRainbowBorder
+                                                  ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+                                                  : Border.all(color: PlixTheme.plexGold, width: 2.0))
+                                              : Border.all(color: Colors.transparent, width: 2.0),
+                                          boxShadow: (isFocused && !PlixTheme.isRainbowBorder)
                                               ? [
                                                   BoxShadow(
                                                     color: PlixTheme.plexGold.withOpacity(0.35),
-                                                    blurRadius: 10,
+                                                    blurRadius: 8,
                                                     spreadRadius: 1,
                                                   ),
                                                 ]
@@ -1088,6 +1101,7 @@ class _SidebarNavState extends State<SidebarNav> {
                           ? SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               physics: const NeverScrollableScrollPhysics(),
+                              clipBehavior: Clip.none,
                               child: SizedBox(
                                 width: 245.0 - 20.0,
                                 child: Row(
@@ -1342,6 +1356,20 @@ class _SidebarNavState extends State<SidebarNav> {
             ),
           ],
         ),
+      );
+      if (shouldBlur) {
+        return ClipRect(
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(
+              sigmaX: PlixTheme.glassSidebarBlurSigma,
+              sigmaY: PlixTheme.glassSidebarBlurSigma,
+            ),
+            child: sidebarBody,
+          ),
+        );
+      }
+      return sidebarBody;
+        },
       ),
     ),
     );
@@ -1425,7 +1453,7 @@ class _NavItemState extends State<_NavItem> {
               final target = (currentOffset + (itemBottom - viewportHeight * 0.80)).clamp(0.0, scrollable.position.maxScrollExtent);
               scrollable.position.animateTo(
                 target,
-                duration: const Duration(milliseconds: 180),
+                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
               );
             } else if (itemTop < 12) {
@@ -1433,7 +1461,7 @@ class _NavItemState extends State<_NavItem> {
               final target = (currentOffset + itemTop - 12).clamp(0.0, scrollable.position.maxScrollExtent);
               scrollable.position.animateTo(
                 target,
-                duration: const Duration(milliseconds: 180),
+                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
               );
             }
@@ -1476,13 +1504,16 @@ class _NavItemState extends State<_NavItem> {
     final fgColor = picked
         ? PlixTheme.plexGold
         : isHighlighted
-            ? Colors.black
+            ? (PlixTheme.isRainbowBorder ? Colors.white : Colors.black)
             : activeColor;
     final bgColor = picked
         ? PlixTheme.plexGold.withOpacity(0.16)
         : isHighlighted
-            ? PlixTheme.plexGold
+            ? (PlixTheme.isRainbowBorder ? PlixTheme.cardFocused : PlixTheme.plexGold)
             : Colors.transparent;
+    final border = isHighlighted && PlixTheme.isRainbowBorder
+        ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+        : Border.all(color: Colors.transparent, width: 2.0);
     final shadows = picked
         ? <BoxShadow>[
             BoxShadow(
@@ -1574,11 +1605,12 @@ class _NavItemState extends State<_NavItem> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
                   color: bgColor,
                   borderRadius: BorderRadius.circular(8),
+                  border: border,
                   boxShadow: shadows,
                 ),
                 child: CustomPaint(
@@ -1766,7 +1798,7 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
 
     Color backgroundColor;
     Color iconColor;
-    Border border;
+    BoxBorder border;
     List<BoxShadow>? boxShadow;
 
     if (isTv) {
@@ -1783,16 +1815,24 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
             ),
           ];
         } else {
-          backgroundColor = Colors.transparent;
-          iconColor = PlixTheme.plexGold;
-          border = Border.all(color: PlixTheme.plexGold, width: 2.0);
-          boxShadow = [
-            BoxShadow(
-              color: PlixTheme.plexGold.withOpacity(0.4),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ];
+          backgroundColor = isHighlighted && PlixTheme.isRainbowBorder
+              ? PlixTheme.cardFocused
+              : Colors.transparent;
+          iconColor = isHighlighted && PlixTheme.isRainbowBorder
+              ? Colors.white
+              : PlixTheme.plexGold;
+          border = PlixTheme.isRainbowBorder
+              ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+              : Border.all(color: PlixTheme.plexGold, width: 2.0);
+          boxShadow = (isHighlighted && !PlixTheme.isRainbowBorder)
+              ? [
+                  BoxShadow(
+                    color: PlixTheme.plexGold.withOpacity(0.4),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null;
         }
       } else {
         if (widget.isActive) {
@@ -1865,7 +1905,8 @@ class _ReorderToggleButtonState extends State<_ReorderToggleButton> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onToggle,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(right: 3),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: backgroundColor,
@@ -1971,8 +2012,14 @@ class _ProfilePopupMenuItemState extends State<_ProfilePopupMenuItem> {
                   height: 40,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
-                    color: isFocused ? PlixTheme.plexGold : Colors.transparent,
+                    color: isFocused
+                        ? (PlixTheme.isRainbowBorder ? PlixTheme.cardFocused : PlixTheme.plexGold)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
+                    border: isFocused && PlixTheme.isRainbowBorder
+                        ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+                        : Border.all(color: Colors.transparent, width: 2.0),
+                    boxShadow: null,
                   ),
                   child: Row(
                     children: [
@@ -1980,7 +2027,9 @@ class _ProfilePopupMenuItemState extends State<_ProfilePopupMenuItem> {
                         widget.icon,
                         size: 20,
                         color: isFocused
-                            ? (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                            ? (PlixTheme.isRainbowBorder
+                                ? Colors.white
+                                : (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white))
                             : PlixTheme.plexGold.withOpacity(0.85),
                       ),
                       const SizedBox(width: 10),
@@ -1991,7 +2040,7 @@ class _ProfilePopupMenuItemState extends State<_ProfilePopupMenuItem> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isFocused
-                                ? (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                                ? (PlixTheme.isRainbowBorder ? Colors.white : (PlixTheme.plexGold.computeLuminance() > 0.5 ? Colors.black : Colors.white))
                                 : PlixTheme.textPrimary,
                             fontSize: 14,
                             fontWeight: isFocused ? FontWeight.bold : FontWeight.w500,

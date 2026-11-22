@@ -1,24 +1,16 @@
 import 'dart:io';
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plex_library.dart';
-
 import '../models/plex_media_item.dart';
-
 import '../models/plex_server.dart';
-
 import '../models/subtitle_search_result.dart';
-
 import 'jellyfin_media_service.dart';
-
 import 'plix_device_helper.dart';
-
 import 'plex_auth_service.dart';
-
 import 'plex_server_service.dart';
-
+import 'profile_service.dart';
 import 'update_service.dart';
 
 
@@ -27,6 +19,55 @@ class PlexMediaService {
   static final http.Client _defaultClient = http.Client();
   static final Map<String, PlexMediaService> _instanceCache = {};
   static final Map<String, PlexMediaItem> _resolvedWatchlistCache = {};
+  static bool _watchlistCacheLoaded = false;
+  static const String _prefWatchlistResolvedCacheKey = 'plix_watchlist_resolved_cache';
+
+  static Future<void> loadPersistedWatchlistCache() async {
+    if (_watchlistCacheLoaded) return;
+    _watchlistCacheLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pKey = ProfileService.key(_prefWatchlistResolvedCacheKey);
+      final raw = prefs.getString(pKey);
+      if (raw != null && raw.isNotEmpty) {
+        final Map<String, dynamic> map = jsonDecode(raw) as Map<String, dynamic>;
+        for (final entry in map.entries) {
+          try {
+            final itemMap = entry.value as Map<String, dynamic>;
+            final item = PlexMediaItem.fromJson(itemMap);
+            _resolvedWatchlistCache[entry.key] = item;
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _persistResolvedItem(String cacheKey, PlexMediaItem item) async {
+    _resolvedWatchlistCache[cacheKey] = item;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pKey = ProfileService.key(_prefWatchlistResolvedCacheKey);
+      final raw = prefs.getString(pKey);
+      Map<String, dynamic> map = {};
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          map = jsonDecode(raw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      map[cacheKey] = item.toJson();
+      if (map.length > 300) {
+        final keysToRemove = map.keys.take(map.length - 300).toList();
+        for (final k in keysToRemove) {
+          map.remove(k);
+        }
+      }
+      await prefs.setString(pKey, jsonEncode(map));
+    } catch (_) {}
+  }
+
+  static PlexMediaItem? getCachedResolvedItem(String key) {
+    return _resolvedWatchlistCache[key];
+  }
 
   final PlexServer server;
   final http.Client _client;
@@ -34,6 +75,12 @@ class PlexMediaService {
 
   PlexMediaService({required this.server, http.Client? client})
       : _client = client ?? _defaultClient;
+
+  Future<void> sendSessionPing() async {
+    if (server.isJellyfin) {
+      await _jfService.sendSessionPing();
+    }
+  }
 
   static PlexMediaService forServer(PlexServer server, [http.Client? client]) {
     final key = server.clientIdentifier;
@@ -3723,6 +3770,7 @@ class PlexMediaService {
     final cacheKey = watchlistItem.guid?.isNotEmpty == true
         ? watchlistItem.guid!
         : watchlistItem.ratingKey;
+    await loadPersistedWatchlistCache();
     if (_resolvedWatchlistCache.containsKey(cacheKey)) {
       final cached = _resolvedWatchlistCache[cacheKey]!;
       if (cached.ratingKey != watchlistItem.ratingKey &&
@@ -3741,7 +3789,7 @@ class PlexMediaService {
         (watchlistItem.server?.activeConnectionUri?.isNotEmpty ?? false) &&
         (watchlistItem.partKey?.isNotEmpty ?? false);
     if (isPlexLocal || isJellyfinLocal) {
-      _resolvedWatchlistCache[cacheKey] = watchlistItem;
+      _persistResolvedItem(cacheKey, watchlistItem);
       return watchlistItem;
     }
 
@@ -3795,6 +3843,32 @@ class PlexMediaService {
       if (srv.activeConnectionUri == null || srv.activeConnectionUri!.isEmpty) return null;
       try {
         final srvService = PlexMediaService(server: srv);
+
+        // Direct Plex Media Server GUID lookup (fast path ~50ms)
+        if (!srv.isJellyfin && targetGuids.isNotEmpty) {
+          for (final tg in targetGuids) {
+            try {
+              final guidUrl = Uri.parse(
+                '${srv.activeConnectionUri}/library/all?guid=${Uri.encodeComponent(tg)}&X-Plex-Token=${srv.accessToken}',
+              );
+              final guidResp = await _client.get(guidUrl, headers: {'Accept': 'application/json'}).timeout(const Duration(seconds: 3));
+              if (guidResp.statusCode == 200) {
+                final guidData = jsonDecode(guidResp.body) as Map<String, dynamic>;
+                final mc = guidData['MediaContainer'] as Map<String, dynamic>? ?? {};
+                final md = mc['Metadata'] as List<dynamic>? ?? [];
+                if (md.isNotEmpty) {
+                  final matchedItem = PlexMediaItem.fromJson(md.first as Map<String, dynamic>);
+                  try {
+                    final localFull = await srvService.getItemMetadata(matchedItem.ratingKey);
+                    return localFull.copyWith(server: srv, serverId: srv.clientIdentifier);
+                  } catch (_) {
+                    return matchedItem.copyWith(server: srv, serverId: srv.clientIdentifier);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        }
 
         bool isMatchCandidate(PlexMediaItem r) {
           final isSameType = (watchlistItem.isMovie && r.isMovie) ||
@@ -3918,7 +3992,7 @@ class PlexMediaService {
       final matches = await Future.wait(verified.map((s) => checkServer(s)));
       for (final match in matches) {
         if (match != null) {
-          _resolvedWatchlistCache[cacheKey] = match;
+          _persistResolvedItem(cacheKey, match);
           return match;
         }
       }
@@ -3947,7 +4021,7 @@ class PlexMediaService {
           final matches = await Future.wait(nowVerified.map((s) => checkServer(s)));
           for (final match in matches) {
             if (match != null) {
-              _resolvedWatchlistCache[cacheKey] = match;
+              _persistResolvedItem(cacheKey, match);
               return match;
             }
           }

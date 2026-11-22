@@ -6,6 +6,7 @@ import '../models/plix_profile.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/profile_service.dart';
+import '../services/plix_device_helper.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/pin_dialog.dart';
 import '../widgets/profile_avatar_widget.dart';
@@ -382,24 +383,26 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
           onTap: () => _selectProfile(profile),
           customBorder: const CircleBorder(),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: isCardFocused
-                    ? PlixTheme.plexGold
-                    : isActive
-                        ? PlixTheme.plexGold.withOpacity(0.5)
-                        : Colors.transparent,
-                width: 3.0,
-              ),
-              boxShadow: isCardFocused
+              border: isCardFocused && PlixTheme.isRainbowBorder
+                  ? PlixTheme.rainbowOutlineBorder(width: 3.0)
+                  : Border.all(
+                      color: isCardFocused
+                          ? PlixTheme.plexGold
+                          : isActive
+                              ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold.withOpacity(0.5))
+                              : Colors.transparent,
+                      width: 3.0,
+                    ),
+              boxShadow: (isCardFocused && !PlixTheme.isRainbowBorder)
                   ? [
                       BoxShadow(
-                        color: PlixTheme.plexGold.withOpacity(0.5),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+                        color: PlixTheme.plexGold.withOpacity(0.4),
+                        blurRadius: 12,
+                        spreadRadius: 1,
                       ),
                     ]
                   : null,
@@ -486,9 +489,11 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                     ? PlixTheme.plexGold.withOpacity(0.25)
                     : PlixTheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isEditFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                  width: 1.5,
+                border: PlixTheme.outlineBorder(
+                  isHighlighted: isEditFocused,
+                  unhighlightColor: PlixTheme.cardBorder,
+                  highlightWidth: 1.5,
+                  unhighlightWidth: 1.0,
                 ),
               ),
               child: Row(
@@ -528,7 +533,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
           onTap: _openAddProfile,
           customBorder: const CircleBorder(),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 200),
             width: 118,
             height: 118,
             decoration: BoxDecoration(
@@ -536,16 +541,18 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                   ? const Color(0xFF22252C)
                   : PlixTheme.surface.withOpacity(0.5),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: isAddFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                width: 2.5,
-              ),
-              boxShadow: isAddFocused
+              border: isAddFocused && PlixTheme.isRainbowBorder
+                  ? PlixTheme.rainbowOutlineBorder(width: 2.5)
+                  : Border.all(
+                      color: isAddFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
+                      width: 2.5,
+                    ),
+              boxShadow: (isAddFocused && !PlixTheme.isRainbowBorder)
                   ? [
                       BoxShadow(
                         color: PlixTheme.plexGold.withOpacity(0.40),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+                        blurRadius: 12,
+                        spreadRadius: 1,
                       ),
                     ]
                   : null,

@@ -272,12 +272,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const PlixAppLogo(
-                  size: 110,
-                  showWordmark: true,
-                  borderRadius: 28,
+                  size: 96,
+                  borderRadius: 24,
                   glow: true,
                 ),
                 const SizedBox(height: 18),
+                const PlixWordmark(
+                  fontSize: 34,
+                  letterSpacing: 1.5,
+                  hasShadow: true,
+                ),
+                const SizedBox(height: 10),
                 const Text(
                   'Universal Media Client',
                   style: TextStyle(
@@ -287,7 +292,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 44),
                 SizedBox(
                   width: 24,
                   height: 24,

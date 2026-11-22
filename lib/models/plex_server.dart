@@ -59,6 +59,7 @@ class PlexServer {
   bool isPinned;
   final String serverType; // 'plex' or 'jellyfin'
   final String? userId; // Jellyfin User ID
+  bool isAuthExpired;
 
   bool get isJellyfin => serverType == 'jellyfin';
   bool get isPlex => serverType == 'plex';
@@ -75,6 +76,7 @@ class PlexServer {
     this.isPinned = false,
     this.serverType = 'plex',
     this.userId,
+    this.isAuthExpired = false,
   });
 
   factory PlexServer.fromJson(Map<String, dynamic> json) {

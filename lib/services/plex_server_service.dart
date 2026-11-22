@@ -4,8 +4,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plex_server.dart';
 import '../models/plex_library.dart';
+import 'jellyfin_auth_service.dart';
 import 'plex_auth_service.dart';
+import 'plix_device_helper.dart';
 import 'profile_service.dart';
+import 'update_service.dart';
 
 class PlexServerService {
   final PlexAuthService authService;
@@ -189,12 +192,13 @@ class PlexServerService {
         }
       }
 
-      // Quick test for active connection first if present
+      // Quick test for active connection first if present (use generous 3.5s timeout)
       if (server.activeConnectionUri != null && server.activeConnectionUri!.isNotEmpty) {
         try {
           final res = await http.get(Uri.parse('${server.activeConnectionUri}/System/Info/Public'))
-              .timeout(const Duration(milliseconds: 1200));
+              .timeout(const Duration(milliseconds: 3500));
           if (res.statusCode == 200) {
+            _verifyJellyfinToken(server, server.activeConnectionUri!);
             return server.activeConnectionUri;
           }
         } catch (_) {}
@@ -204,7 +208,7 @@ class PlexServerService {
       final futures = candidates.map((uri) async {
         try {
           final testUrl = Uri.parse('$uri/System/Info/Public');
-          final res = await http.get(testUrl).timeout(const Duration(milliseconds: 1500));
+          final res = await http.get(testUrl).timeout(const Duration(seconds: 5));
           if (res.statusCode == 200) {
             return uri;
           }
@@ -215,31 +219,18 @@ class PlexServerService {
       final working = await _firstSuccess(futures.toList());
       if (working != null) {
         server.activeConnectionUri = working;
-        if (server.userId != null && server.userId!.isNotEmpty && server.accessToken.isNotEmpty) {
-          try {
-            final userRes = await http.get(
-              Uri.parse('$working/Users/${server.userId}?api_key=${server.accessToken}'),
-            ).timeout(const Duration(seconds: 3));
-            if (userRes.statusCode == 200) {
-              final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
-              final policy = userData['Policy'] as Map<String, dynamic>? ?? {};
-              final isAdmin = policy['IsAdministrator'] == true;
-              server.owned = isAdmin;
-              await saveJellyfinServer(server);
-            }
-          } catch (_) {}
-        }
+        await _verifyJellyfinToken(server, working);
         return working;
       }
 
-      if (fallbackToFirstCandidate && candidates.isNotEmpty) {
+      if (candidates.isNotEmpty) {
+        // Fall back to candidate URI rather than clearing to null, so transient latency does not mark server offline
         server.activeConnectionUri = candidates.first;
         return server.activeConnectionUri;
       }
       server.activeConnectionUri = null;
       return null;
     }
-
     // Plex Server connection resolution
     // First, test existing activeConnectionUri with short timeout
     final token = server.accessToken.isNotEmpty
@@ -313,6 +304,36 @@ class PlexServerService {
     }
     server.activeConnectionUri = null;
     return null;
+  }
+
+  // Helper to verify Jellyfin session token
+  Future<void> _verifyJellyfinToken(PlexServer srv, String baseUri) async {
+    if (srv.userId == null || srv.userId!.isEmpty || srv.accessToken.isEmpty) return;
+    try {
+      final authHeader = JellyfinAuthService.buildAuthHeader(
+        clientId: srv.clientIdentifier,
+        clientName: PlixDeviceHelper.clientName,
+        version: UpdateService.currentVersion,
+        token: srv.accessToken,
+      );
+      final userRes = await http.get(
+        Uri.parse('/Users/'),
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 4));
+      if (userRes.statusCode == 200) {
+        final userData = jsonDecode(userRes.body) as Map<String, dynamic>;
+        final policy = userData['Policy'] as Map<String, dynamic>? ?? {};
+        final isAdmin = policy['IsAdministrator'] == true;
+        srv.owned = isAdmin;
+        srv.isAuthExpired = false;
+        await saveJellyfinServer(srv);
+      } else if (userRes.statusCode == 401) {
+        srv.isAuthExpired = true;
+      }
+    } catch (_) {}
   }
 
   Future<Set<String>> getPinnedServerIds() async {

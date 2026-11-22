@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app_theme.dart';
@@ -76,6 +77,66 @@ class _PlixBackButtonState extends State<PlixBackButton> {
     }
     final isHighlighted = _isFocused || _isHovered;
 
+    final isGlass = PlixTheme.isGlassSidebar;
+    final isBlur = isGlass && PlixTheme.isGlassSidebarBlur;
+    final isRainbow = PlixTheme.isRainbow;
+    final alpha = PlixTheme.glassButtonAlpha;
+
+    final btnContainer = AnimatedContainer(
+      duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isRainbow && isHighlighted
+            ? null
+            : (isGlass
+                ? (isHighlighted
+                    ? PlixTheme.cardFocused.withAlpha((alpha + 0x40).clamp(0, 255))
+                    : Colors.black.withAlpha((alpha * 0.7).round()))
+                : (isHighlighted ? PlixTheme.cardFocused : Colors.black45)),
+        gradient: isRainbow && isHighlighted
+            ? (isGlass
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFFF007A).withAlpha((alpha + 0x40).clamp(0, 255)),
+                      const Color(0xFF7928CA).withAlpha((alpha + 0x40).clamp(0, 255)),
+                      const Color(0xFF0070F3).withAlpha((alpha + 0x40).clamp(0, 255)),
+                      const Color(0xFF00E676).withAlpha((alpha + 0x40).clamp(0, 255)),
+                      const Color(0xFFFFB300).withAlpha((alpha + 0x40).clamp(0, 255)),
+                    ],
+                  )
+                : PlixTheme.rainbowButtonGradient)
+            : null,
+        border: isHighlighted
+            ? (PlixTheme.isRainbowBorder
+                ? PlixTheme.rainbowOutlineBorder(width: 2.5)
+                : Border.all(color: PlixTheme.plexGold, width: 2.5))
+            : Border.all(
+                color: isGlass ? Colors.white.withOpacity(0.25) : Colors.white24,
+                width: 1.5,
+              ),
+        boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
+            ? [
+                BoxShadow(
+                  color: PlixTheme.plexGold.withOpacity(0.4),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        Icons.arrow_back,
+        color: isHighlighted
+            ? (isRainbow ? Colors.white : PlixTheme.plexGold)
+            : Colors.white,
+        size: 22,
+      ),
+    );
+
     return Focus(
       focusNode: _focusNode,
       autofocus: widget.autofocus,
@@ -120,32 +181,16 @@ class _PlixBackButtonState extends State<PlixBackButton> {
             }
           },
           borderRadius: BorderRadius.circular(24),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isHighlighted ? PlixTheme.cardFocused : Colors.black45,
-              border: Border.all(
-                color: isHighlighted ? PlixTheme.plexGold : Colors.white24,
-                width: isHighlighted ? 2.5 : 1.5,
-              ),
-              boxShadow: isHighlighted
-                  ? [
-                      BoxShadow(
-                        color: PlixTheme.plexGold.withOpacity(0.55),
-                        blurRadius: 14,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              Icons.arrow_back,
-              color: isHighlighted ? PlixTheme.plexGold : Colors.white,
-              size: 22,
-            ),
+          child: ClipOval(
+            child: isBlur
+                ? BackdropFilter(
+                    filter: ui.ImageFilter.blur(
+                      sigmaX: PlixTheme.glassSidebarBlurSigma,
+                      sigmaY: PlixTheme.glassSidebarBlurSigma,
+                    ),
+                    child: btnContainer,
+                  )
+                : btnContainer,
           ),
         ),
       ),

@@ -581,14 +581,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                           decoration: BoxDecoration(
                                             color: isBoxFocused ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7),
                                             borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: isBoxFocused ? PlixTheme.plexGold : PlixTheme.cardBorder,
-                                              width: isBoxFocused ? 2.5 : 1.0,
+                                            border: PlixTheme.outlineBorder(
+                                              isHighlighted: isBoxFocused,
+                                              unhighlightColor: PlixTheme.cardBorder,
+                                              highlightWidth: 2.5,
+                                              unhighlightWidth: 1.0,
                                             ),
                                             boxShadow: isBoxFocused
                                                 ? [
                                                     BoxShadow(
-                                                      color: PlixTheme.plexGold.withOpacity(0.35),
+                                                      color: (PlixTheme.isRainbowBorder ? Colors.transparent : PlixTheme.plexGold).withOpacity(0.35),
                                                       blurRadius: 10,
                                                       spreadRadius: 1,
                                                     ),
@@ -683,7 +685,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                           onTap: _togglePin,
                                           borderRadius: BorderRadius.circular(12),
                                           child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 180),
+                                            duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
                                             height: 48,
                                             padding: const EdgeInsets.symmetric(horizontal: 14),
                                             decoration: BoxDecoration(
@@ -691,16 +693,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                                   ? PlixTheme.plexGold.withOpacity(0.18)
                                                   : (_enablePin ? PlixTheme.surface : PlixTheme.surface.withOpacity(0.7)),
                                               borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: isFocused
-                                                    ? PlixTheme.plexGold
-                                                    : (_enablePin ? PlixTheme.plexGold.withOpacity(0.6) : PlixTheme.cardBorder),
-                                                width: isFocused ? 2.5 : 1.0,
+                                              border: PlixTheme.outlineBorder(
+                                                isHighlighted: isFocused,
+                                                unhighlightColor: _enablePin
+                                                    ? (PlixTheme.isRainbowBorder ? Colors.white70 : PlixTheme.plexGold.withOpacity(0.6))
+                                                    : PlixTheme.cardBorder,
+                                                highlightWidth: 2.5,
+                                                unhighlightWidth: 1.0,
                                               ),
                                               boxShadow: isFocused
                                                   ? [
                                                       BoxShadow(
-                                                        color: PlixTheme.plexGold.withOpacity(0.35),
+                                                        color: (PlixTheme.isRainbowBorder ? Colors.transparent : PlixTheme.plexGold).withOpacity(0.35),
                                                         blurRadius: 10,
                                                         spreadRadius: 1,
                                                       ),
@@ -1281,7 +1285,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
+                      duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
@@ -1289,21 +1293,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         color: isUploadFocused
                             ? PlixTheme.plexGold.withOpacity(0.2)
                             : PlixTheme.surface.withOpacity(0.8),
-                        border: Border.all(
-                          color: isUploadFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.25),
-                          width: isUploadFocused ? 2.5 : 1.2,
-                        ),
+                        border: isUploadFocused && PlixTheme.isRainbowBorder
+                            ? PlixTheme.rainbowOutlineBorder(width: 2.5)
+                            : Border.all(
+                                color: isUploadFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.25),
+                                width: isUploadFocused ? 2.5 : 1.2,
+                              ),
                         boxShadow: isUploadFocused
                             ? [
                                 BoxShadow(
-                                  color: PlixTheme.plexGold.withOpacity(0.85),
-                                  blurRadius: 28,
-                                  spreadRadius: 4.5,
-                                ),
-                                BoxShadow(
-                                  color: PlixTheme.plexGold.withOpacity(0.40),
-                                  blurRadius: 48,
-                                  spreadRadius: 8.0,
+                                  color: (PlixTheme.isRainbowBorder ? Colors.transparent : PlixTheme.plexGold).withOpacity(0.55),
+                                  blurRadius: 12,
+                                  spreadRadius: 2.0,
                                 ),
                               ]
                             : null,
@@ -1424,7 +1425,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               focusColor: Colors.transparent,
               onTap: () => setState(() => _selectedColorId = gradientOpt.id),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
+                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
@@ -1434,22 +1435,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     begin: gradientOpt.begin,
                     end: gradientOpt.end,
                   ),
-                  border: Border.all(
-                    color: isColorFocused
-                        ? PlixTheme.plexGold
-                        : (isSelected ? Colors.white : Colors.transparent),
-                    width: isColorFocused ? 2.5 : (isSelected ? 2.0 : 0.0),
-                  ),
+                  border: isColorFocused && PlixTheme.isRainbowBorder
+                      ? PlixTheme.rainbowOutlineBorder(width: 2.5)
+                      : Border.all(
+                          color: isColorFocused
+                              ? PlixTheme.plexGold
+                              : (isSelected ? Colors.white : Colors.transparent),
+                          width: isColorFocused ? 2.5 : (isSelected ? 2.0 : 0.0),
+                        ),
                   boxShadow: isColorFocused
                       ? [
                           BoxShadow(
-                            color: PlixTheme.plexGold.withOpacity(0.9),
-                            blurRadius: 18,
-                            spreadRadius: 3.5,
-                          ),
-                          BoxShadow(
-                            color: gradientOpt.colors.first.withOpacity(0.5),
-                            blurRadius: 12,
+                            color: (PlixTheme.isRainbowBorder ? Colors.transparent : PlixTheme.plexGold).withOpacity(0.55),
+                            blurRadius: 10,
                             spreadRadius: 2.0,
                           ),
                         ]
