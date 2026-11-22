@@ -1453,7 +1453,7 @@ class _NavItemState extends State<_NavItem> {
               final target = (currentOffset + (itemBottom - viewportHeight * 0.80)).clamp(0.0, scrollable.position.maxScrollExtent);
               scrollable.position.animateTo(
                 target,
-                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
+                duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
               );
             } else if (itemTop < 12) {
@@ -1461,7 +1461,7 @@ class _NavItemState extends State<_NavItem> {
               final target = (currentOffset + itemTop - 12).clamp(0.0, scrollable.position.maxScrollExtent);
               scrollable.position.animateTo(
                 target,
-                duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 180),
+                duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
               );
             }
