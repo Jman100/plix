@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "16700f227db4136dfd058ef8423241490f37f3cd68e9632395df20433921e087",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "7ab61e990d31872b8a7977a966d158032194656db5ae061363ca596704e0caec",
+    "linuxSha256": "18830bcaa3c3ec0b27e9de285a6748f1a946e55be63a192ee8f0bc9ce8e8d329",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "84885aa98705f73bb9f58fc650e28a4d3bd5dbb642932ecc59b155ca62504a34",
+    "linuxArchSha256": "e3d009b3fb771143a2469faba8458e76d20e6285421514b2077fdd9c016a2635",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "07c32f617ff313233e252e03f86f026a4f1fef76ceb9209f5f026d002c8337e6",
+    "linuxTarballSha256": "c6ebb4153d8c84e2a2b916579935ba1e58b65fc14ea1b129face51e849920bab",
     "releaseNotes": "- Issue Reporting & Seerr Integration: Added seamless media issue reporting for movies, TV shows, and individual episodes with direct Overseerr / Jellyseerr / Seerr server integration, per-server URL configuration, and automatic Plex/Jellyfin session authentication.\r\n- Details Page UI & Layout Improvements: Mobile landscape episode detail buttons uniformly span full width across rows. Movie and episode action circle buttons on mobile portrait are cleanly centered. Background backdrop fanart preserves true proportional aspect ratios without distortion.\r\n- Android TV Focus & Navigation Stability: Refined remote D-pad transitions on detail pages, seamless focus return from content rows back to the left navigation sidebar, and instant modal recentering on IME dismiss.\r\n- Mobile Dialog Refinements: Category chips and dialog margins adaptively size to ensure issue categories never truncate on compact mobile screens.\r\n- App Version Bump: v1.10.6 (versionCode 58)",
     "releaseDate": "2026-11-21"
 }
