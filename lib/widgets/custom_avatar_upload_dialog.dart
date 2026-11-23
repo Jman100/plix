@@ -403,6 +403,7 @@ class _CustomAvatarUploadDialogState extends State<CustomAvatarUploadDialog> {
                               child: PlixTvTextField(
                                 controller: _urlController,
                                 focusNode: _urlFocusNode,
+                                isUrl: true,
                                 hintText: 'https://example.com/avatar.png',
                                 imeAction: 'done',
                                 style: const TextStyle(

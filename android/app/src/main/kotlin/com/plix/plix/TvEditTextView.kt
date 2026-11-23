@@ -2,6 +2,7 @@ package com.plix.plix
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
@@ -14,6 +15,10 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -37,10 +42,79 @@ class TvEditTextView(
     messenger: BinaryMessenger
 ) : PlatformView, MethodChannel.MethodCallHandler {
 
-    private val editText: EditText = EditText(context)
+    private inner class TvCustomEditText(ctx: Context) : EditText(ctx) {
+        override fun onKeyPreIme(keyCode: Int, event: KeyEvent?): Boolean {
+            if (keyCode == KeyEvent.KEYCODE_BACK && event?.action == KeyEvent.ACTION_UP) {
+                if (isKeyboardOpen) {
+                    unregisterBackCallback()
+                    isKeyboardOpen = false
+                    editText.isCursorVisible = false
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+                    channel.invokeMethod("onKeyboardStateChanged", false)
+                }
+            }
+            return super.onKeyPreIme(keyCode, event)
+        }
+    }
+
+    private val editText: EditText = TvCustomEditText(context)
     private val channel: MethodChannel = MethodChannel(messenger, "plix/tv_edit_text_$viewId")
     private var isUpdatingFromFlutter = false
     private var isKeyboardOpen = false
+    private var backCallback: Any? = null
+
+    private fun getDispatcher(): OnBackInvokedDispatcher? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val viewDispatcher = editText.findOnBackInvokedDispatcher()
+            if (viewDispatcher != null) return viewDispatcher
+
+            var ctx = context
+            while (ctx is android.content.ContextWrapper) {
+                if (ctx is android.app.Activity) {
+                    return ctx.onBackInvokedDispatcher
+                }
+                ctx = ctx.baseContext
+            }
+        }
+        return null
+    }
+
+    private fun registerBackCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backCallback == null) {
+            val dispatcher = getDispatcher() ?: return
+            val cb = OnBackInvokedCallback {
+                unregisterBackCallback()
+                if (isKeyboardOpen) {
+                    isKeyboardOpen = false
+                    editText.isCursorVisible = false
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+                    channel.invokeMethod("onKeyboardStateChanged", false)
+                }
+            }
+            backCallback = cb
+            try {
+                dispatcher.registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+                    cb
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun unregisterBackCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backCallback != null) {
+            try {
+                val dispatcher = getDispatcher()
+                val cb = backCallback as? OnBackInvokedCallback
+                if (dispatcher != null && cb != null) {
+                    dispatcher.unregisterOnBackInvokedCallback(cb)
+                }
+            } catch (_: Exception) {}
+            backCallback = null
+        }
+    }
 
     init {
         channel.setMethodCallHandler(this)
@@ -67,6 +141,8 @@ class TvEditTextView(
             is Number -> len.toInt()
             else -> 0
         }
+        val keyboardType = creationParams?.get("keyboardType") as? String ?: "text"
+        val autocorrect = creationParams?.get("autocorrect") as? Boolean ?: (keyboardType != "url")
 
         editText.apply {
             setText(initialText)
@@ -89,6 +165,10 @@ class TvEditTextView(
 
             if (obscureText) {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            } else if (keyboardType == "url") {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            } else if (!autocorrect) {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             } else {
                 inputType = InputType.TYPE_CLASS_TEXT
             }
@@ -101,18 +181,22 @@ class TvEditTextView(
             }
 
             setOnEditorActionListener { _, _, _ ->
+                unregisterBackCallback()
                 isKeyboardOpen = false
                 isCursorVisible = false
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+                channel.invokeMethod("onKeyboardStateChanged", false)
                 channel.invokeMethod("onSubmitted", editText.text.toString())
                 true
             }
 
             setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
+                    unregisterBackCallback()
                     isKeyboardOpen = false
                     isCursorVisible = false
+                    channel.invokeMethod("onKeyboardStateChanged", false)
                 }
                 channel.invokeMethod("onFocusChanged", hasFocus)
             }
@@ -131,6 +215,8 @@ class TvEditTextView(
                 isCursorVisible = true
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showSoftInput(this, 0)
+                channel.invokeMethod("onKeyboardStateChanged", true)
+                registerBackCallback()
             }
 
             addTextChangedListener(object : TextWatcher {
@@ -148,6 +234,7 @@ class TvEditTextView(
     override fun getView(): View = editText
 
     override fun dispose() {
+        unregisterBackCallback()
         channel.setMethodCallHandler(null)
     }
 
@@ -172,24 +259,30 @@ class TvEditTextView(
                 editText.requestFocus()
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showSoftInput(editText, 0)
+                channel.invokeMethod("onKeyboardStateChanged", true)
+                registerBackCallback()
                 editText.post {
                     editText.showSoftInputOnFocus = false
                 }
                 result.success(null)
             }
             "hideKeyboard" -> {
+                unregisterBackCallback()
                 isKeyboardOpen = false
                 editText.isCursorVisible = false
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+                channel.invokeMethod("onKeyboardStateChanged", false)
                 result.success(null)
             }
             "clearFocus" -> {
+                unregisterBackCallback()
                 isKeyboardOpen = false
                 editText.isCursorVisible = false
                 editText.clearFocus()
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+                channel.invokeMethod("onKeyboardStateChanged", false)
                 result.success(null)
             }
             else -> result.notImplemented()

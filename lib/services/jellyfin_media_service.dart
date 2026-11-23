@@ -601,12 +601,24 @@ class JellyfinMediaService {
           !people.any((p) => p.id == person.id && p.role == person.role)) {
 
         people.add(person);
-
       }
-
     }
 
-
+    final providerIds = json['ProviderIds'] as Map<String, dynamic>?;
+    final jfGuids = <String>[];
+    String? jfGuid;
+    if (providerIds != null) {
+      providerIds.forEach((key, val) {
+        if (val != null && val.toString().isNotEmpty) {
+          final prefix = key.toLowerCase();
+          final g = '$prefix://$val';
+          jfGuids.add(g);
+          if (jfGuid == null && (prefix == 'tmdb' || prefix == 'imdb')) {
+            jfGuid = g;
+          }
+        }
+      });
+    }
 
     return PlexMediaItem(
 
@@ -731,6 +743,10 @@ class JellyfinMediaService {
       clearLogo: itemClearLogo,
 
       genres: parsedGenres,
+
+      guid: jfGuid,
+
+      guids: jfGuids,
 
     );
 

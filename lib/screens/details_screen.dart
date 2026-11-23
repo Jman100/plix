@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/profile_service.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,8 @@ import 'person_screen.dart';
 import 'player_screen.dart';
 import '../widgets/download_button.dart';
 import '../services/download_service.dart';
+import '../services/seerr_service.dart';
+import '../widgets/seerr_dialogs.dart';
 
 bool _isLocalPath(String? p) {
   if (p == null || p.isEmpty) return false;
@@ -39,6 +42,18 @@ bool _isLocalPath(String? p) {
   } catch (_) {
     return false;
   }
+}
+
+class _TvActionBtnSpec {
+  final FocusNode focusNode;
+  final Widget Function({
+    required VoidCallback onUp,
+    required VoidCallback onDown,
+    required VoidCallback onLeft,
+    required VoidCallback? onRight,
+  }) builder;
+
+  _TvActionBtnSpec({required this.focusNode, required this.builder});
 }
 
 class DetailsScreen extends StatefulWidget {
@@ -87,6 +102,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   final FocusNode _backButtonFocusNode = FocusNode();
   final FocusNode _homeButtonFocusNode = FocusNode();
   final FocusNode _firstActionFocusNode = FocusNode();
+  final List<FocusNode> _row1AdditionalNodes = List.generate(5, (_) => FocusNode());
+  final FocusNode _secondRowFirstFocusNode = FocusNode();
+  final List<FocusNode> _row2AdditionalNodes = List.generate(5, (_) => FocusNode());
   final FocusNode _showPlayFocusNode = FocusNode();
   final FocusNode _firstCastFocusNode = FocusNode();
   final FocusNode _seasonDropdownFocusNode = FocusNode();
@@ -103,6 +121,7 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
   bool _isOnWatchlist = false;
   bool _isUpdatingWatchlist = false;
   bool _isLoadingDetails = true;
+  bool _canDownload = false;
   PlexMediaItem? _queuedEpisode;
 
   FocusNode? get _selectedSeasonFocusNode {
@@ -271,6 +290,13 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     _backButtonFocusNode.dispose();
     _homeButtonFocusNode.dispose();
     _firstActionFocusNode.dispose();
+    for (final node in _row1AdditionalNodes) {
+      node.dispose();
+    }
+    _secondRowFirstFocusNode.dispose();
+    for (final node in _row2AdditionalNodes) {
+      node.dispose();
+    }
     _showPlayFocusNode.dispose();
     _firstCastFocusNode.dispose();
     for (final node in _seasonFocusNodes.values) {
@@ -420,6 +446,14 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       } catch (_) {}
     } else {
       _resolveThumbnailAspectRatio();
+    }
+
+    if (!PlixDeviceHelper.isTelevision) {
+      DownloadService.instance.canUserDownload(widget.server).then((can) {
+        if (mounted && _canDownload != can) {
+          setState(() => _canDownload = can);
+        }
+      });
     }
 
     if (widget.onlyDownloaded) {
@@ -816,6 +850,38 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     );
   }
 
+  Future<void> _handleReportIssue() async {
+    final server = widget.server;
+    final seerrUrl = await SeerrService().getSeerrUrl(server.clientIdentifier);
+    if (!mounted) return;
+
+    if (seerrUrl == null || seerrUrl.trim().isEmpty) {
+      // Prompt user to enter Seerr URL for this server
+      final newUrl = await SeerrUrlConfigDialog.show(
+        context,
+        server: server,
+      );
+      if (!mounted || newUrl == null || newUrl.trim().isEmpty) return;
+    }
+
+    if (!mounted) return;
+    final reported = await ReportIssueDialog.show(
+      context,
+      server: server,
+      item: _item,
+    );
+
+    if (reported == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Issue reported to Seerr for ${server.name}!'),
+          backgroundColor: Colors.green.shade800,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   void _playTrailer() {
     NativePlayerService().stop();
     if (_trailerItem == null) return;
@@ -1160,7 +1226,11 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
       return;
     }
 
-    _firstActionFocusNode.requestFocus();
+    if (PlixDeviceHelper.isTelevision && (_item.isEpisode || _item.isMovie)) {
+      _secondRowFirstFocusNode.requestFocus();
+    } else {
+      _firstActionFocusNode.requestFocus();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!PlixDeviceHelper.isCompact(context) && _scrollController.hasClients) {
@@ -1584,44 +1654,59 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            if (_item.isInProgress && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty) ...[
-              Expanded(
-                child: PlixButton(
-                  isPrimary: false,
-                  fontSize: buttonFontSize,
-                  padding: buttonPadding,
-                  icon: Icon(
-                    _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
-                    size: 16,
-                    color: _item.isWatched ? PlixTheme.plexGold : null,
+        Builder(
+          builder: (context) {
+            final row3Buttons = <Widget>[
+              if (_item.isInProgress && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
+                Expanded(
+                  child: PlixButton(
+                    isPrimary: false,
+                    fontSize: buttonFontSize,
+                    padding: buttonPadding,
+                    icon: Icon(
+                      _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
+                      size: 16,
+                      color: _item.isWatched ? PlixTheme.plexGold : null,
+                    ),
+                    label: _item.isWatched ? 'Unwatch' : 'Watched',
+                    onPressed: _toggleWatched,
                   ),
-                  label: _item.isWatched ? 'Unwatch' : 'Watched',
-                  onPressed: _toggleWatched,
                 ),
-              ),
-              const SizedBox(width: 8),
-            ],
-            if (widget.server.owned && (_item.isMovie || _item.isEpisode)) ...[
-              Expanded(
-                child: PlixButton(
-                  isPrimary: false,
-                  fontSize: buttonFontSize,
-                  padding: buttonPadding,
-                  icon: const Icon(Icons.info_outline_rounded, size: 16),
-                  label: 'Get Info',
-                  onPressed: _showGetInfoModal,
+              if (widget.server.owned && (_item.isMovie || _item.isEpisode))
+                Expanded(
+                  child: PlixButton(
+                    isPrimary: false,
+                    fontSize: buttonFontSize,
+                    padding: buttonPadding,
+                    icon: const Icon(Icons.info_outline_rounded, size: 16),
+                    label: 'Get Info',
+                    onPressed: _showGetInfoModal,
+                  ),
                 ),
-              ),
-              if (!_item.isInProgress || _item.grandparentRatingKey == null || _item.grandparentRatingKey!.isEmpty) ...[
-                const SizedBox(width: 8),
-                const Spacer(),
+              if (_item.isMovie || _item.isEpisode || _item.isShow)
+                Expanded(
+                  child: PlixButton(
+                    isPrimary: false,
+                    fontSize: buttonFontSize,
+                    padding: buttonPadding,
+                    icon: const Icon(Icons.report_problem_outlined, size: 16),
+                    label: 'Report',
+                    onPressed: _handleReportIssue,
+                  ),
+                ),
+            ];
+
+            if (row3Buttons.isEmpty) return const SizedBox.shrink();
+
+            return Row(
+              children: [
+                for (int i = 0; i < row3Buttons.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  row3Buttons[i],
+                ],
               ],
-            ] else if (!_item.isInProgress || _item.grandparentRatingKey == null || _item.grandparentRatingKey!.isEmpty) ...[
-              const Spacer(),
-            ],
-          ],
+            );
+          },
         ),
         const SizedBox(height: 8),
         DownloadButton(
@@ -1774,54 +1859,81 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
             ],
           ),
           const SizedBox(height: 16),
-          // 2. Small circle buttons for Series/Trailer, Watchlist, Watched, Get Info, Download
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (_item.isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
+          // 2. Small circle buttons for Series/Trailer, Watchlist, Watched, Get Info, Download (centered)
+          Builder(
+            builder: (context) {
+              final isMovie = _item.isMovie;
+              final isEpisode = _item.isEpisode;
+              final isDownloaded = DownloadService.instance.isDownloaded(_item.ratingKey);
+              final isDownloading = DownloadService.instance.getTask(_item.ratingKey)?.isRunning == true;
+              final showDownload = !PlixDeviceHelper.isTelevision && (isDownloaded || isDownloading || _canDownload);
+
+              final circleButtons = <Widget>[
+                if (isEpisode && _item.grandparentRatingKey != null && _item.grandparentRatingKey!.isNotEmpty)
+                  _buildCircleActionButton(
+                    icon: Icons.tv_rounded,
+                    label: 'Series',
+                    onPressed: _goToSeries,
+                  ),
+                if (isMovie && _trailerItem != null)
+                  _buildCircleActionButton(
+                    icon: Icons.theaters_rounded,
+                    label: 'Trailer',
+                    onPressed: _playTrailer,
+                  ),
                 _buildCircleActionButton(
-                  icon: Icons.tv_rounded,
-                  label: 'Series',
-                  onPressed: _goToSeries,
+                  icon: _isOnWatchlist ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                  iconColor: _isOnWatchlist ? PlixTheme.plexGold : null,
+                  label: 'Watchlist',
+                  onPressed: _toggleWatchlist,
+                  customIcon: _isUpdatingWatchlist
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                        )
+                      : null,
                 ),
-              if (_item.isMovie && _trailerItem != null)
                 _buildCircleActionButton(
-                  icon: Icons.theaters_rounded,
-                  label: 'Trailer',
-                  onPressed: _playTrailer,
+                  icon: _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
+                  iconColor: _item.isWatched ? PlixTheme.plexGold : null,
+                  label: _item.isWatched ? 'Unwatch' : 'Watched',
+                  onPressed: _toggleWatched,
                 ),
-              _buildCircleActionButton(
-                icon: _isOnWatchlist ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
-                iconColor: _isOnWatchlist ? PlixTheme.plexGold : null,
-                label: 'Watchlist',
-                onPressed: _toggleWatchlist,
-                customIcon: _isUpdatingWatchlist
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                      )
-                    : null,
-              ),
-              _buildCircleActionButton(
-                icon: _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
-                iconColor: _item.isWatched ? PlixTheme.plexGold : null,
-                label: _item.isWatched ? 'Unwatch' : 'Watched',
-                onPressed: _toggleWatched,
-              ),
-              if (widget.server.owned && (_item.isMovie || _item.isEpisode))
-                _buildCircleActionButton(
-                  icon: Icons.info_outline_rounded,
-                  label: 'Get Info',
-                  onPressed: _showGetInfoModal,
-                ),
-              DownloadButton(
-                item: _item,
-                server: widget.server,
-                mediaService: _mediaService,
-                isCircle: true,
-              ),
-            ],
+                if (widget.server.owned && (isMovie || isEpisode))
+                  _buildCircleActionButton(
+                    icon: Icons.info_outline_rounded,
+                    label: 'Get Info',
+                    onPressed: _showGetInfoModal,
+                  ),
+                if (isMovie || isEpisode)
+                  _buildCircleActionButton(
+                    icon: Icons.report_problem_outlined,
+                    label: 'Report',
+                    onPressed: _handleReportIssue,
+                  ),
+                if (showDownload)
+                  DownloadButton(
+                    item: _item,
+                    server: widget.server,
+                    mediaService: _mediaService,
+                    isCircle: true,
+                  ),
+              ];
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (int i = 0; i < circleButtons.length; i++) ...[
+                    if (i > 0)
+                      SizedBox(
+                        width: circleButtons.length > 5 ? 10 : (circleButtons.length > 4 ? 16 : 22),
+                      ),
+                    circleButtons[i],
+                  ],
+                ],
+              );
+            },
           ),
         ] else ...[
           // Action buttons for Shows (centered)
@@ -1876,6 +1988,14 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                       ),
                 label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
                 onPressed: _toggleWatchlist,
+              ),
+              PlixButton(
+                isPrimary: false,
+                fontSize: 12.0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                icon: const Icon(Icons.report_problem_outlined, size: 16),
+                label: 'Report',
+                onPressed: _handleReportIssue,
               ),
             ],
           ),
@@ -2041,6 +2161,367 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
     );
   }
 
+  Widget _buildTvTwoRowActionGrid() {
+    final List<_TvActionBtnSpec> row1Specs = [];
+    final List<_TvActionBtnSpec> row2Specs = [];
+
+    FocusNode getRow1Node(int index) {
+      if (index == 0) return _firstActionFocusNode;
+      return _row1AdditionalNodes[min(index - 1, _row1AdditionalNodes.length - 1)];
+    }
+
+    FocusNode getRow2Node(int index) {
+      if (index == 0) return _secondRowFirstFocusNode;
+      return _row2AdditionalNodes[min(index - 1, _row2AdditionalNodes.length - 1)];
+    }
+
+    const double btnWidth = 145.0;
+    const double btnFontSize = 12.0;
+    const EdgeInsets btnPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 7);
+
+    // Row 1: Playback, Trailer, Series (episodes only), Watchlist
+    if (_item.isInProgress) {
+      final fnResume = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnResume,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          autofocus: true,
+          focusNode: fnResume,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+          label: 'Resume',
+          onUp: () {
+            _backButtonFocusNode.requestFocus();
+            if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
+              _scrollController.animateTo(0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic);
+            }
+          },
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: () => _playMedia(
+            item: _item,
+            resumeMs: _item.viewOffset!,
+          ),
+        ),
+      ));
+
+      final fnRestart = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnRestart,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          focusNode: fnRestart,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.replay_rounded, size: 16),
+          label: 'Restart',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: () => _playMedia(item: _item, resumeMs: 0),
+        ),
+      ));
+    } else if (_item.partKey != null || _item.duration != null || DownloadService.instance.isDownloaded(_item.ratingKey)) {
+      final fnPlay = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnPlay,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          autofocus: true,
+          focusNode: fnPlay,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+          label: 'Play',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: () => _playMedia(item: _item, resumeMs: 0),
+        ),
+      ));
+    } else {
+      final fnNotInLib = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnNotInLib,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          autofocus: true,
+          focusNode: fnNotInLib,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: _isLoadingDetails
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                )
+              : const Icon(Icons.cloud_off_rounded, size: 16),
+          label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: () {
+            ScaffoldMessenger.of(context).removeCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  "This item is on your Plex Watchlist but not in this server's library.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                duration: const Duration(seconds: 3),
+                behavior: SnackBarBehavior.floating,
+                width: 340,
+                backgroundColor: PlixTheme.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Colors.white24),
+                ),
+              ),
+            );
+          },
+        ),
+      ));
+    }
+
+    if (_trailerItem != null) {
+      final fnTrailer = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnTrailer,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          focusNode: fnTrailer,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.theaters_rounded, size: 16),
+          label: 'Trailer',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: _playTrailer,
+        ),
+      ));
+    }
+
+    if (_item.isEpisode &&
+        _item.grandparentRatingKey != null &&
+        _item.grandparentRatingKey!.isNotEmpty) {
+      final fnSeries = getRow1Node(row1Specs.length);
+      row1Specs.add(_TvActionBtnSpec(
+        focusNode: fnSeries,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          focusNode: fnSeries,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.tv_rounded, size: 16),
+          label: 'Series',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: _goToSeries,
+        ),
+      ));
+    }
+
+    final fnWatchlist = getRow1Node(row1Specs.length);
+    row1Specs.add(_TvActionBtnSpec(
+      focusNode: fnWatchlist,
+      builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+        focusNode: fnWatchlist,
+        isPrimary: false,
+        width: btnWidth,
+        fontSize: btnFontSize,
+        padding: btnPadding,
+        icon: _isUpdatingWatchlist
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white70),
+              )
+            : Icon(
+                _isOnWatchlist
+                    ? Icons.bookmark_added_rounded
+                    : Icons.bookmark_add_outlined,
+                size: 16,
+                color: _isOnWatchlist ? PlixTheme.plexGold : null,
+              ),
+        label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+        onUp: onUp,
+        onDown: onDown,
+        onLeft: onLeft,
+        onRight: onRight,
+        onPressed: _toggleWatchlist,
+      ),
+    ));
+
+    // Row 2: Watched, Get Info (owned only), Report Issue, Download
+    final fnWatched = getRow2Node(row2Specs.length);
+    row2Specs.add(_TvActionBtnSpec(
+      focusNode: fnWatched,
+      builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+        focusNode: fnWatched,
+        isPrimary: false,
+        width: btnWidth,
+        fontSize: btnFontSize,
+        padding: btnPadding,
+        icon: Icon(
+          _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
+          size: 16,
+        ),
+        label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
+        onUp: onUp,
+        onDown: onDown,
+        onLeft: onLeft,
+        onRight: onRight,
+        onPressed: _toggleWatched,
+      ),
+    ));
+
+    if (widget.server.owned && (_item.isMovie || _item.isEpisode)) {
+      final fnGetInfo = getRow2Node(row2Specs.length);
+      row2Specs.add(_TvActionBtnSpec(
+        focusNode: fnGetInfo,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+          focusNode: fnGetInfo,
+          isPrimary: false,
+          width: btnWidth,
+          fontSize: btnFontSize,
+          padding: btnPadding,
+          icon: const Icon(Icons.info_outline_rounded, size: 16),
+          label: 'Get Info',
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+          onPressed: _showGetInfoModal,
+        ),
+      ));
+    }
+
+    final fnReport = getRow2Node(row2Specs.length);
+    row2Specs.add(_TvActionBtnSpec(
+      focusNode: fnReport,
+      builder: ({required onUp, required onDown, required onLeft, required onRight}) => PlixButton(
+        focusNode: fnReport,
+        isPrimary: false,
+        width: btnWidth,
+        fontSize: btnFontSize,
+        padding: btnPadding,
+        icon: const Icon(Icons.report_problem_outlined, size: 16),
+        label: 'Report Issue',
+        onUp: onUp,
+        onDown: onDown,
+        onLeft: onLeft,
+        onRight: onRight,
+        onPressed: _handleReportIssue,
+      ),
+    ));
+
+    if (_item.isMovie || _item.isEpisode) {
+      final fnDownload = getRow2Node(row2Specs.length);
+      row2Specs.add(_TvActionBtnSpec(
+        focusNode: fnDownload,
+        builder: ({required onUp, required onDown, required onLeft, required onRight}) => DownloadButton(
+          focusNode: fnDownload,
+          item: _item,
+          server: widget.server,
+          mediaService: _mediaService,
+          width: btnWidth,
+          isWide: false,
+          onUp: onUp,
+          onDown: onDown,
+          onLeft: onLeft,
+          onRight: onRight,
+        ),
+      ));
+    }
+
+    final List<Widget> row1Widgets = [];
+    for (int i = 0; i < row1Specs.length; i++) {
+      if (i > 0) row1Widgets.add(const SizedBox(width: 12));
+      final spec = row1Specs[i];
+      final targetDownNode = row2Specs.isNotEmpty
+          ? row2Specs[min(i, row2Specs.length - 1)].focusNode
+          : null;
+      final targetRightNode = i < row1Specs.length - 1
+          ? row1Specs[i + 1].focusNode
+          : null;
+      final targetLeftNode = i > 0
+          ? row1Specs[i - 1].focusNode
+          : null;
+
+      row1Widgets.add(
+        spec.builder(
+          onUp: () => _backButtonFocusNode.requestFocus(),
+          onDown: () => targetDownNode?.requestFocus(),
+          onLeft: i == 0 ? () {} : () => targetLeftNode?.requestFocus(),
+          onRight: targetRightNode != null ? () => targetRightNode.requestFocus() : () {},
+        ),
+      );
+    }
+
+    final List<Widget> row2Widgets = [];
+    for (int j = 0; j < row2Specs.length; j++) {
+      if (j > 0) row2Widgets.add(const SizedBox(width: 12));
+      final spec = row2Specs[j];
+      final targetUpNode = row1Specs.isNotEmpty
+          ? row1Specs[min(j, row1Specs.length - 1)].focusNode
+          : null;
+      final targetRightNode = j < row2Specs.length - 1
+          ? row2Specs[j + 1].focusNode
+          : null;
+      final targetLeftNode = j > 0
+          ? row2Specs[j - 1].focusNode
+          : null;
+
+      row2Widgets.add(
+        spec.builder(
+          onUp: () => targetUpNode?.requestFocus(),
+          onDown: _focusFirstCast,
+          onLeft: j == 0 ? () {} : () => targetLeftNode?.requestFocus(),
+          onRight: targetRightNode != null ? () => targetRightNode.requestFocus() : () {},
+        ),
+      );
+    }
+
+    return KeyedSubtree(
+      key: _actionRowKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: row1Widgets,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: row2Widgets,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isTv = PlixDeviceHelper.isTelevision;
@@ -2083,13 +2564,6 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
         : ((isCompact && _item.isMovie)
             ? (MediaQuery.sizeOf(context).height * 0.72).clamp(520.0, 850.0)
             : 520.0);
-    final backdropDecodeHeight = _item.isShow
-        ? null
-        : PlixImageCache.decodeHeight(
-            context,
-            backdropHeight,
-            cap: PlixImageCache.backdropHeight,
-          );
 
     final currentSeasonIdx = _seasons.indexWhere(
       (s) => s.ratingKey == _selectedSeason?.ratingKey || s.key == _selectedSeason?.key,
@@ -2129,15 +2603,14 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                     _isLocalPath(backdropUrl)
                         ? Image.file(
                             File(backdropUrl.replaceFirst('file://', '')),
-                            fit: (_item.isShow || (isCompact && _item.isMovie)) ? BoxFit.fitWidth : BoxFit.cover,
+                            fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
                           )
                         : CachedNetworkImage(
                             imageUrl: backdropUrl,
-                            fit: (_item.isShow || (isCompact && _item.isMovie)) ? BoxFit.fitWidth : BoxFit.cover,
+                            fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
                             memCacheWidth: backdropDecodeWidth,
-                            memCacheHeight: backdropDecodeHeight,
                           ),
                     Container(
                       decoration: BoxDecoration(
@@ -2333,7 +2806,9 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                     const SizedBox(height: 24),
 
                                     // Action buttons
-                                    if (_item.isMovie || (isTv && _item.isEpisode)) ...[
+                                    if (isTv && (_item.isEpisode || _item.isMovie)) ...[
+                                      _buildTvTwoRowActionGrid(),
+                                    ] else if (_item.isMovie) ...[
                                       KeyedSubtree(
                                         key: _actionRowKey,
                                         child: Align(
@@ -2346,253 +2821,267 @@ class _DetailsScreenState extends State<DetailsScreen> with WidgetsBindingObserv
                                               runSpacing: 10,
                                               children: [
                                                 for (final Widget button in <Widget>[
-                                              if (_item.isInProgress) ...[
-                                                PlixButton(
-                                                  autofocus: true,
-                                                  focusNode: _firstActionFocusNode,
-                                                  onLeft: () {},
-                                                  onUp: () {
-                                                    _backButtonFocusNode.requestFocus();
-                                                    if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
-                                                      _scrollController.animateTo(0.0,
-                                                          duration: const Duration(milliseconds: 250),
-                                                          curve: Curves.easeOutCubic);
-                                                    }
-                                                  },
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                                                  label: 'Resume',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: () => _playMedia(
-                                                    item: _item,
-                                                    resumeMs: _item.viewOffset!,
-                                                  ),
-                                                ),
-                                                PlixButton(
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.replay_rounded, size: 16),
-                                                  label: 'Restart',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: () => _playMedia(item: _item, resumeMs: 0),
-                                                ),
-                                              ] else if (_item.partKey != null || _item.duration != null || DownloadService.instance.isDownloaded(_item.ratingKey)) ...[
-                                                PlixButton(
-                                                  autofocus: true,
-                                                  focusNode: _firstActionFocusNode,
-                                                  onLeft: () {},
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                                                  label: 'Play',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: () => _playMedia(item: _item, resumeMs: 0),
-                                                ),
-                                              ] else ...[
-                                                PlixButton(
-                                                  autofocus: true,
-                                                  focusNode: _firstActionFocusNode,
-                                                  onLeft: () {},
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: _isLoadingDetails
-                                                      ? const SizedBox(
-                                                          width: 14,
-                                                          height: 14,
-                                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                                                        )
-                                                      : const Icon(Icons.cloud_off_rounded, size: 16),
-                                                  label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: () {
-                                                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(
-                                                        content: const Text(
-                                                          'This item is on your Plex Watchlist but not in this server\'s library.',
-                                                          textAlign: TextAlign.center,
-                                                          style: TextStyle(
-                                                              color: Colors.white, fontWeight: FontWeight.bold),
-                                                        ),
-                                                        duration: const Duration(seconds: 3),
-                                                        behavior: SnackBarBehavior.floating,
-                                                        width: 340,
-                                                        backgroundColor: PlixTheme.surface,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(10),
-                                                          side: const BorderSide(color: Colors.white24),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ],
-                                              if (_trailerItem != null) ...[
-                                                PlixButton(
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.theaters_rounded, size: 16),
-                                                  label: 'Trailer',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: _playTrailer,
-                                                ),
-                                              ],
-                                              if (_item.isEpisode &&
-                                                  _item.grandparentRatingKey != null &&
-                                                  _item.grandparentRatingKey!.isNotEmpty) ...[
-                                                PlixButton(
-                                                  onUp: () => _backButtonFocusNode.requestFocus(),
-                                                  isPrimary: false,
-                                                  fontSize: 12.0,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                  icon: const Icon(Icons.tv_rounded, size: 16),
-                                                  label: 'Series',
-                                                  onDown: _focusFirstCast,
-                                                  onPressed: _goToSeries,
-                                                ),
-                                              ],
-                                              PlixButton(
-                                                onUp: () => _backButtonFocusNode.requestFocus(),
-                                                isPrimary: false,
-                                                fontSize: 12.0,
-                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                icon: _isUpdatingWatchlist
-                                                    ? const SizedBox(
-                                                        width: 14,
-                                                        height: 14,
-                                                        child: CircularProgressIndicator(
-                                                            strokeWidth: 2, color: Colors.white70),
-                                                      )
-                                                    : Icon(
-                                                        _isOnWatchlist
-                                                            ? Icons.bookmark_added_rounded
-                                                            : Icons.bookmark_add_outlined,
-                                                        size: 16,
-                                                        color: _isOnWatchlist ? PlixTheme.plexGold : null,
-                                                      ),
-                                                label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
-                                                onDown: _focusFirstCast,
-                                                onPressed: _toggleWatchlist,
-                                              ),
-                                              PlixButton(
-                                                onUp: () => _backButtonFocusNode.requestFocus(),
-                                                isPrimary: false,
-                                                fontSize: 12.0,
-                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                icon: Icon(
-                                                  _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
-                                                  size: 16,
-                                                ),
-                                                label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
-                                                blockRight: !(widget.server.owned && (_item.isMovie || _item.isEpisode)),
-                                                onDown: _focusFirstCast,
-                                                onPressed: _toggleWatched,
-                                              ),
-                                                if (widget.server.owned && (_item.isMovie || _item.isEpisode)) ...[
-                                                  PlixButton(
-                                                    onUp: () => _backButtonFocusNode.requestFocus(),
-                                                    isPrimary: false,
-                                                    fontSize: 12.0,
-                                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                                    icon: const Icon(Icons.info_outline_rounded, size: 16),
-                                                    label: 'Get Info',
-                                                    blockRight: true,
-                                                    onDown: _focusFirstCast,
-                                                    onPressed: _showGetInfoModal,
-                                                  ),
-                                                ],
-                                                if (_item.isMovie || _item.isEpisode) ...[
-                                                  DownloadButton(
-                                                    item: _item,
-                                                    server: widget.server,
-                                                    mediaService: _mediaService,
-                                                    isWide: false,
-                                                    onUp: () => _backButtonFocusNode.requestFocus(),
-                                                    onDown: _focusFirstCast,
-                                                  ),
-                                                ],
-                                            ])
-                                              IntrinsicWidth(child: button),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ] else if (_item.isShow) ...[
-                                      Row(
-                                        children: [
-                                          if (int.tryParse(_item.ratingKey) != null || _item.librarySectionId != null || widget.server.isJellyfin) ...[
-                                            PlixButton(
-                                              autofocus: true,
-                                              focusNode: _showPlayFocusNode,
-                                              onLeft: () {},
-                                              onUp: () => _backButtonFocusNode.requestFocus(),
-                                              onDown: _focusSelectedSeason,
-                                              isPrimary: false,
-                                              fontSize: 12.0,
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                              label: _showPlayLabel,
-                                              onPressed: _playShow,
-                                            ),
-                                          ] else ...[
-                                            PlixButton(
-                                              autofocus: true,
-                                              focusNode: _showPlayFocusNode,
-                                              onLeft: () {},
-                                              onUp: () => _backButtonFocusNode.requestFocus(),
-                                              onDown: _focusSelectedSeason,
-                                              isPrimary: false,
-                                              fontSize: 12.0,
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                              icon: _isLoadingDetails
-                                                  ? const SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                                                    )
-                                                  : const Icon(Icons.cloud_off_rounded, size: 18),
-                                              label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
-                                              onPressed: () => _showToast('This show is on your Plex Watchlist but not in this server\'s library.'),
-                                            ),
-                                          ],
-                                          const SizedBox(width: 10),
-                                          PlixButton(
-                                            onUp: () => _backButtonFocusNode.requestFocus(),
-                                            onDown: _focusSelectedSeason,
-                                            isPrimary: false,
-                                            fontSize: 12.0,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            icon: _isUpdatingWatchlist
-                                                ? const SizedBox(
-                                                    width: 16,
-                                                    height: 16,
-                                                    child: CircularProgressIndicator(
-                                                        strokeWidth: 2, color: Colors.white70),
-                                                  )
-                                                : Icon(
-                                                    _isOnWatchlist
-                                                        ? Icons.bookmark_added_rounded
-                                                        : Icons.bookmark_add_outlined,
-                                                    size: 18,
-                                                    color: _isOnWatchlist ? PlixTheme.plexGold : null,
-                                                  ),
-                                            label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
-                                            onPressed: _toggleWatchlist,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                               if (_item.isInProgress) ...[
+                                                 PlixButton(
+                                                   autofocus: true,
+                                                   focusNode: _firstActionFocusNode,
+                                                   onLeft: () {},
+                                                   onUp: () {
+                                                     _backButtonFocusNode.requestFocus();
+                                                     if (_scrollController.hasClients && !(Platform.isWindows || Platform.isLinux)) {
+                                                       _scrollController.animateTo(0.0,
+                                                           duration: const Duration(milliseconds: 250),
+                                                           curve: Curves.easeOutCubic);
+                                                     }
+                                                   },
+                                                   isPrimary: false,
+                                                   fontSize: 12.0,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                                                   label: 'Resume',
+                                                   onDown: _focusFirstCast,
+                                                   onPressed: () => _playMedia(
+                                                     item: _item,
+                                                     resumeMs: _item.viewOffset!,
+                                                   ),
+                                                 ),
+                                                 PlixButton(
+                                                   onUp: () => _backButtonFocusNode.requestFocus(),
+                                                   isPrimary: false,
+                                                   fontSize: 12.0,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                   icon: const Icon(Icons.replay_rounded, size: 16),
+                                                   label: 'Restart',
+                                                   onDown: _focusFirstCast,
+                                                   onPressed: () => _playMedia(item: _item, resumeMs: 0),
+                                                 ),
+                                               ] else if (_item.partKey != null || _item.duration != null || DownloadService.instance.isDownloaded(_item.ratingKey)) ...[
+                                                 PlixButton(
+                                                   autofocus: true,
+                                                   focusNode: _firstActionFocusNode,
+                                                   onLeft: () {},
+                                                   onUp: () => _backButtonFocusNode.requestFocus(),
+                                                   isPrimary: false,
+                                                   fontSize: 12.0,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                                                   label: 'Play',
+                                                   onDown: _focusFirstCast,
+                                                   onPressed: () => _playMedia(item: _item, resumeMs: 0),
+                                                 ),
+                                               ] else ...[
+                                                 PlixButton(
+                                                   autofocus: true,
+                                                   focusNode: _firstActionFocusNode,
+                                                   onLeft: () {},
+                                                   onUp: () => _backButtonFocusNode.requestFocus(),
+                                                   isPrimary: false,
+                                                   fontSize: 12.0,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                   icon: _isLoadingDetails
+                                                       ? const SizedBox(
+                                                           width: 14,
+                                                           height: 14,
+                                                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                                         )
+                                                       : const Icon(Icons.cloud_off_rounded, size: 16),
+                                                   label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
+                                                   onDown: _focusFirstCast,
+                                                   onPressed: () {
+                                                     ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                                                     ScaffoldMessenger.of(context).showSnackBar(
+                                                       SnackBar(
+                                                         content: const Text(
+                                                           "This item is on your Plex Watchlist but not in this server's library.",
+                                                           textAlign: TextAlign.center,
+                                                           style: TextStyle(
+                                                               color: Colors.white, fontWeight: FontWeight.bold),
+                                                         ),
+                                                         duration: const Duration(seconds: 3),
+                                                         behavior: SnackBarBehavior.floating,
+                                                         width: 340,
+                                                         backgroundColor: PlixTheme.surface,
+                                                         shape: RoundedRectangleBorder(
+                                                           borderRadius: BorderRadius.circular(10),
+                                                           side: const BorderSide(color: Colors.white24),
+                                                         ),
+                                                       ),
+                                                     );
+                                                   },
+                                                 ),
+                                               ],
+                                               if (_trailerItem != null) ...[
+                                                 PlixButton(
+                                                   onUp: () => _backButtonFocusNode.requestFocus(),
+                                                   isPrimary: false,
+                                                   fontSize: 12.0,
+                                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                   icon: const Icon(Icons.theaters_rounded, size: 16),
+                                                   label: 'Trailer',
+                                                   onDown: _focusFirstCast,
+                                                   onPressed: _playTrailer,
+                                                 ),
+                                               ],
+                                               PlixButton(
+                                                 onUp: () => _backButtonFocusNode.requestFocus(),
+                                                 isPrimary: false,
+                                                 fontSize: 12.0,
+                                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                 icon: _isUpdatingWatchlist
+                                                     ? const SizedBox(
+                                                         width: 14,
+                                                         height: 14,
+                                                         child: CircularProgressIndicator(
+                                                             strokeWidth: 2, color: Colors.white70),
+                                                       )
+                                                     : Icon(
+                                                         _isOnWatchlist
+                                                             ? Icons.bookmark_added_rounded
+                                                             : Icons.bookmark_add_outlined,
+                                                         size: 16,
+                                                         color: _isOnWatchlist ? PlixTheme.plexGold : null,
+                                                       ),
+                                                 label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                                                 onDown: _focusFirstCast,
+                                                 onPressed: _toggleWatchlist,
+                                               ),
+                                               PlixButton(
+                                                 onUp: () => _backButtonFocusNode.requestFocus(),
+                                                 isPrimary: false,
+                                                 fontSize: 12.0,
+                                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                 icon: Icon(
+                                                   _item.isWatched ? Icons.remove_done_rounded : Icons.check_rounded,
+                                                   size: 16,
+                                                 ),
+                                                 label: _item.isWatched ? 'Unwatch' : 'Mark Watched',
+                                                 blockRight: false,
+                                                 onDown: _focusFirstCast,
+                                                 onPressed: _toggleWatched,
+                                               ),
+                                                 if (widget.server.owned && (_item.isMovie || _item.isEpisode)) ...[
+                                                   PlixButton(
+                                                     onUp: () => _backButtonFocusNode.requestFocus(),
+                                                     isPrimary: false,
+                                                     fontSize: 12.0,
+                                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                     icon: const Icon(Icons.info_outline_rounded, size: 16),
+                                                     label: 'Get Info',
+                                                     blockRight: false,
+                                                     onDown: _focusFirstCast,
+                                                     onPressed: _showGetInfoModal,
+                                                   ),
+                                                 ],
+                                                 if (_item.isMovie || _item.isEpisode) ...[
+                                                   PlixButton(
+                                                     onUp: () => _backButtonFocusNode.requestFocus(),
+                                                     isPrimary: false,
+                                                     fontSize: 12.0,
+                                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                                     icon: const Icon(Icons.report_problem_outlined, size: 16),
+                                                     label: 'Report Issue',
+                                                     onDown: _focusFirstCast,
+                                                     onPressed: _handleReportIssue,
+                                                   ),
+                                                 ],
+                                                 if (_item.isMovie || _item.isEpisode) ...[
+                                                   DownloadButton(
+                                                     item: _item,
+                                                     server: widget.server,
+                                                     mediaService: _mediaService,
+                                                     isWide: false,
+                                                     onUp: () => _backButtonFocusNode.requestFocus(),
+                                                     onDown: _focusFirstCast,
+                                                   ),
+                                                 ],
+                                             ])
+                                               IntrinsicWidth(child: button),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                     ] else if (_item.isShow) ...[
+                                       Row(
+                                         children: [
+                                           if (int.tryParse(_item.ratingKey) != null || _item.librarySectionId != null || widget.server.isJellyfin) ...[
+                                             PlixButton(
+                                               autofocus: true,
+                                               focusNode: _showPlayFocusNode,
+                                               onLeft: () {},
+                                               onUp: () => _backButtonFocusNode.requestFocus(),
+                                               onDown: _focusSelectedSeason,
+                                               isPrimary: false,
+                                               width: isTv ? 145.0 : null,
+                                               fontSize: 12.0,
+                                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                               icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                                               label: _showPlayLabel,
+                                               onPressed: _playShow,
+                                             ),
+                                           ] else ...[
+                                             PlixButton(
+                                               autofocus: true,
+                                               focusNode: _showPlayFocusNode,
+                                               onLeft: () {},
+                                               onUp: () => _backButtonFocusNode.requestFocus(),
+                                               onDown: _focusSelectedSeason,
+                                               isPrimary: false,
+                                               width: isTv ? 145.0 : null,
+                                               fontSize: 12.0,
+                                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                               icon: _isLoadingDetails
+                                                   ? const SizedBox(
+                                                       width: 14,
+                                                       height: 14,
+                                                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                                     )
+                                                   : const Icon(Icons.cloud_off_rounded, size: 16),
+                                               label: _isLoadingDetails ? 'Loading...' : 'Not in Library',
+                                               onPressed: () => _showToast("This show is on your Plex Watchlist but not in this server's library."),
+                                             ),
+                                           ],
+                                           SizedBox(width: isTv ? 12 : 10),
+                                           PlixButton(
+                                             onUp: () => _backButtonFocusNode.requestFocus(),
+                                             onDown: _focusSelectedSeason,
+                                             isPrimary: false,
+                                             width: isTv ? 145.0 : null,
+                                             fontSize: 12.0,
+                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                             icon: _isUpdatingWatchlist
+                                                 ? const SizedBox(
+                                                     width: 14,
+                                                     height: 14,
+                                                     child: CircularProgressIndicator(
+                                                         strokeWidth: 2, color: Colors.white70),
+                                                   )
+                                                 : Icon(
+                                                     _isOnWatchlist
+                                                         ? Icons.bookmark_added_rounded
+                                                         : Icons.bookmark_add_outlined,
+                                                     size: 16,
+                                                     color: _isOnWatchlist ? PlixTheme.plexGold : null,
+                                                   ),
+                                             label: _isOnWatchlist ? 'In Watchlist' : 'Watchlist',
+                                             onPressed: _toggleWatchlist,
+                                           ),
+                                           SizedBox(width: isTv ? 12 : 10),
+                                           PlixButton(
+                                             onUp: () => _backButtonFocusNode.requestFocus(),
+                                             onDown: _focusSelectedSeason,
+                                             onRight: () {},
+                                             isPrimary: false,
+                                             width: isTv ? 145.0 : null,
+                                             fontSize: 12.0,
+                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                             icon: const Icon(Icons.report_problem_outlined, size: 16),
+                                             label: 'Report Issue',
+                                             onPressed: _handleReportIssue,
+                                           ),
+                                         ],
+                                       ),
+                                     ]
                                   ],
                                 ),
                               ),

@@ -166,6 +166,13 @@ class MainActivity: FlutterActivity() {
                 window.decorView.defaultFocusHighlightEnabled = false
             }
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+            val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+            val isTv = uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+                    packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+            if (isTv) {
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

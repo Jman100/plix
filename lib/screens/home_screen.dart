@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   final ScrollController _scrollController = ScrollController();
 // Hero action buttons removed to make room for Title Art
+  final GlobalKey<SidebarNavState> _sidebarNavKey = GlobalKey<SidebarNavState>();
   final FocusNode _sidebarHomeFocusNode = FocusNode();
   final FocusNode _sidebarSettingsFocusNode = FocusNode();
   final FocusNode _sidebarSwitchServerFocusNode = FocusNode();
@@ -2516,7 +2517,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     isPrimary: true,
                                     autofocus: true,
                                     focusNode: _errorActionFocusNode,
-                                    onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                                    onLeft: _focusSidebar,
                                     onRight: () => _errorRetryFocusNode.requestFocus(),
                                     onDown: () => _errorRetryFocusNode.requestFocus(),
                                     onPressed: _switchServer,
@@ -2564,7 +2565,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     isPrimary: true,
                                     autofocus: true,
                                     focusNode: _errorActionFocusNode,
-                                    onLeft: () => _sidebarHomeFocusNode.requestFocus(),
+                                    onLeft: _focusSidebar,
                                     onRight: () => _errorRetryFocusNode.requestFocus(),
                                     onDown: () => _errorRetryFocusNode.requestFocus(),
                                     onPressed: _switchServer,
@@ -2706,6 +2707,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 left: 0,
                 child: RepaintBoundary(
                   child: SidebarNav(
+                    key: _sidebarNavKey,
                     currentServer: widget.server,
                     libraries: _libraries,
                     activeDestination: NavDestination.home,
@@ -2782,6 +2784,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _focusSidebar() {
+    final sidebarState = _sidebarNavKey.currentState;
+    if (sidebarState != null) {
+      sidebarState.requestSidebarFocus();
+      return;
+    }
+    if (_sidebarHomeFocusNode.canRequestFocus) {
+      _sidebarHomeFocusNode.requestFocus();
+    }
+  }
+
   Widget _buildRows(bool isCompact) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2801,7 +2814,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             autofocusFirst: false,
             isFirstRow: true,
             firstItemFocusNode: _firstContinueWatchingFocusNode,
-            onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
+            onLeftAtFirst: _focusSidebar,
             onRowUp: () {},
             onRowDown: () => _navigateRowVertical('continue_watching', 1),
             onItemFocused: _onRowItemFocused,
@@ -2839,7 +2852,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       mediaService: lib.server != null ? PlexMediaService(server: lib.server!) : _mediaService,
                       autofocusFirst: _continueWatching.isEmpty && isTopRecentlyAdded,
                       isFirstRow: _continueWatching.isEmpty && isTopRecentlyAdded,
-                      onLeftAtFirst: () => _sidebarHomeFocusNode.requestFocus(),
+                      onLeftAtFirst: _focusSidebar,
                       onRowUp: () {
                         if (_continueWatching.isEmpty && isTopRecentlyAdded) {
                           // Top row when continue watching is empty: stay or go left

@@ -69,10 +69,10 @@ class SidebarNav extends StatefulWidget {
   });
 
   @override
-  State<SidebarNav> createState() => _SidebarNavState();
+  State<SidebarNav> createState() => SidebarNavState();
 }
 
-class _SidebarNavState extends State<SidebarNav> {
+class SidebarNavState extends State<SidebarNav> {
   final GlobalKey _profileAvatarKey = GlobalKey();
   bool _isExpanded = false;
   bool _isProfileMenuOpen = false;
@@ -82,6 +82,7 @@ class _SidebarNavState extends State<SidebarNav> {
   String? _activeReorderKey;
   bool _isReorderMode = false;
   final Map<String, FocusNode> _itemFocusNodes = {};
+  FocusNode? _lastFocusedNode;
 
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -97,6 +98,47 @@ class _SidebarNavState extends State<SidebarNav> {
   final FocusNode _reorderToggleFocusNode = FocusNode();
   final FocusNode _profileFocusNode = FocusNode();
   final GlobalKey _listViewKey = GlobalKey();
+
+  FocusNode? _findFocusedNode() {
+    if (_effectiveSwitchServerFocusNode.hasFocus) {
+      return _effectiveSwitchServerFocusNode;
+    } else if (_effectiveSettingsFocusNode.hasFocus) {
+      return _effectiveSettingsFocusNode;
+    } else if (_effectiveSignOutFocusNode.hasFocus) {
+      return _effectiveSignOutFocusNode;
+    } else if (_reorderToggleFocusNode.hasFocus) {
+      return _reorderToggleFocusNode;
+    } else if (_profileFocusNode.hasFocus) {
+      return _profileFocusNode;
+    } else if (_searchFocusNode.hasFocus) {
+      return _searchFocusNode;
+    } else if (_watchlistFocusNode.hasFocus) {
+      return _watchlistFocusNode;
+    } else if (_downloadsFocusNode.hasFocus) {
+      return _downloadsFocusNode;
+    } else if (widget.homeFocusNode?.hasFocus == true) {
+      return widget.homeFocusNode;
+    }
+    for (final node in _itemFocusNodes.values) {
+      if (node.hasFocus) return node;
+    }
+    return null;
+  }
+
+  void requestSidebarFocus() {
+    if (_lastFocusedNode != null && _lastFocusedNode!.canRequestFocus && _lastFocusedNode!.context != null) {
+      _lastFocusedNode!.requestFocus();
+      _ensureItemVisible(_lastFocusedNode!);
+    } else if (widget.homeFocusNode != null && widget.homeFocusNode!.canRequestFocus) {
+      widget.homeFocusNode!.requestFocus();
+      _scrollToTop();
+    } else if (_itemFocusNodes['home'] != null && _itemFocusNodes['home']!.canRequestFocus) {
+      _itemFocusNodes['home']!.requestFocus();
+      _scrollToTop();
+    } else {
+      _searchFocusNode.requestFocus();
+    }
+  }
 
   void _scrollToTop() {
     if (_scrollController.hasClients && _scrollController.offset > 0.0) {
@@ -574,6 +616,10 @@ class _SidebarNavState extends State<SidebarNav> {
   }
 
   void _handleNavigateRight() {
+    final current = _findFocusedNode();
+    if (current != null) {
+      _lastFocusedNode = current;
+    }
     if (_isReorderMode) {
       setState(() {
         _isReorderMode = false;
@@ -663,6 +709,10 @@ class _SidebarNavState extends State<SidebarNav> {
             });
             widget.onFocusChange?.call(hasNavFocus);
             if (hasNavFocus) {
+              final current = _findFocusedNode();
+              if (current != null) {
+                _lastFocusedNode = current;
+              }
               _ensureActiveItemVisible();
             }
           }
@@ -1007,11 +1057,14 @@ class _SidebarNavState extends State<SidebarNav> {
 
             // Navigation Items (Home, Search, Watchlist, Libraries, Settings, Switch Server, Sign Out)
             Expanded(
-              child: ListView(
+              child: SingleChildScrollView(
                 key: _listViewKey,
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                children: [
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   _NavItem(
                     focusNode: widget.homeFocusNode ?? _itemFocusNodes.putIfAbsent('home', () => FocusNode()),
                     icon: Icons.home_rounded,
@@ -1354,6 +1407,7 @@ class _SidebarNavState extends State<SidebarNav> {
                 ],
               ),
             ),
+          ),
           ],
         ),
       );
@@ -1665,8 +1719,8 @@ class _NavItemState extends State<_NavItem> {
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 color: isHighlighted
-                                                    ? Colors.black.withOpacity(0.7)
-                                                    : PlixTheme.textMuted,
+                                                    ? (PlixTheme.isRainbowBorder ? Colors.white70 : Colors.black.withOpacity(0.7))
+                                                    : (PlixTheme.isRainbowBorder ? Colors.white.withOpacity(0.65) : PlixTheme.textMuted),
                                                 fontSize: 9.5,
                                                 fontWeight: FontWeight.w500,
                                                 letterSpacing: 0.3,

@@ -426,6 +426,7 @@ class _JellyfinConnectScreenState extends State<JellyfinConnectScreen> {
                       child: PlixTvTextField(
                         controller: _urlController,
                         focusNode: _urlFocusNode,
+                        isUrl: true,
                         hintText: 'https://jellyfin.example.com or 10.0.0.50:8096',
                         imeAction: 'done',
                         style: const TextStyle(color: Colors.white, fontSize: 16),

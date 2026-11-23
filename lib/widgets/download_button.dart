@@ -14,6 +14,7 @@ class DownloadButton extends StatefulWidget {
   final bool isWide;
   final bool isCircle;
   final bool isIconOnly;
+  final double? width;
   final FocusNode? focusNode;
   final VoidCallback? onLeft;
   final VoidCallback? onRight;
@@ -28,6 +29,7 @@ class DownloadButton extends StatefulWidget {
     this.isWide = false,
     this.isCircle = false,
     this.isIconOnly = false,
+    this.width,
     this.focusNode,
     this.onLeft,
     this.onRight,
@@ -533,6 +535,7 @@ class _DownloadButtonState extends State<DownloadButton> {
         );
       } else {
         return PlixButton(
+          width: widget.width,
           isPrimary: false,
           focusNode: widget.focusNode,
           fontSize: 12.0,
@@ -621,6 +624,7 @@ class _DownloadButtonState extends State<DownloadButton> {
       );
     } else {
       return PlixButton(
+        width: widget.width,
         isPrimary: false,
         focusNode: widget.focusNode,
         fontSize: 12.0,

@@ -16,6 +16,11 @@ class PlixTvTextField extends StatefulWidget {
   final String imeAction;
   final int? maxLength;
   final bool obscureText;
+  final TextInputType? keyboardType;
+  final bool? autocorrect;
+  final bool? enableSuggestions;
+  final bool isUrl;
+  final ValueChanged<bool>? onKeyboardStateChanged;
   final VoidCallback? onDown;
   final VoidCallback? onUp;
   final VoidCallback? onLeft;
@@ -33,6 +38,11 @@ class PlixTvTextField extends StatefulWidget {
     this.imeAction = 'search',
     this.maxLength,
     this.obscureText = false,
+    this.keyboardType,
+    this.autocorrect,
+    this.enableSuggestions,
+    this.isUrl = false,
+    this.onKeyboardStateChanged,
     this.onDown,
     this.onUp,
     this.onLeft,
@@ -88,6 +98,7 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
     if (_channel != null) {
       if (!widget.focusNode.hasFocus) {
         _channel?.invokeMethod('clearFocus');
+        widget.onKeyboardStateChanged?.call(false);
       }
     }
   }
@@ -112,7 +123,13 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
 
       case 'onSubmitted':
         final text = call.arguments as String? ?? '';
+        widget.onKeyboardStateChanged?.call(false);
         widget.onSubmitted?.call(text);
+        break;
+
+      case 'onKeyboardStateChanged':
+        final isOpen = call.arguments as bool? ?? false;
+        widget.onKeyboardStateChanged?.call(isOpen);
         break;
 
       case 'onFocusChanged':
@@ -138,6 +155,9 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
             ),
         obscureText: widget.obscureText,
         maxLength: widget.maxLength,
+        keyboardType: widget.keyboardType ?? (widget.isUrl ? TextInputType.url : TextInputType.text),
+        autocorrect: widget.autocorrect ?? !widget.isUrl,
+        enableSuggestions: widget.enableSuggestions ?? !widget.isUrl,
         decoration: InputDecoration(
           hintText: widget.hintText,
           hintStyle: widget.hintStyle ??
@@ -188,7 +208,14 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
               event.logicalKey == LogicalKeyboardKey.numpadEnter ||
               event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
             _channel?.invokeMethod('openKeyboard');
+            widget.onKeyboardStateChanged?.call(true);
             return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack)) {
+            _channel?.invokeMethod('hideKeyboard');
+            widget.onKeyboardStateChanged?.call(false);
           }
         }
         return KeyEventResult.ignored;
@@ -198,6 +225,7 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
         onTap: () {
           widget.focusNode.requestFocus();
           _channel?.invokeMethod('openKeyboard');
+          widget.onKeyboardStateChanged?.call(true);
         },
         child: AndroidView(
           viewType: 'plix/tv_edit_text',
@@ -211,6 +239,8 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
             'imeAction': widget.imeAction,
             'maxLength': widget.maxLength ?? 0,
             'obscureText': widget.obscureText,
+            'keyboardType': widget.isUrl ? 'url' : (widget.keyboardType == TextInputType.url ? 'url' : 'text'),
+            'autocorrect': widget.autocorrect ?? !widget.isUrl,
           },
           creationParamsCodec: const StandardMessageCodec(),
         ),

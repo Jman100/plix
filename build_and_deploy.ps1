@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$version = "1.10.5"
-$versionCode = 57
+$version = "1.10.6"
+$versionCode = 58
 
 $toolsDir = "$HOME\Documents\AISTUFF\tools"
 $env:JAVA_HOME = "$toolsDir\jdk17"
@@ -45,12 +45,11 @@ if (Test-Path $innoCompiler) {
 
     # Generate and publish plix.json release manifest
     $releaseNotes = @"
-- Transparent Sidebar & Interactive Controls: Added integrated transparency and blur slider controls for the sidebar and playback overlay buttons. In Appearance settings, users can adjust sidebar and control transparency (1-5) and backdrop blur (5%, 10%, 20%, 30%, 40%) with an interactive live preview bar showcasing dynamic blur and Plix watermark pass-through.
-- Atmosphere Rainbow Theme: Introduced an all-new Rainbow Atmosphere theme featuring deep nebula backdrops with vibrant animated rainbow borders on active items and subtle rainbow styling on player and menu controls.
-- Dynamic TV Remote Navigation: Optimized D-pad focus transitions across Android TV and desktop navigation, removing border layout shifts and silver drawing artifacts with instant snapping and seamless gradient outline borders.
-- Accent Color & Appearance Refinements: Streamlined accent color names, added pure vibrant Green and Rainbow accents, and reorganized palettes into clean 8-wide rows optimized for TV viewing.
-- Expanded Profile Avatars: Added 12 new high-definition profile avatar icons (Dragon, Ninja, Wizard, Trophy, Coffee, Lightning, Skull, Pizza, Guitar, Heart, Ghost, Mask).
-- App Version Bump: v1.10.5 (versionCode 57)
+- Issue Reporting & Seerr Integration: Added seamless media issue reporting for movies, TV shows, and individual episodes with direct Overseerr / Jellyseerr / Seerr server integration, per-server URL configuration, and automatic Plex/Jellyfin session authentication.
+- Details Page UI & Layout Improvements: Mobile landscape episode detail buttons uniformly span full width across rows. Movie and episode action circle buttons on mobile portrait are cleanly centered. Background backdrop fanart preserves true proportional aspect ratios without distortion.
+- Android TV Focus & Navigation Stability: Refined remote D-pad transitions on detail pages, seamless focus return from content rows back to the left navigation sidebar, and instant modal recentering on IME dismiss.
+- Mobile Dialog Refinements: Category chips and dialog margins adaptively size to ensure issue categories never truncate on compact mobile screens.
+- App Version Bump: v1.10.6 (versionCode 58)
 "@
 
     $apkHash = (Get-FileHash -Path $apkSource -Algorithm SHA256).Hash.ToLower()

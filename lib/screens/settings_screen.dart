@@ -20,6 +20,8 @@ import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import 'favorite_libraries_screen.dart';
 import 'server_select_screen.dart';
+import '../services/seerr_service.dart';
+import '../widgets/seerr_dialogs.dart';
 
 class SettingsScreen extends StatefulWidget {
   final PlexServer? server;
@@ -75,6 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _skipFocusNode = FocusNode();
   final FocusNode _aboutServerFocusNode = FocusNode();
   final FocusNode _manageLibrariesFocusNode = FocusNode();
+  final FocusNode _seerrFocusNode = FocusNode();
   final FocusNode _aboutClientFocusNode = FocusNode();
   final FocusNode _aboutVersionFocusNode = FocusNode();
   final FocusNode _aboutWebsiteFocusNode = FocusNode();
@@ -107,8 +110,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _allConnectedServers = servers;
         });
+        _loadSeerrUrls();
       }
     } catch (_) {}
+  }
+
+  Map<String, String> _serverSeerrUrls = {};
+
+  Future<void> _loadSeerrUrls() async {
+    final urls = <String, String>{};
+    final servers = _allConnectedServers.isNotEmpty
+        ? _allConnectedServers
+        : (widget.server != null ? [widget.server!] : <PlexServer>[]);
+    for (final s in servers) {
+      final u = await SeerrService().getSeerrUrl(s.clientIdentifier);
+      if (u != null && u.isNotEmpty) {
+        urls[s.clientIdentifier] = u;
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _serverSeerrUrls = urls;
+      });
+    }
+  }
+
+  String get _seerrSubtitle {
+    final servers = _allConnectedServers.isNotEmpty
+        ? _allConnectedServers
+        : (widget.server != null ? [widget.server!] : <PlexServer>[]);
+    if (servers.isEmpty) return 'No servers connected';
+    if (servers.length == 1) {
+      final url = _serverSeerrUrls[servers.first.clientIdentifier];
+      return (url != null && url.isNotEmpty)
+          ? url
+          : 'Configure Seerr URL for ${servers.first.name}';
+    }
+    final configured = _serverSeerrUrls.values.where((u) => u.isNotEmpty).length;
+    if (configured == 0) return 'Not configured';
+    return '$configured of ${servers.length} configured';
+  }
+
+  Future<void> _openSeerrConfig() async {
+    final servers = _allConnectedServers.isNotEmpty
+        ? _allConnectedServers
+        : (widget.server != null ? [widget.server!] : <PlexServer>[]);
+    if (servers.isEmpty) return;
+
+    if (servers.length == 1) {
+      final s = servers.first;
+      final curUrl = await SeerrService().getSeerrUrl(s.clientIdentifier);
+      if (!mounted) return;
+      await SeerrUrlConfigDialog.show(context, server: s, initialUrl: curUrl);
+      if (mounted) _loadSeerrUrls();
+      return;
+    }
+
+    // Multiple servers: show picker
+    await showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.85),
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: PlixTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Configure Seerr Instance',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select a server to set its Seerr URL:',
+                    style: TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 380),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < servers.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: _ServerPickerTile(
+                                server: servers[i],
+                                configuredUrl: _serverSeerrUrls[servers[i].clientIdentifier],
+                                autofocus: i == 0,
+                                onTap: () async {
+                                  Navigator.of(ctx).pop();
+                                  await SeerrUrlConfigDialog.show(
+                                    context,
+                                    server: servers[i],
+                                    initialUrl: _serverSeerrUrls[servers[i].clientIdentifier],
+                                  );
+                                  if (mounted) _loadSeerrUrls();
+                                },
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          Center(
+                            child: PlixButton(
+                              width: 140,
+                              isPrimary: false,
+                              label: 'Close',
+                              fontSize: 13,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String get _connectedServerTitle {
@@ -567,6 +702,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _checkUpdateBtnFocusNode.dispose();
     _aboutServerFocusNode.dispose();
     _manageLibrariesFocusNode.dispose();
+    _seerrFocusNode.dispose();
     _aboutClientFocusNode.dispose();
     _aboutVersionFocusNode.dispose();
     _aboutWebsiteFocusNode.dispose();
@@ -636,7 +772,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                 padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 8),
                 children: [
-                  // Section: Profiles
+                  // Section 1: Profiles
                   Row(
                     children: [
                       Icon(Icons.manage_accounts_rounded, color: PlixTheme.plexGold, size: 22),
@@ -669,7 +805,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _editProfilesFocusNode,
                     onUp: () => _alwaysAskProfileFocusNode.requestFocus(),
-                    onDown: () => _autoplayFocusNode.requestFocus(),
+                    onDown: () => (widget.server != null || _allConnectedServers.isNotEmpty)
+                        ? _aboutServerFocusNode.requestFocus()
+                        : _autoplayFocusNode.requestFocus(),
                     title: 'Edit Profiles',
                     subtitle: "Open Who's Watching to switch profiles, edit names, or customize PINs",
                     trailing: 'Manage',
@@ -677,17 +815,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: _openProfilesScreen,
                   ),
 
+                  // Section 2: Servers & Libraries
+                  if (widget.server != null || _allConnectedServers.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    Divider(color: PlixTheme.cardBorder),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        Icon(Icons.dns_rounded, color: PlixTheme.plexGold, size: 22),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Servers & Libraries',
+                          style: TextStyle(
+                            color: PlixTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    _SettingsActionTile(
+                      focusNode: _aboutServerFocusNode,
+                      onUp: () => _editProfilesFocusNode.requestFocus(),
+                      onDown: () => _manageLibrariesFocusNode.requestFocus(),
+                      title: _connectedServerTitle,
+                      subtitle: _connectedServerSubtitle,
+                      trailing: _connectedServerTrailing,
+                      trailingWidget: PlixButton(
+                        isPrimary: false,
+                        fontSize: 11.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        icon: const Icon(Icons.tune_rounded, size: 16),
+                        label: 'Customize Servers',
+                        onPressed: _switchServer,
+                      ),
+                      isInteractive: true,
+                      onTap: _switchServer,
+                      trailingBelow: isCompact,
+                    ),
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _manageLibrariesFocusNode,
+                      onUp: () => _aboutServerFocusNode.requestFocus(),
+                      onDown: () => _seerrFocusNode.requestFocus(),
+                      title: 'Favorite Libraries',
+                      subtitle: 'Choose which libraries appear on Home and Navigation',
+                      trailingWidget: PlixButton(
+                        isPrimary: false,
+                        fontSize: 11.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        icon: const Icon(Icons.favorite_rounded, size: 16),
+                        label: 'Manage Libraries',
+                        onPressed: _openFavoriteLibraries,
+                      ),
+                      isInteractive: true,
+                      onTap: _openFavoriteLibraries,
+                      trailingBelow: isCompact,
+                    ),
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _seerrFocusNode,
+                      onUp: () => _manageLibrariesFocusNode.requestFocus(),
+                      onDown: () => _autoplayFocusNode.requestFocus(),
+                      title: 'Seerr (Issue Reporting)',
+                      subtitle: _seerrSubtitle,
+                      trailingWidget: PlixButton(
+                        isPrimary: false,
+                        fontSize: 11.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        icon: const Icon(Icons.link_rounded, size: 16),
+                        label: 'Configure',
+                        onPressed: _openSeerrConfig,
+                      ),
+                      isInteractive: true,
+                      onTap: _openSeerrConfig,
+                      trailingBelow: isCompact,
+                    ),
+                  ],
+
                   const SizedBox(height: 28),
                   Divider(color: PlixTheme.cardBorder),
                   const SizedBox(height: 20),
 
-                  // Section 2: Playback Settings
+                  // Section 3: Playback & Controls
                   Row(
                     children: [
                       Icon(Icons.play_circle_outline_rounded, color: PlixTheme.plexGold, size: 22),
                       const SizedBox(width: 10),
                       const Text(
-                        'Playback & Streaming',
+                        'Playback & Controls',
                         style: TextStyle(
                           color: PlixTheme.textPrimary,
                           fontSize: 18,
@@ -700,7 +919,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoplayFocusNode,
-                    onUp: () => _editProfilesFocusNode.requestFocus(),
+                    onUp: () => (widget.server != null || _allConnectedServers.isNotEmpty)
+                        ? _seerrFocusNode.requestFocus()
+                        : _editProfilesFocusNode.requestFocus(),
                     onDown: () => _autoplayNextEpisode
                         ? _autoplayTriggerFocusNode.requestFocus()
                         : _skipIntroFocusNode.requestFocus(),
@@ -729,7 +950,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onUp: () => _autoplayNextEpisode
                         ? _autoplayTriggerFocusNode.requestFocus()
                         : _autoplayFocusNode.requestFocus(),
-                    onDown: () => _themeFocusNode.requestFocus(),
+                    onDown: () => _rewindFocusNode.requestFocus(),
                     title: 'Auto Skip Intro',
                     subtitle: 'Automatically skip intro markers when playing TV episodes',
                     trailing: _autoSkipIntro ? 'Enabled' : 'Disabled',
@@ -738,19 +959,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 10),
                   _SettingsActionTile(
-                    focusNode: _themeFocusNode,
-                    onUp: () => _skipIntroFocusNode.requestFocus(),
-                    onDown: () => _rewindFocusNode.requestFocus(),
-                    title: 'Play TV Show Themes',
-                    subtitle: 'Play background theme music when viewing TV show details',
-                    trailing: _playTvThemes ? 'Enabled' : 'Disabled',
-                    isInteractive: true,
-                    onTap: _togglePlayTvThemes,
-                  ),
-                  const SizedBox(height: 10),
-                  _SettingsActionTile(
                     focusNode: _rewindFocusNode,
-                    onUp: () => _themeFocusNode.requestFocus(),
+                    onUp: () => _skipIntroFocusNode.requestFocus(),
                     onDown: () => _skipFocusNode.requestFocus(),
                     title: 'Quick Rewind Duration',
                     subtitle: 'Seconds rewound when pressing D-pad Left or Rewind on remote',
@@ -762,56 +972,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _skipFocusNode,
                     onUp: () => _rewindFocusNode.requestFocus(),
-                    onDown: () => _showRatingsFocusNode.requestFocus(),
+                    onDown: () => isMobile
+                        ? _screenOffFocusNode.requestFocus()
+                        : (PlixDeviceHelper.isDesktop
+                            ? _hwdecFocusNode.requestFocus()
+                            : _showRatingsFocusNode.requestFocus()),
                     title: 'Skip Ahead Duration',
                     subtitle: 'Seconds skipped forward when pressing D-pad Right or Fast Forward on remote',
                     trailing: '${_skipAheadSeconds}s',
                     isInteractive: true,
                     onTap: _cycleSkip,
                   ),
-                  const SizedBox(height: 10),
-                  ListenableBuilder(
-                    listenable: RatingsService.instance,
-                    builder: (context, _) {
-                      return _SettingsActionTile(
-                        focusNode: _showRatingsFocusNode,
-                        onUp: () => _skipFocusNode.requestFocus(),
-                        onDown: () => isMobile
-                            ? _screenOffFocusNode.requestFocus()
-                            : (PlixDeviceHelper.isDesktop
-                                ? _hwdecFocusNode.requestFocus()
-                                : (PlixDeviceHelper.isTelevision
-                                    ? _tvCastCrewFocusNode.requestFocus()
-                                    : _autoUpdateFocusNode.requestFocus())),
-                        title: 'Show Ratings',
-                        subtitle: 'Display Rotten Tomatoes scores for movies and IMDb ratings for TV shows',
-                        trailing: RatingsService.instance.mode.label,
-                        isInteractive: true,
-                        onTap: () async {
-                          await RatingsService.instance.cycleMode();
-                        },
-                      );
-                    },
-                  ),
-                  if (PlixDeviceHelper.isTelevision) ...[
-                    const SizedBox(height: 10),
-                    _SettingsActionTile(
-                      focusNode: _tvCastCrewFocusNode,
-                      onUp: () => _showRatingsFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
-                      title: 'Cast & Crew in Player',
-                      subtitle: 'Display cast & crew quick view row below playback controls on TV',
-                      trailing: _showTvCastCrew ? 'Enabled' : 'Disabled',
-                      isInteractive: true,
-                      onTap: _toggleShowTvCastCrew,
-                    ),
-                  ],
                   if (isMobile) ...[
                     const SizedBox(height: 10),
                     _SettingsActionTile(
                       focusNode: _screenOffFocusNode,
-                      onUp: () => _showRatingsFocusNode.requestFocus(),
-                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      onUp: () => _skipFocusNode.requestFocus(),
+                      onDown: () => _showRatingsFocusNode.requestFocus(),
                       title: 'Continue playback with screen off',
                       subtitle: 'Keep playing audio in the background when your screen is turned off',
                       trailing: _continuePlaybackScreenOff ? 'Enabled' : 'Disabled',
@@ -822,7 +999,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     _SettingsActionTile(
                       focusNode: _hwdecFocusNode,
-                      onUp: () => _showRatingsFocusNode.requestFocus(),
+                      onUp: () => _skipFocusNode.requestFocus(),
                       onDown: () => _downloadDirFocusNode.requestFocus(),
                       title: 'Hardware Video Decoding',
                       subtitle: 'Video decoding engine (Software pure CPU recommended on Linux to match official Plex app and eliminate driver pixelation)',
@@ -830,10 +1007,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isInteractive: true,
                       onTap: _cycleHwdecMode,
                     ),
+                  ],
+
+                  const SizedBox(height: 28),
+                  Divider(color: PlixTheme.cardBorder),
+                  const SizedBox(height: 20),
+
+                  // Section 4: Appearance & Interface
+                  Row(
+                    children: [
+                      Icon(Icons.tv_rounded, color: PlixTheme.plexGold, size: 22),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Appearance & Interface',
+                        style: TextStyle(
+                          color: PlixTheme.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  ListenableBuilder(
+                    listenable: RatingsService.instance,
+                    builder: (context, _) {
+                      return _SettingsActionTile(
+                        focusNode: _showRatingsFocusNode,
+                        onUp: () => isMobile
+                            ? _screenOffFocusNode.requestFocus()
+                            : (PlixDeviceHelper.isDesktop
+                                ? _hwdecFocusNode.requestFocus()
+                                : _skipFocusNode.requestFocus()),
+                        onDown: () => _themeFocusNode.requestFocus(),
+                        title: 'Show Ratings',
+                        subtitle: 'Display Rotten Tomatoes scores for movies and IMDb ratings for TV shows',
+                        trailing: RatingsService.instance.mode.label,
+                        isInteractive: true,
+                        onTap: () async {
+                          await RatingsService.instance.cycleMode();
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsActionTile(
+                    focusNode: _themeFocusNode,
+                    onUp: () => _showRatingsFocusNode.requestFocus(),
+                    onDown: () => PlixDeviceHelper.isTelevision
+                        ? _tvCastCrewFocusNode.requestFocus()
+                        : (PlixDeviceHelper.isDesktop
+                            ? _downloadDirFocusNode.requestFocus()
+                            : _autoUpdateFocusNode.requestFocus()),
+                    title: 'Play TV Show Themes',
+                    subtitle: 'Play background theme music when viewing TV show details',
+                    trailing: _playTvThemes ? 'Enabled' : 'Disabled',
+                    isInteractive: true,
+                    onTap: _togglePlayTvThemes,
+                  ),
+                  if (PlixDeviceHelper.isTelevision) ...[
                     const SizedBox(height: 10),
                     _SettingsActionTile(
+                      focusNode: _tvCastCrewFocusNode,
+                      onUp: () => _themeFocusNode.requestFocus(),
+                      onDown: () => _autoUpdateFocusNode.requestFocus(),
+                      title: 'Cast & Crew in Player',
+                      subtitle: 'Display cast & crew quick view row below playback controls on TV',
+                      trailing: _showTvCastCrew ? 'Enabled' : 'Disabled',
+                      isInteractive: true,
+                      onTap: _toggleShowTvCastCrew,
+                    ),
+                  ],
+
+                  if (PlixDeviceHelper.isDesktop) ...[
+                    const SizedBox(height: 28),
+                    Divider(color: PlixTheme.cardBorder),
+                    const SizedBox(height: 20),
+
+                    // Section: Downloads & Storage (Desktop)
+                    Row(
+                      children: [
+                        Icon(Icons.folder_outlined, color: PlixTheme.plexGold, size: 22),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Downloads & Storage',
+                          style: TextStyle(
+                            color: PlixTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    _SettingsActionTile(
                       focusNode: _downloadDirFocusNode,
-                      onUp: () => _hwdecFocusNode.requestFocus(),
+                      onUp: () => _themeFocusNode.requestFocus(),
                       onDown: () => _autoUpdateFocusNode.requestFocus(),
                       title: 'Download Location',
                       subtitle: 'Choose where downloaded media is saved on this computer',
@@ -847,7 +1118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Divider(color: PlixTheme.cardBorder),
                   const SizedBox(height: 20),
 
-                  // Section: App Updates
+                  // Section 5: App Updates
                   Row(
                     children: [
                       Icon(Icons.system_update_rounded, color: PlixTheme.plexGold, size: 22),
@@ -866,13 +1137,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   _SettingsActionTile(
                     focusNode: _autoUpdateFocusNode,
-                    onUp: () => isMobile
-                        ? _screenOffFocusNode.requestFocus()
+                    onUp: () => PlixDeviceHelper.isTelevision
+                        ? _tvCastCrewFocusNode.requestFocus()
                         : (PlixDeviceHelper.isDesktop
                             ? _downloadDirFocusNode.requestFocus()
-                            : (PlixDeviceHelper.isTelevision
-                                ? _tvCastCrewFocusNode.requestFocus()
-                                : _showRatingsFocusNode.requestFocus())),
+                            : _themeFocusNode.requestFocus()),
                     onDown: () => _checkUpdateBtnFocusNode.requestFocus(),
                     title: 'Automatically Check for Updates',
                     subtitle: 'Check for new versions when Plix launches or resumes from standby',
@@ -884,13 +1153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _checkUpdateBtnFocusNode,
                     onUp: () => _autoUpdateFocusNode.requestFocus(),
-                    onDown: () {
-                      if (widget.server != null) {
-                        _aboutServerFocusNode.requestFocus();
-                      } else {
-                        _aboutClientFocusNode.requestFocus();
-                      }
-                    },
+                    onDown: () => _aboutVersionFocusNode.requestFocus(),
                     title: 'Check for Updates',
                     subtitle: 'Check for an updated version from update server',
                     trailing: _isCheckingUpdate ? 'Checking...' : 'Check Now',
@@ -903,7 +1166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Divider(color: PlixTheme.cardBorder),
                   const SizedBox(height: 20),
 
-                  // Section 3: About
+                  // Section 6: About Plix
                   Row(
                     children: [
                       Icon(Icons.info_outline_rounded, color: PlixTheme.plexGold, size: 22),
@@ -920,61 +1183,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  if (widget.server != null || _allConnectedServers.isNotEmpty) ...[
-                    _SettingsActionTile(
-                      focusNode: _aboutServerFocusNode,
-                      onUp: () => _checkUpdateBtnFocusNode.requestFocus(),
-                      onDown: () => _manageLibrariesFocusNode.requestFocus(),
-                      title: _connectedServerTitle,
-                      subtitle: _connectedServerSubtitle,
-                      trailing: _connectedServerTrailing,
-                      trailingWidget: PlixButton(
-                        isPrimary: false,
-                        fontSize: 11.5,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        icon: const Icon(Icons.tune_rounded, size: 16),
-                        label: 'Customize Servers',
-                        onPressed: _switchServer,
-                      ),
-                      isInteractive: true,
-                      onTap: _switchServer,
-                      trailingBelow: isCompact,
-                    ),
-                    const SizedBox(height: 10),
-                    _SettingsActionTile(
-                      focusNode: _manageLibrariesFocusNode,
-                      onUp: () => _aboutServerFocusNode.requestFocus(),
-                      onDown: () => _aboutClientFocusNode.requestFocus(),
-                      title: 'Favorite Libraries',
-                      subtitle: 'Choose which libraries appear on Home and Navigation',
-                      trailingWidget: PlixButton(
-                        isPrimary: false,
-                        fontSize: 11.5,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        icon: const Icon(Icons.favorite_rounded, size: 16),
-                        label: 'Manage Libraries',
-                        onPressed: _openFavoriteLibraries,
-                      ),
-                      isInteractive: true,
-                      onTap: _openFavoriteLibraries,
-                      trailingBelow: isCompact,
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  _SettingsActionTile(
-                    focusNode: _aboutClientFocusNode,
-                    onUp: () => widget.server != null
-                        ? _manageLibrariesFocusNode.requestFocus()
-                        : _checkUpdateBtnFocusNode.requestFocus(),
-                    onDown: () => _aboutVersionFocusNode.requestFocus(),
-                    title: 'Client Identifier',
-                    subtitle: widget.clientId,
-                  ),
-                  const SizedBox(height: 10),
                   _SettingsActionTile(
                     focusNode: _aboutVersionFocusNode,
-                    onUp: () => _aboutClientFocusNode.requestFocus(),
-                    onDown: () => _aboutWebsiteFocusNode.requestFocus(),
+                    onUp: () => _checkUpdateBtnFocusNode.requestFocus(),
+                    onDown: () => _aboutClientFocusNode.requestFocus(),
                     title: 'App Version',
                     subtitle: Platform.isWindows
                         ? 'Plix for Windows (MediaKit mpv)'
@@ -987,8 +1199,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 10),
                   _SettingsActionTile(
-                    focusNode: _aboutWebsiteFocusNode,
+                    focusNode: _aboutClientFocusNode,
                     onUp: () => _aboutVersionFocusNode.requestFocus(),
+                    onDown: () => _aboutWebsiteFocusNode.requestFocus(),
+                    title: 'Client Identifier',
+                    subtitle: widget.clientId,
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsActionTile(
+                    focusNode: _aboutWebsiteFocusNode,
+                    onUp: () => _aboutClientFocusNode.requestFocus(),
                     title: 'Official Website',
                     subtitle: 'Visit plix.jman100.com for downloads & updates',
                     trailing: 'https://plix.jman100.com',
@@ -1265,6 +1485,112 @@ class _SettingsActionTileState extends State<_SettingsActionTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ServerPickerTile extends StatefulWidget {
+  final PlexServer server;
+  final String? configuredUrl;
+  final VoidCallback onTap;
+  final bool autofocus;
+
+  const _ServerPickerTile({
+    required this.server,
+    this.configuredUrl,
+    required this.onTap,
+    this.autofocus = false,
+  });
+
+  @override
+  State<_ServerPickerTile> createState() => _ServerPickerTileState();
+}
+
+class _ServerPickerTileState extends State<_ServerPickerTile> {
+  final FocusNode _fn = FocusNode();
+
+  @override
+  void dispose() {
+    _fn.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: _fn,
+      autofocus: widget.autofocus,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+             event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: AnimatedBuilder(
+        animation: _fn,
+        builder: (context, _) {
+          final isFocused = _fn.hasFocus;
+          return InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isFocused ? Colors.white.withOpacity(0.15) : Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: isFocused && PlixTheme.isRainbow
+                    ? PlixTheme.rainbowOutlineBorder(width: 2.0)
+                    : Border.all(
+                        color: isFocused ? PlixTheme.plexGold : Colors.white.withOpacity(0.1),
+                        width: isFocused ? 1.5 : 1,
+                      ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.server.isJellyfin ? Icons.movie_filter_rounded : Icons.dns_rounded,
+                    color: PlixTheme.plexGold,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${widget.server.name} (${widget.server.isJellyfin ? "Jellyfin" : "Plex"})',
+                          style: TextStyle(
+                            color: isFocused ? Colors.white : Colors.white70,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.configuredUrl != null && widget.configuredUrl!.isNotEmpty
+                              ? widget.configuredUrl!
+                              : 'Not configured',
+                          style: TextStyle(
+                            color: widget.configuredUrl != null && widget.configuredUrl!.isNotEmpty
+                                ? Colors.greenAccent
+                                : PlixTheme.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: PlixTheme.textSecondary, size: 20),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
