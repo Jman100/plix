@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/plex_media_item.dart';
 import '../models/plex_server.dart';
+import '../models/seerr_models.dart';
 import 'jellyfin_auth_service.dart';
 import 'plex_auth_service.dart';
 import 'plix_device_helper.dart';
@@ -29,7 +30,7 @@ class SeerrResult {
 enum SeerrIssueType {
   video(1, 'Video', 'Playback, stuttering, video corruption'),
   audio(2, 'Audio', 'Out of sync, missing track, distortion'),
-  subtitles(3, 'Subtitles', 'Missing subtitles, out of sync, bad format'),
+  subtitles(3, 'Subtitle', 'Missing subtitles, out of sync, bad format'),
   other(4, 'Other', 'Wrong metadata, wrong episode, other issue');
 
   final int id;
@@ -45,6 +46,36 @@ class SeerrService {
 
   final http.Client _client = http.Client();
   final Map<String, String> _sessionCookies = {};
+  final ValueNotifier<bool> requestsEnabledNotifier = ValueNotifier<bool>(false);
+
+  Future<bool> isRequestsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(ProfileService.key('enable_media_requests')) ??
+        prefs.getBool('enable_media_requests') ??
+        false;
+    requestsEnabledNotifier.value = enabled;
+    return enabled;
+  }
+
+  Future<void> setRequestsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(ProfileService.key('enable_media_requests'), enabled);
+    await prefs.setBool('enable_media_requests', enabled);
+    requestsEnabledNotifier.value = enabled;
+  }
+
+  Future<bool> hasAnySeerrUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final k in prefs.getKeys()) {
+      if (k.startsWith('seerr_url_')) {
+        final v = prefs.getString(k);
+        if (v != null && v.trim().isNotEmpty) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   String normalizeUrl(String input) {
     String url = input.trim();
@@ -508,5 +539,491 @@ class SeerrService {
     } catch (e) {
       return SeerrResult.error('Error submitting issue: $e');
     }
+  }
+
+  Future<http.Response?> _postAuthenticated(
+    PlexServer server,
+    String baseUrl,
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    String? cookie = _sessionCookies[baseUrl];
+    if (cookie == null) {
+      final ok = await authenticate(server: server, seerrUrl: baseUrl);
+      if (!ok) return null;
+      cookie = _sessionCookies[baseUrl];
+    }
+
+    http.Response res = await _client.post(
+      Uri.parse('$baseUrl$path'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Plix/${UpdateService.currentVersion}',
+        if (cookie != null) 'Cookie': cookie,
+      },
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 15));
+
+    if (res.statusCode == 401) {
+      _sessionCookies.remove(baseUrl);
+      final ok = await authenticate(server: server, seerrUrl: baseUrl);
+      if (!ok) return res;
+      cookie = _sessionCookies[baseUrl];
+      res = await _client.post(
+        Uri.parse('$baseUrl$path'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Plix/${UpdateService.currentVersion}',
+          if (cookie != null) 'Cookie': cookie,
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 15));
+    }
+    return res;
+  }
+
+  Future<List<SeerrMediaItem>> getTrending(PlexServer server, String seerrUrl) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) return [];
+    try {
+      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/trending?page=1');
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>? ?? [];
+        return results
+            .whereType<Map<String, dynamic>>()
+            .map((e) => SeerrMediaItem.fromJson(e))
+            .where((item) => item.id > 0)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getTrending error: $e');
+    }
+    return [];
+  }
+
+  Future<List<SeerrMediaItem>> getUpcomingMovies(PlexServer server, String seerrUrl) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) return [];
+    try {
+      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/movies/upcoming?page=1');
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>? ?? [];
+        return results
+            .whereType<Map<String, dynamic>>()
+            .map((e) => SeerrMediaItem.fromJson(e))
+            .where((item) => item.id > 0)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getUpcomingMovies error: $e');
+    }
+    return [];
+  }
+
+  Future<List<SeerrMediaItem>> getUpcomingTv(PlexServer server, String seerrUrl) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) return [];
+    try {
+      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/tv/upcoming?page=1');
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>? ?? [];
+        return results
+            .whereType<Map<String, dynamic>>()
+            .map((e) => SeerrMediaItem.fromJson(e))
+            .where((item) => item.id > 0)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getUpcomingTv error: $e');
+    }
+    return [];
+  }
+
+  Future<int?> getCurrentUserId(PlexServer server, String seerrUrl) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) return null;
+    try {
+      final res = await _getAuthenticated(server, baseUrl, '/api/v1/auth/me');
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final id = data['id'] as int?;
+        debugPrint('[SeerrService] Authenticated Seerr user ID: $id');
+        return id;
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getCurrentUserId error: $e');
+    }
+    return null;
+  }
+
+  Future<List<SeerrMediaItem>> getRecentRequests(PlexServer server, String seerrUrl) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) return [];
+    try {
+      // 1. Get logged in user's ID to filter requests created by this user
+      final currentUserId = await getCurrentUserId(server, baseUrl);
+
+      http.Response? res;
+      if (currentUserId != null) {
+        // Try user-specific requests endpoint first
+        res = await _getAuthenticated(
+          server,
+          baseUrl,
+          '/api/v1/user/$currentUserId/requests?take=30&skip=0&sort=added',
+        );
+      }
+
+      if (res == null || res.statusCode != 200) {
+        // Fallback to /api/v1/request
+        final path = currentUserId != null
+            ? '/api/v1/request?take=50&filter=all&sort=added&requestedBy=$currentUserId'
+            : '/api/v1/request?take=30&filter=all&sort=added';
+        res = await _getAuthenticated(server, baseUrl, path);
+      }
+
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>? ?? [];
+        final items = <SeerrMediaItem>[];
+        for (final r in results) {
+          if (r is Map<String, dynamic>) {
+            // Strictly enforce current user filter so admin accounts don't see everyone's requests
+            if (currentUserId != null) {
+              final reqBy = r['requestedBy'] as Map<String, dynamic>?;
+              final reqById = reqBy?['id'] as int?;
+              if (reqById != null && reqById != currentUserId) {
+                continue;
+              }
+            }
+
+            final item = SeerrMediaItem.fromJson(r);
+            if (item.id > 0) {
+              items.add(item);
+            }
+          }
+        }
+        // Enrich any items missing titles or posters
+        final enriched = await Future.wait(items.take(20).map((it) async {
+          if (it.title.isNotEmpty && it.posterPath != null && it.posterPath!.isNotEmpty) {
+            return it;
+          }
+          final details = await getMediaDetails(server, baseUrl, it.mediaType, it.id);
+          if (details != null) {
+            return it.copyWith(
+              title: it.title.isNotEmpty ? it.title : details.title,
+              posterPath: it.posterPath ?? details.posterPath,
+              backdropPath: it.backdropPath ?? details.backdropPath,
+              overview: it.overview ?? details.overview,
+              releaseDate: it.releaseDate ?? details.releaseDate,
+            );
+          }
+          return it;
+        }));
+        return enriched;
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getRecentRequests error: $e');
+    }
+    return [];
+  }
+
+  Future<List<SeerrMediaItem>> searchSeerr(PlexServer server, String seerrUrl, String query) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    final q = query.trim();
+    if (baseUrl.isEmpty || q.isEmpty) return [];
+    try {
+      final res = await _getAuthenticated(
+        server,
+        baseUrl,
+        '/api/v1/search?query=${Uri.encodeComponent(q)}&page=1',
+      );
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>? ?? [];
+        return results
+            .whereType<Map<String, dynamic>>()
+            .map((e) => SeerrMediaItem.fromJson(e))
+            .where((item) => (item.isMovie || item.isTv) && item.id > 0)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] searchSeerr error: $e');
+    }
+    return [];
+  }
+
+  Future<SeerrMediaDetails?> getMediaDetails(
+    PlexServer server,
+    String seerrUrl,
+    String mediaType,
+    int tmdbId,
+  ) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty || tmdbId <= 0) return null;
+    final type = mediaType.toLowerCase() == 'tv' ? 'tv' : 'movie';
+    try {
+      final res = await _getAuthenticated(server, baseUrl, '/api/v1/$type/$tmdbId');
+      if (res != null && res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return SeerrMediaDetails.fromJson(data, type);
+      }
+    } catch (e) {
+      debugPrint('[SeerrService] getMediaDetails error: $e');
+    }
+    return null;
+  }
+
+  Future<SeerrResult> submitRequest(
+    PlexServer server,
+    String seerrUrl, {
+    required String mediaType,
+    required int mediaId,
+    bool is4k = false,
+    List<int>? seasons,
+  }) async {
+    final baseUrl = normalizeUrl(seerrUrl);
+    if (baseUrl.isEmpty) {
+      return SeerrResult.error('No Seerr URL configured for ${server.name}.');
+    }
+
+    final isTv = mediaType.toLowerCase() == 'tv';
+    final payload = <String, dynamic>{
+      'mediaType': isTv ? 'tv' : 'movie',
+      'mediaId': mediaId,
+      'is4k': is4k,
+    };
+    if (isTv) {
+      if (seasons != null && seasons.isNotEmpty) {
+        payload['seasons'] = seasons;
+      } else {
+        payload['seasons'] = 'all';
+      }
+    }
+
+    try {
+      final res = await _postAuthenticated(server, baseUrl, '/api/v1/request', payload);
+      if (res == null) {
+        return SeerrResult.error('Failed to authenticate with Seerr.');
+      }
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final id = data['id'] as int?;
+        return SeerrResult.success(
+          message: 'Request submitted successfully!',
+          issueId: id,
+        );
+      } else {
+        String errMsg = 'Failed to submit request (HTTP ${res.statusCode})';
+        try {
+          final errJson = jsonDecode(res.body);
+          if (errJson is Map && errJson['message'] != null) {
+            errMsg = errJson['message'].toString();
+          }
+        } catch (_) {}
+        return SeerrResult.error(errMsg);
+      }
+    } catch (e) {
+      return SeerrResult.error('Error submitting request: $e');
+    }
+  }
+
+  static const String _trailerCacheKey = 'seerr_trailer_cache_v2';
+  static const int _trailerCacheTtlMs = 14 * 24 * 60 * 60 * 1000; // 14 days
+  static final Map<int, String> _memoryTrailerCache = {};
+
+  bool _looksLikeShort(String? titleOrName, String? url) {
+    final lowerUrl = (url ?? '').toLowerCase();
+    if (lowerUrl.contains('/shorts/')) return true;
+    final lowerName = (titleOrName ?? '').toLowerCase();
+    return lowerName.contains('#short') ||
+        lowerName.contains('youtube short') ||
+        lowerName.contains('vertical trailer') ||
+        lowerName.contains('vertical teaser');
+  }
+
+  /// Checks YouTube oEmbed metadata to verify the video is landscape (width >= height)
+  /// and not a YouTube Short. Returns `true` if landscape or if check is inconclusive.
+  Future<bool> _isLandscapeYoutubeVideo(String videoKey) async {
+    try {
+      final oembedUrl = Uri.parse(
+        'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoKey&format=json',
+      );
+      final res = await http
+          .get(oembedUrl, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic>) {
+          final width = (data['width'] as num?)?.toDouble();
+          final height = (data['height'] as num?)?.toDouble();
+          final title = data['title']?.toString() ?? '';
+          if (_looksLikeShort(title, null)) return false;
+          if (width != null && height != null && height > width) {
+            return false; // Portrait / YouTube Short
+          }
+          return true;
+        }
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  /// Resolves a full-size landscape YouTube trailer key for [tmdbId] using:
+  /// 1. Local cache (14-day TTL)
+  /// 2. TMDB/Seerr [relatedVideos] (preferring official landscape YouTube trailers)
+  /// 3. Curated fallback via KinoCheck API
+  Future<String?> resolveYoutubeTrailerKey(
+    int tmdbId, {
+    List<SeerrVideo> relatedVideos = const [],
+  }) async {
+    if (tmdbId <= 0) return null;
+
+    if (_memoryTrailerCache.containsKey(tmdbId)) {
+      return _memoryTrailerCache[tmdbId];
+    }
+
+    // 1. Check persisted SharedPreferences cache
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_trailerCacheKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        final entry = decoded[tmdbId.toString()];
+        if (entry is Map) {
+          final key = entry['key']?.toString();
+          final ts = entry['ts'] as int? ?? 0;
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (key != null && key.isNotEmpty && (now - ts) < _trailerCacheTtlMs) {
+            _memoryTrailerCache[tmdbId] = key;
+            return key;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Build prioritized list of candidate YouTube keys (excluding obvious Shorts)
+    final candidates = <String>[];
+    void addCandidate(String? k) {
+      if (k != null && k.isNotEmpty && !candidates.contains(k)) {
+        candidates.add(k);
+      }
+    }
+
+    // Tier A: Official TMDB Trailers
+    for (final v in relatedVideos) {
+      if (v.isYouTube &&
+          (v.type?.toLowerCase() == 'trailer') &&
+          v.official &&
+          !_looksLikeShort(v.name, v.url)) {
+        addCandidate(v.youtubeKey);
+      }
+    }
+    // Tier B: Any TMDB Trailers
+    for (final v in relatedVideos) {
+      if (v.isYouTube &&
+          (v.type?.toLowerCase() == 'trailer') &&
+          !_looksLikeShort(v.name, v.url)) {
+        addCandidate(v.youtubeKey);
+      }
+    }
+    // Tier C: Official TMDB Teasers / Clips
+    for (final v in relatedVideos) {
+      if (v.isYouTube && v.isTrailer && v.official && !_looksLikeShort(v.name, v.url)) {
+        addCandidate(v.youtubeKey);
+      }
+    }
+    // Tier D: KinoCheck curated trailers (1080p/4K landscape)
+    final kinoKeys = await _fetchKinoCheckTrailerKeys(tmdbId);
+    for (final k in kinoKeys) {
+      addCandidate(k);
+    }
+    // Tier E: Any remaining YouTube videos from TMDB
+    for (final v in relatedVideos) {
+      if (v.isYouTube && !_looksLikeShort(v.name, v.url)) {
+        addCandidate(v.youtubeKey);
+      }
+    }
+
+    // 3. Pick the first candidate verified to be landscape (not a YouTube Short)
+    String? resolvedKey;
+    for (final key in candidates) {
+      if (await _isLandscapeYoutubeVideo(key)) {
+        resolvedKey = key;
+        break;
+      }
+    }
+    resolvedKey ??= candidates.firstOrNull;
+
+    if (resolvedKey != null && resolvedKey.isNotEmpty) {
+      _memoryTrailerCache[tmdbId] = resolvedKey;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString(_trailerCacheKey);
+        final Map<String, dynamic> map = (raw != null && raw.isNotEmpty)
+            ? (jsonDecode(raw) as Map<String, dynamic>)
+            : {};
+        map[tmdbId.toString()] = {
+          'key': resolvedKey,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+        };
+        if (map.length > 200) {
+          final oldestKey = map.keys.first;
+          map.remove(oldestKey);
+        }
+        await prefs.setString(_trailerCacheKey, jsonEncode(map));
+      } catch (_) {}
+    }
+
+    return resolvedKey;
+  }
+
+  Future<List<String>> _fetchKinoCheckTrailerKeys(int tmdbId) async {
+    final keys = <String>[];
+    final urls = [
+      'https://api.kinocheck.com/movies?tmdb_id=$tmdbId&language=en&categories=Trailer',
+      'https://api.kinocheck.com/movies?tmdb_id=$tmdbId',
+    ];
+    for (final url in urls) {
+      try {
+        final res = await http
+            .get(Uri.parse(url), headers: {'Accept': 'application/json'})
+            .timeout(const Duration(seconds: 7));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          if (data is Map<String, dynamic>) {
+            final trailer = data['trailer'];
+            if (trailer is Map && trailer['youtube_video_id'] != null) {
+              final ytId = trailer['youtube_video_id'].toString();
+              final title = trailer['title']?.toString();
+              if (ytId.isNotEmpty && !_looksLikeShort(title, null) && !keys.contains(ytId)) {
+                keys.add(ytId);
+              }
+            }
+            final videos = data['videos'];
+            if (videos is List) {
+              for (final v in videos) {
+                if (v is Map && v['youtube_video_id'] != null) {
+                  final ytId = v['youtube_video_id'].toString();
+                  final title = v['title']?.toString();
+                  if (ytId.isNotEmpty && !_looksLikeShort(title, null) && !keys.contains(ytId)) {
+                    keys.add(ytId);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[SeerrService] KinoCheck lookup failed ($url): $e');
+      }
+      if (keys.isNotEmpty) break;
+    }
+    return keys;
   }
 }

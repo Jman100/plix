@@ -201,13 +201,32 @@ class TvEditTextView(
                 channel.invokeMethod("onFocusChanged", hasFocus)
             }
 
-            setOnKeyListener { _, keyCode, _ ->
-                // When keyboard is not open, ignore DPAD Left and Right so text cursor does not move
-                if ((keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) && !isKeyboardOpen) {
-                    true
-                } else {
-                    false
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            channel.invokeMethod("onDown", null)
+                            return@setOnKeyListener true
+                        }
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            channel.invokeMethod("onUp", null)
+                            return@setOnKeyListener true
+                        }
+                        KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            if (!isKeyboardOpen) {
+                                channel.invokeMethod("onLeft", null)
+                                return@setOnKeyListener true
+                            }
+                        }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            if (!isKeyboardOpen) {
+                                channel.invokeMethod("onRight", null)
+                                return@setOnKeyListener true
+                            }
+                        }
+                    }
                 }
+                false
             }
 
             setOnClickListener {

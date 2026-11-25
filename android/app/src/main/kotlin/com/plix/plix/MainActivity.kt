@@ -604,6 +604,24 @@ class MainActivity: FlutterActivity() {
                         result.error("INVALID_URL", "URL is empty", null)
                     }
                 }
+                "openYoutubeTrailer" -> {
+                    val videoKey = call.argument<String>("videoKey")
+                    val title = call.argument<String>("title")
+                    if (!videoKey.isNullOrBlank()) {
+                        try {
+                            val intent = Intent(this, TrailerPlayerActivity::class.java).apply {
+                                putExtra("videoKey", videoKey)
+                                if (!title.isNullOrBlank()) putExtra("title", title)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("TRAILER_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_KEY", "videoKey is empty", null)
+                    }
+                }
                 "enterPipMode" -> {
                     val entered = enterPictureInPictureIfSupported()
                     result.success(entered)

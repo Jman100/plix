@@ -28,6 +28,7 @@ import 'library_screen.dart';
 import '../services/native_player_service.dart';
 import 'player_screen.dart';
 import 'recently_added_screen.dart';
+import 'requests_screen.dart';
 import 'search_screen.dart';
 import 'server_select_screen.dart';
 import 'settings_screen.dart';
@@ -36,6 +37,7 @@ import 'downloads_screen.dart';
 import '../services/download_service.dart';
 import '../services/plix_device_helper.dart';
 import '../services/plix_image_cache.dart';
+import '../services/seerr_service.dart';
 import '../services/update_service.dart';
 
 import '../services/theme_music_service.dart';
@@ -330,6 +332,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DateTime? _lastUpdateCheckTime;
   bool _isUpdateDialogOpen = false;
   bool _isWelcomeTourOpen = false;
+  bool _showRequests = false;
+
+  Future<void> _checkRequestsAvailability() async {
+    try {
+      final enabled = await SeerrService().isRequestsEnabled();
+      if (!enabled) {
+        if (mounted) setState(() => _showRequests = false);
+        return;
+      }
+      final servers = _allServers.isNotEmpty
+          ? _allServers
+          : [widget.server];
+      bool hasUrl = false;
+      for (final s in servers) {
+        final u = await SeerrService().getSeerrUrl(s.clientIdentifier);
+        if (u != null && u.isNotEmpty) {
+          hasUrl = true;
+          break;
+        }
+      }
+      if (!hasUrl) {
+        hasUrl = await SeerrService().hasAnySeerrUrl();
+      }
+      if (mounted) {
+        setState(() => _showRequests = hasUrl);
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -339,6 +369,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _allServers = [widget.server];
     GuestModeService.instance.isGuestModeNotifier.addListener(_onGuestModeChanged);
     GuestModeService.instance.guestContinueWatchingNotifier.addListener(_onGuestContinueWatchingChanged);
+    SeerrService().requestsEnabledNotifier.addListener(_checkRequestsAvailability);
+    _checkRequestsAvailability();
 
     if (widget.isOfflineInitial) {
       _isOffline = true;
@@ -501,6 +533,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     GuestModeService.instance.isGuestModeNotifier.removeListener(_onGuestModeChanged);
     GuestModeService.instance.guestContinueWatchingNotifier.removeListener(_onGuestContinueWatchingChanged);
+    SeerrService().requestsEnabledNotifier.removeListener(_checkRequestsAvailability);
 
     _sidebarHomeFocusNode.dispose();
     _sidebarSettingsFocusNode.dispose();
@@ -685,6 +718,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final token = await widget.authService.getSavedToken() ?? '';
       final servers = await widget.serverService.fetchServers(token);
       _allServers = servers;
+      _checkRequestsAvailability();
 
       // Determine servers that actually have favorited libraries to avoid hitting unused servers
       final favoriteIds = await widget.serverService.getFavoriteLibraryIds();
@@ -1557,6 +1591,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     ).then((_) {
+      _checkRequestsAvailability();
       _initData();
       _isNavigating = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1567,6 +1602,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  void _openRequests() {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    NativePlayerService().stop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RequestsScreen(
+          server: widget.server,
+          servers: _allServers,
+          clientId: _clientId.isNotEmpty ? _clientId : 'plix_client',
+        ),
+      ),
+    ).then((_) {
+      _checkRequestsAvailability();
+      _isNavigating = false;
+      _refreshContinueWatching(forceFocusFirst: false);
+    });
+  }
 
   Widget _buildMobileTopHeader() {
     return Container(
@@ -1592,37 +1645,38 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const SizedBox(width: 8),
           const PlixWordmark(fontSize: 20),
           const Spacer(),
-          // Customize servers button
-          InkWell(
-            onTap: _switchServer,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: PlixTheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: PlixTheme.cardBorder,
-                  width: 1.0,
+          // Requests button (replacing customize servers in mobile portrait view)
+          if (_showRequests)
+            InkWell(
+              onTap: _openRequests,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: PlixTheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: PlixTheme.cardBorder,
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_to_queue_rounded, size: 14, color: PlixTheme.plexGold),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Requests',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.tune_rounded, size: 14, color: PlixTheme.plexGold),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Customize Servers',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
           const SizedBox(width: 8),
           ListenableBuilder(
             listenable: DownloadService.instance,
@@ -2720,6 +2774,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onOpenSettings: _openSettings,
                     onOpenProfiles: _openProfilesScreen,
                     onEditProfile: _openEditProfile,
+                    showRequests: _showRequests,
                     onDestinationSelected: (dest) {
                       if (dest == NavDestination.home) {
                         _refreshContinueWatching(forceFocusFirst: false);
@@ -2739,6 +2794,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         _openSearch();
                       } else if (dest == NavDestination.watchlist) {
                         _openWatchlist();
+                      } else if (dest == NavDestination.requests) {
+                        _openRequests();
                       } else if (dest == NavDestination.downloads) {
                         _openDownloads();
                       }

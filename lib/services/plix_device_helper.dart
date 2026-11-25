@@ -131,6 +131,20 @@ class PlixDeviceHelper {
     return _isTelevision ? 'Android TV' : 'Android Phone';
   }
 
+  static Future<void> openYoutubeTrailer(String videoKey, {String? title}) async {
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('com.plix.plix/native_player');
+        await channel.invokeMethod('openYoutubeTrailer', {
+          'videoKey': videoKey,
+          if (title != null) 'title': title,
+        });
+        return;
+      } catch (_) {}
+    }
+    await openUrl('https://www.youtube.com/watch?v=$videoKey');
+  }
+
   static Future<void> openUrl(String url) async {
     if (Platform.isAndroid) {
       try {

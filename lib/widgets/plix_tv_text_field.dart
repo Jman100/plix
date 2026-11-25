@@ -138,6 +138,22 @@ class _PlixTvTextFieldState extends State<PlixTvTextField> {
           widget.focusNode.requestFocus();
         }
         break;
+
+      case 'onDown':
+        widget.onDown?.call();
+        break;
+
+      case 'onUp':
+        widget.onUp?.call();
+        break;
+
+      case 'onLeft':
+        widget.onLeft?.call();
+        break;
+
+      case 'onRight':
+        widget.onRight?.call();
+        break;
     }
   }
 
