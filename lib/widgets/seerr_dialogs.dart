@@ -204,7 +204,7 @@ class _SeerrUrlConfigDialogState extends State<SeerrUrlConfigDialog> {
                 ),
                 const SizedBox(height: 18),
                 const Text(
-                  'Enter the URL of your Seerr (Overseerr / Jellyseerr) instance to report media issues directly.',
+                  'Enter the URL of your Seerr (Overseerr / Jellyseerr) instance to request media and report issues. No leading https:// is needed.',
                   style: TextStyle(color: PlixTheme.textSecondary, fontSize: 13, height: 1.4),
                 ),
                 const SizedBox(height: 16),
@@ -221,7 +221,7 @@ class _SeerrUrlConfigDialogState extends State<SeerrUrlConfigDialog> {
                       controller: _urlController,
                       focusNode: _urlFocusNode,
                       isUrl: true,
-                      hintText: 'https://seerr.example.com',
+                      hintText: 'seerr.example.com',
                       imeAction: 'done',
                       onKeyboardStateChanged: (open) {
                         if (mounted && _isKeyboardOpen != open) {

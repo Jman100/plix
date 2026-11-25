@@ -78,6 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FocusNode _aboutServerFocusNode = FocusNode();
   final FocusNode _manageLibrariesFocusNode = FocusNode();
   final FocusNode _seerrFocusNode = FocusNode();
+  final FocusNode _requestsToggleFocusNode = FocusNode();
+  bool _enableMediaRequests = false;
   final FocusNode _aboutClientFocusNode = FocusNode();
   final FocusNode _aboutVersionFocusNode = FocusNode();
   final FocusNode _aboutWebsiteFocusNode = FocusNode();
@@ -117,6 +119,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Map<String, String> _serverSeerrUrls = {};
 
+  bool get _hasAnySeerrUrl => _serverSeerrUrls.values.any((u) => u.trim().isNotEmpty);
+
   Future<void> _loadSeerrUrls() async {
     final urls = <String, String>{};
     final servers = _allConnectedServers.isNotEmpty
@@ -124,14 +128,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : (widget.server != null ? [widget.server!] : <PlexServer>[]);
     for (final s in servers) {
       final u = await SeerrService().getSeerrUrl(s.clientIdentifier);
-      if (u != null && u.isNotEmpty) {
-        urls[s.clientIdentifier] = u;
+      if (u != null && u.trim().isNotEmpty) {
+        urls[s.clientIdentifier] = u.trim();
       }
     }
     if (mounted) {
+      final hasAny = urls.values.any((u) => u.trim().isNotEmpty);
       setState(() {
         _serverSeerrUrls = urls;
+        if (!hasAny && _enableMediaRequests) {
+          _enableMediaRequests = false;
+        }
       });
+      if (!hasAny) {
+        await SeerrService().setRequestsEnabled(false);
+      }
     }
   }
 
@@ -151,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '$configured of ${servers.length} configured';
   }
 
-  Future<void> _openSeerrConfig() async {
+  Future<void> _openSeerrConfig({bool autoEnableOnSave = false}) async {
     final servers = _allConnectedServers.isNotEmpty
         ? _allConnectedServers
         : (widget.server != null ? [widget.server!] : <PlexServer>[]);
@@ -162,7 +173,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final curUrl = await SeerrService().getSeerrUrl(s.clientIdentifier);
       if (!mounted) return;
       await SeerrUrlConfigDialog.show(context, server: s, initialUrl: curUrl);
-      if (mounted) _loadSeerrUrls();
+      if (mounted) {
+        await _loadSeerrUrls();
+        if (autoEnableOnSave && _hasAnySeerrUrl && mounted) {
+          setState(() => _enableMediaRequests = true);
+          await SeerrService().setRequestsEnabled(true);
+        }
+      }
       return;
     }
 
@@ -218,7 +235,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     server: servers[i],
                                     initialUrl: _serverSeerrUrls[servers[i].clientIdentifier],
                                   );
-                                  if (mounted) _loadSeerrUrls();
+                                  if (mounted) {
+                                    await _loadSeerrUrls();
+                                    if (autoEnableOnSave && _hasAnySeerrUrl && mounted) {
+                                      setState(() => _enableMediaRequests = true);
+                                      await SeerrService().setRequestsEnabled(true);
+                                    }
+                                  }
                                 },
                               ),
                             ),
@@ -312,7 +335,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _quickRewindSeconds = prefs.getInt(ProfileService.key('quick_rewind_seconds')) ?? prefs.getInt('quick_rewind_seconds') ?? 10;
         _skipAheadSeconds = prefs.getInt(ProfileService.key('skip_ahead_seconds')) ?? prefs.getInt('skip_ahead_seconds') ?? 30;
       });
+      final reqEnabled = await SeerrService().isRequestsEnabled();
+      if (mounted) {
+        setState(() {
+          _enableMediaRequests = reqEnabled;
+        });
+      }
     }
+  }
+
+  Future<void> _toggleMediaRequests([bool? value]) async {
+    final newVal = value ?? !_enableMediaRequests;
+    if (!newVal) {
+      setState(() => _enableMediaRequests = false);
+      await SeerrService().setRequestsEnabled(false);
+      return;
+    }
+
+    await _loadSeerrUrls();
+    if (!mounted) return;
+
+    if (!_hasAnySeerrUrl) {
+      final cancelFocus = FocusNode();
+      final configureFocus = FocusNode();
+      final goConfigure = await showDialog<bool>(
+        context: context,
+        barrierColor: Colors.black.withOpacity(0.82),
+        builder: (ctx) => Dialog(
+          backgroundColor: PlixTheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.link_off_rounded, color: PlixTheme.plexGold, size: 22),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Seerr URL Required',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'You must configure at least one Seerr URL for Media Requests. Would you like to configure one now?',
+                    style: TextStyle(
+                      color: PlixTheme.textSecondary,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      PlixButton(
+                        focusNode: cancelFocus,
+                        isPrimary: false,
+                        label: 'Cancel',
+                        fontSize: 13,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        onRight: () => configureFocus.requestFocus(),
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                      ),
+                      const SizedBox(width: 10),
+                      PlixButton(
+                        focusNode: configureFocus,
+                        isPrimary: true,
+                        autofocus: true,
+                        label: 'Configure Now',
+                        fontSize: 13,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        onLeft: () => cancelFocus.requestFocus(),
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      cancelFocus.dispose();
+      configureFocus.dispose();
+
+      if (goConfigure == true && mounted) {
+        await _openSeerrConfig(autoEnableOnSave: true);
+      }
+      return;
+    }
+
+    setState(() => _enableMediaRequests = true);
+    await SeerrService().setRequestsEnabled(true);
   }
 
   Future<void> _toggleAutoUpdate() async {
@@ -703,6 +833,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _aboutServerFocusNode.dispose();
     _manageLibrariesFocusNode.dispose();
     _seerrFocusNode.dispose();
+    _requestsToggleFocusNode.dispose();
     _aboutClientFocusNode.dispose();
     _aboutVersionFocusNode.dispose();
     _aboutWebsiteFocusNode.dispose();
@@ -879,8 +1010,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsActionTile(
                       focusNode: _seerrFocusNode,
                       onUp: () => _manageLibrariesFocusNode.requestFocus(),
-                      onDown: () => _autoplayFocusNode.requestFocus(),
-                      title: 'Seerr (Issue Reporting)',
+                      onDown: () => _requestsToggleFocusNode.requestFocus(),
+                      title: 'Seerr Integration',
                       subtitle: _seerrSubtitle,
                       trailingWidget: PlixButton(
                         isPrimary: false,
@@ -893,6 +1024,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isInteractive: true,
                       onTap: _openSeerrConfig,
                       trailingBelow: isCompact,
+                    ),
+                    const SizedBox(height: 10),
+                    _SettingsActionTile(
+                      focusNode: _requestsToggleFocusNode,
+                      onUp: () => _seerrFocusNode.requestFocus(),
+                      onDown: () => _autoplayFocusNode.requestFocus(),
+                      title: 'Media Requests',
+                      subtitle: 'Browse and request movies and TV series via Seerr',
+                      trailing: _enableMediaRequests ? 'Enabled' : 'Disabled',
+                      isInteractive: true,
+                      onTap: () => _toggleMediaRequests(!_enableMediaRequests),
                     ),
                   ],
 
@@ -920,7 +1062,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsActionTile(
                     focusNode: _autoplayFocusNode,
                     onUp: () => (widget.server != null || _allConnectedServers.isNotEmpty)
-                        ? _seerrFocusNode.requestFocus()
+                        ? _requestsToggleFocusNode.requestFocus()
                         : _editProfilesFocusNode.requestFocus(),
                     onDown: () => _autoplayNextEpisode
                         ? _autoplayTriggerFocusNode.requestFocus()

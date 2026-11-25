@@ -227,7 +227,7 @@ class _PlixButtonState extends State<PlixButton> {
           child: AnimatedContainer(
             duration: PlixDeviceHelper.isTelevision ? Duration.zero : const Duration(milliseconds: 150),
             width: widget.width,
-            alignment: Alignment.center,
+            alignment: widget.width != null ? Alignment.center : null,
             padding: widget.padding,
             decoration: useGlassDecoration
                 ? PlixTheme.glassBoxDecoration(
@@ -253,14 +253,16 @@ class _PlixButtonState extends State<PlixButton> {
                   ),
             child: Stack(
               alignment: Alignment.center,
+              fit: StackFit.loose,
               children: [
                 if (useGlassDecoration)
-                  PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(8)),
-                Center(
-                  child: Row(
-                    mainAxisSize: widget.width != null ? MainAxisSize.max : MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Positioned.fill(
+                    child: PlixTheme.buildGlassReflectionLayer(borderRadius: BorderRadius.circular(8)),
+                  ),
+                Row(
+                  mainAxisSize: widget.width != null ? MainAxisSize.max : MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       if (widget.icon != null) ...[
                         IconTheme(
@@ -282,7 +284,6 @@ class _PlixButtonState extends State<PlixButton> {
                         ),
                     ],
                   ),
-                ),
               ],
             ),
           ),

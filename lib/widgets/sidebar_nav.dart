@@ -17,6 +17,7 @@ import '../services/plix_device_helper.dart';
 enum NavDestination {
   home,
   watchlist,
+  requests,
   downloads,
   search,
   library,
@@ -45,6 +46,7 @@ class SidebarNav extends StatefulWidget {
   final ValueChanged<List<PlexLibrary>>? onLibrariesReordered;
   final VoidCallback? onOpenProfiles;
   final VoidCallback? onEditProfile;
+  final bool showRequests;
 
   const SidebarNav({
     super.key,
@@ -66,6 +68,7 @@ class SidebarNav extends StatefulWidget {
     this.onLibrariesReordered,
     this.onOpenProfiles,
     this.onEditProfile,
+    this.showRequests = false,
   });
 
   @override
@@ -87,8 +90,17 @@ class SidebarNavState extends State<SidebarNav> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _watchlistFocusNode = FocusNode();
+  final FocusNode _requestsFocusNode = FocusNode();
   final FocusNode _downloadsFocusNode = FocusNode();
-  FocusNode get _aboveLibrariesFocusNode => !PlixDeviceHelper.isTelevision ? _downloadsFocusNode : _watchlistFocusNode;
+  FocusNode get _aboveLibrariesFocusNode {
+    if (!PlixDeviceHelper.isTelevision) {
+      return _downloadsFocusNode;
+    }
+    if (widget.showRequests) {
+      return _requestsFocusNode;
+    }
+    return _watchlistFocusNode;
+  }
   final FocusNode _settingsFocusNode = FocusNode();
   FocusNode get _effectiveSettingsFocusNode => widget.settingsFocusNode ?? _settingsFocusNode;
   final FocusNode _switchServerFocusNode = FocusNode();
@@ -114,6 +126,8 @@ class SidebarNavState extends State<SidebarNav> {
       return _searchFocusNode;
     } else if (_watchlistFocusNode.hasFocus) {
       return _watchlistFocusNode;
+    } else if (_requestsFocusNode.hasFocus) {
+      return _requestsFocusNode;
     } else if (_downloadsFocusNode.hasFocus) {
       return _downloadsFocusNode;
     } else if (widget.homeFocusNode?.hasFocus == true) {
@@ -257,6 +271,7 @@ class SidebarNavState extends State<SidebarNav> {
     _scrollController.dispose();
     _searchFocusNode.dispose();
     _watchlistFocusNode.dispose();
+    _requestsFocusNode.dispose();
     _downloadsFocusNode.dispose();
     _settingsFocusNode.dispose();
     _switchServerFocusNode.dispose();
@@ -1105,6 +1120,10 @@ class SidebarNavState extends State<SidebarNav> {
                     isExpanded: effectiveExpanded,
                     onUp: () => _searchFocusNode.requestFocus(),
                     onDown: () {
+                      if (widget.showRequests) {
+                        _requestsFocusNode.requestFocus();
+                        return;
+                      }
                       if (!PlixDeviceHelper.isTelevision) {
                         _downloadsFocusNode.requestFocus();
                         return;
@@ -1123,6 +1142,33 @@ class SidebarNavState extends State<SidebarNav> {
                     onTap: () => widget.onDestinationSelected(NavDestination.watchlist),
                   ),
 
+                  if (widget.showRequests)
+                    _NavItem(
+                      focusNode: _requestsFocusNode,
+                      icon: Icons.add_to_queue_rounded,
+                      label: 'Requests',
+                      isSelected: widget.activeDestination == NavDestination.requests,
+                      isExpanded: effectiveExpanded,
+                      onUp: () => _watchlistFocusNode.requestFocus(),
+                      onDown: () {
+                        if (!PlixDeviceHelper.isTelevision) {
+                          _downloadsFocusNode.requestFocus();
+                          return;
+                        }
+                        if (_orderedLibraries.isNotEmpty) {
+                          if (effectiveExpanded) {
+                            _reorderToggleFocusNode.requestFocus();
+                          } else {
+                            _itemFocusNodes[_orderedLibraries.first.compositeId]?.requestFocus();
+                          }
+                        } else {
+                          _effectiveSettingsFocusNode.requestFocus();
+                        }
+                      },
+                      onNavigateRight: _handleNavigateRight,
+                      onTap: () => widget.onDestinationSelected(NavDestination.requests),
+                    ),
+
                   if (!PlixDeviceHelper.isTelevision)
                     _NavItem(
                       focusNode: _downloadsFocusNode,
@@ -1130,7 +1176,9 @@ class SidebarNavState extends State<SidebarNav> {
                       label: 'Downloads',
                       isSelected: widget.activeDestination == NavDestination.downloads,
                       isExpanded: effectiveExpanded,
-                      onUp: () => _watchlistFocusNode.requestFocus(),
+                      onUp: () => widget.showRequests
+                          ? _requestsFocusNode.requestFocus()
+                          : _watchlistFocusNode.requestFocus(),
                       onDown: () {
                         if (_orderedLibraries.isNotEmpty) {
                           if (effectiveExpanded) {
