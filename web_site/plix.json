@@ -1,17 +1,17 @@
 {
-    "version": "1.10.6",
-    "versionCode": 58,
+    "version": "1.11.0",
+    "versionCode": 59,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "840a10d0923c66f4bcf9c3f765a5b359135a5d7d843f0fff23d330d371cacab7",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "c94d750113669e2a2d3526f8e648bfc32d1b36d53257d408c58e79f2f949186b",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "18830bcaa3c3ec0b27e9de285a6748f1a946e55be63a192ee8f0bc9ce8e8d329",
+    "linuxSha256": "ef29e7b2a9db6afcc894b9972b5f853cd8571a4e8a910a40cc8d48ced02977cf",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "e3d009b3fb771143a2469faba8458e76d20e6285421514b2077fdd9c016a2635",
+    "linuxArchSha256": "ddfba4f9dc2387f7b6ed6b8465f0c893273214fbe5456a98e6013d7e100b4965",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "c6ebb4153d8c84e2a2b916579935ba1e58b65fc14ea1b129face51e849920bab",
+    "linuxTarballSha256": "450d931c2013b9e5d1773c9b2f291da2514879db11130ad15944d02b844d3bfe",
     "releaseNotes": "- Issue Reporting & Seerr Integration: Added seamless media issue reporting for movies, TV shows, and individual episodes with direct Overseerr / Jellyseerr / Seerr server integration, per-server URL configuration, and automatic Plex/Jellyfin session authentication.\r\n- Details Page UI & Layout Improvements: Mobile landscape episode detail buttons uniformly span full width across rows. Movie and episode action circle buttons on mobile portrait are cleanly centered. Background backdrop fanart preserves true proportional aspect ratios without distortion.\r\n- Android TV Focus & Navigation Stability: Refined remote D-pad transitions on detail pages, seamless focus return from content rows back to the left navigation sidebar, and instant modal recentering on IME dismiss.\r\n- Mobile Dialog Refinements: Category chips and dialog margins adaptively size to ensure issue categories never truncate on compact mobile screens.\r\n- App Version Bump: v1.10.6 (versionCode 58)",
     "releaseDate": "2026-11-21"
 }
