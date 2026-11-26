@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "60730a891c2d3ba6e2d98db842d8d66453b9ca5b5c1263bbb08f32f31f98febc",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "e37abb700c08d765eab1f06fb14e131da243ee0463188ed775ef6072e317c8ce",
+    "linuxSha256": "3c2dfac8fa9f478da00a848c07a6e1837ea370339c1b5df8f9ea10eb666b2f1a",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "374473fb279d9154dfd6a45d628a1c48228a116012da19eaf8e454a5ecd624c9",
+    "linuxArchSha256": "f2c963c571c2eff7cd2a1c7ef0f18ab847327b80b9a121d1927c86841f08efd1",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "7c1020cb9760d93954a624d01d1eb83484333c071b3172d36f37929c97122c79",
+    "linuxTarballSha256": "8f59aceb6b596a536f5134c459f7362cbb0fe0b68b95e470687deefa5e529a09",
     "releaseNotes": "- Shared Plex Server Seerr Authentication Fix: Fixed Seerr /api/v1/auth/plex failing (HTTP 500) on shared Plex servers by authenticating with the user's plex.tv account token first and falling back to the server token.\n- Seerr Session & Proxy Reliability: Added in-flight authentication deduplication so opening Requests authenticates once instead of firing duplicate requests, and improved Set-Cookie parsing for reverse proxies that prepend extra cookies.\n- App Version Bump: v1.11.2 (versionCode 61)",
     "releaseDate": "2026-11-26"
 }
