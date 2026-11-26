@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "4e216a5dc77fa4435b731235122aa9da82a23da1e7f295f86e2b1ee417534f8e",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "ef29e7b2a9db6afcc894b9972b5f853cd8571a4e8a910a40cc8d48ced02977cf",
+    "linuxSha256": "e37abb700c08d765eab1f06fb14e131da243ee0463188ed775ef6072e317c8ce",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "ddfba4f9dc2387f7b6ed6b8465f0c893273214fbe5456a98e6013d7e100b4965",
+    "linuxArchSha256": "374473fb279d9154dfd6a45d628a1c48228a116012da19eaf8e454a5ecd624c9",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "450d931c2013b9e5d1773c9b2f291da2514879db11130ad15944d02b844d3bfe",
+    "linuxTarballSha256": "7c1020cb9760d93954a624d01d1eb83484333c071b3172d36f37929c97122c79",
     "releaseNotes": "- Seerr Category \"See More\" Browse Pages: Added \"See More\" cards at the end of every Requests row (Your Recent Requests, Trending, Upcoming Movies, Upcoming TV Series) opening a dedicated paginated grid page that dynamically loads more results as you scroll.\n- Seerr Detail & Status Improvements: Added release dates (First Aired for TV shows; Theatrical and Digital release dates for movies), full non-truncated TV descriptions, immediate \"Requested\" poster badge updates after submitting a request, and persistence for the last selected Seerr server.\n- TV Navigation & Scroll Fixes: Fixed D-pad cursor returning to the left nav after pressing Right from the library reorder toggle button, fixed Requests bottom-row focus getting stuck after returning from Your Recent Requests, and aligned category & search grid scrolling so previous-row years stay off-screen.\n- Android TV Updater Reliability: Fixed an issue where the Android TV updater could close without launching the system installer on the first attempt, added an install-permission check, and prevented duplicate update modals from appearing on app resume.\n- App Version Bump: v1.11.1 (versionCode 60)",
     "releaseDate": "2026-11-26"
 }
