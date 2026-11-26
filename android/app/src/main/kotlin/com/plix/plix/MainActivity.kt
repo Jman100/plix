@@ -448,6 +448,20 @@ class MainActivity: FlutterActivity() {
                     val filePath = call.argument<String>("filePath")
                     if (filePath != null) {
                         try {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                                !packageManager.canRequestPackageInstalls()) {
+                                val permIntent = Intent(
+                                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:$packageName")
+                                )
+                                startActivity(permIntent)
+                                result.error(
+                                    "INSTALL_PERMISSION_REQUIRED",
+                                    "Please allow Plix to install unknown apps, then tap Retry.",
+                                    null
+                                )
+                                return@setMethodCallHandler
+                            }
                             val file = java.io.File(filePath)
                             if (!file.exists()) {
                                 result.error("FILE_NOT_FOUND", "APK file does not exist", null)
@@ -461,7 +475,6 @@ class MainActivity: FlutterActivity() {
                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(contentUri, "application/vnd.android.package-archive")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
                             startActivity(intent)
                             result.success(true)

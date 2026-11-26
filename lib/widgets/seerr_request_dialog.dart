@@ -1150,18 +1150,23 @@ class _SeerrRequestDialogState extends State<SeerrRequestDialog> {
                 ],
               ),
 
+              const SizedBox(height: 6),
+              _buildReleaseDatesWidget(isTv: isTv),
               const SizedBox(height: 8),
 
-              // Overview (compact lines for TV series so seasons list has maximum space; full scrollable overview for movies)
+              // Overview (full scrollable overview for both TV series and movies)
               if (isTv) ...[
-                Text(
-                  overview,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: PlixTheme.textSecondary,
-                    fontSize: 13,
-                    height: 1.35,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 110),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      overview,
+                      style: const TextStyle(
+                        color: PlixTheme.textSecondary,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1185,6 +1190,57 @@ class _SeerrRequestDialogState extends State<SeerrRequestDialog> {
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReleaseDatesWidget({required bool isTv}) {
+    final items = <Widget>[];
+    if (isTv) {
+      final firstAir = SeerrMediaDetails.formatDate(_details?.firstAirDate);
+      if (firstAir.isNotEmpty) {
+        items.add(_buildReleaseDateChip(Icons.live_tv_rounded, 'First Aired', firstAir));
+      }
+    } else {
+      final theatrical = SeerrMediaDetails.formatDate(_details?.theatricalReleaseDate);
+      final digital = SeerrMediaDetails.formatDate(_details?.digitalReleaseDate);
+      if (theatrical.isNotEmpty) {
+        items.add(_buildReleaseDateChip(Icons.theaters_rounded, 'Theatrical', theatrical));
+      }
+      if (digital.isNotEmpty) {
+        items.add(_buildReleaseDateChip(Icons.ondemand_video_rounded, 'Digital', digital));
+      }
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: items,
+    );
+  }
+
+  Widget _buildReleaseDateChip(IconData icon, String label, String date) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: PlixTheme.textMuted),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            color: PlixTheme.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          date,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -1229,6 +1285,8 @@ class _SeerrRequestDialogState extends State<SeerrRequestDialog> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              const SizedBox(height: 6),
+              _buildReleaseDatesWidget(isTv: isTv),
             ],
           ),
         ),
@@ -1241,11 +1299,14 @@ class _SeerrRequestDialogState extends State<SeerrRequestDialog> {
         children: [
           headerRow,
           const SizedBox(height: 10),
-          Text(
-            overview,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 13),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: screenHeight * 0.22),
+            child: SingleChildScrollView(
+              child: Text(
+                overview,
+                style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 13, height: 1.35),
+              ),
+            ),
           ),
           const SizedBox(height: 10),
           Divider(color: PlixTheme.cardBorder, height: 1),
@@ -1265,8 +1326,6 @@ class _SeerrRequestDialogState extends State<SeerrRequestDialog> {
           const SizedBox(height: 10),
           Text(
             overview,
-            maxLines: isTv ? 3 : null,
-            overflow: isTv ? TextOverflow.ellipsis : TextOverflow.visible,
             style: const TextStyle(color: PlixTheme.textSecondary, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 10),

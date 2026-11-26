@@ -140,9 +140,32 @@ class SidebarNavState extends State<SidebarNav> {
   }
 
   void requestSidebarFocus() {
-    if (_lastFocusedNode != null && _lastFocusedNode!.canRequestFocus && _lastFocusedNode!.context != null) {
+    if (_lastFocusedNode != null &&
+        _lastFocusedNode!.canRequestFocus &&
+        _lastFocusedNode!.context != null &&
+        _lastFocusedNode!.context!.mounted) {
       _lastFocusedNode!.requestFocus();
       _ensureItemVisible(_lastFocusedNode!);
+    } else if (_lastFocusedNode == _reorderToggleFocusNode) {
+      // _ReorderToggleButton is only mounted while expanded; focus an always-mounted
+      // sidebar node first so the sidebar expands, then restore focus to the toggle.
+      final fallback = (_aboveLibrariesFocusNode.canRequestFocus &&
+              _aboveLibrariesFocusNode.context != null &&
+              _aboveLibrariesFocusNode.context!.mounted)
+          ? _aboveLibrariesFocusNode
+          : widget.homeFocusNode;
+      if (fallback != null && fallback.canRequestFocus) {
+        fallback.requestFocus();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _reorderToggleFocusNode.canRequestFocus &&
+            _reorderToggleFocusNode.context != null &&
+            _reorderToggleFocusNode.context!.mounted) {
+          _reorderToggleFocusNode.requestFocus();
+          _ensureItemVisible(_reorderToggleFocusNode);
+        }
+      });
     } else if (widget.homeFocusNode != null && widget.homeFocusNode!.canRequestFocus) {
       widget.homeFocusNode!.requestFocus();
       _scrollToTop();

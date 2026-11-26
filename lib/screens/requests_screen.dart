@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_theme.dart';
 import '../models/plex_server.dart';
@@ -17,6 +18,7 @@ import '../widgets/plix_bottom_nav.dart';
 import '../widgets/plix_home_button.dart';
 import '../widgets/plix_tv_text_field.dart';
 import '../widgets/seerr_request_dialog.dart';
+import 'requests_category_screen.dart';
 
 class RequestsScreen extends StatefulWidget {
   final PlexServer server;
@@ -161,13 +163,20 @@ class _RequestsScreenState extends State<RequestsScreen> {
         }
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final lastServerId = prefs.getString('seerr_last_selected_server_id');
+
       if (mounted) {
         setState(() {
           _seerrServers = validServers;
           _serverUrls = seerrMap;
 
-          // Pick active server: either widget.server if valid, or first valid server
-          if (validServers.any((s) => s.clientIdentifier == _selectedServer.clientIdentifier)) {
+          // Pick active server: last saved server if still valid, else widget.server if valid, else first valid server
+          if (lastServerId != null &&
+              validServers.any((s) => s.clientIdentifier == lastServerId)) {
+            _selectedServer = validServers.firstWhere((s) => s.clientIdentifier == lastServerId);
+            _selectedSeerrUrl = seerrMap[_selectedServer.clientIdentifier] ?? '';
+          } else if (validServers.any((s) => s.clientIdentifier == _selectedServer.clientIdentifier)) {
             _selectedSeerrUrl = seerrMap[_selectedServer.clientIdentifier] ?? '';
           } else if (validServers.isNotEmpty) {
             _selectedServer = validServers.first;
@@ -325,7 +334,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       );
       return;
     }
-    final targetOffset = row * rowHeight;
+    final targetOffset = 8.0 + (row * rowHeight) - 4.0;
     final maxScroll = _searchScrollController.position.maxScrollExtent;
     final clampedOffset = targetOffset.clamp(0.0, maxScroll);
     _searchScrollController.animateTo(
@@ -333,6 +342,29 @@ class _RequestsScreenState extends State<RequestsScreen> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  List<SeerrMediaItem> _markRequestedInList(List<SeerrMediaItem> list, SeerrMediaItem target) {
+    bool changed = false;
+    final updated = list.map((it) {
+      if (it.id == target.id && it.mediaType.toLowerCase() == target.mediaType.toLowerCase()) {
+        changed = true;
+        final nextStatus = (it.mediaStatus != null && it.mediaStatus! >= 2) ? it.mediaStatus : 2;
+        return it.copyWith(mediaStatus: nextStatus);
+      }
+      return it;
+    }).toList();
+    return changed ? updated : list;
+  }
+
+  void _markItemRequestedEverywhere(SeerrMediaItem item) {
+    if (!mounted) return;
+    setState(() {
+      _searchResults = _markRequestedInList(_searchResults, item);
+      _trending = _markRequestedInList(_trending, item);
+      _upcomingMovies = _markRequestedInList(_upcomingMovies, item);
+      _upcomingTv = _markRequestedInList(_upcomingTv, item);
+    });
   }
 
   void _openRequestDialog(SeerrMediaItem item) async {
@@ -346,6 +378,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
     );
 
     if (success == true && mounted) {
+      _markItemRequestedEverywhere(item);
       // Refresh recent requests row
       final freshRequests = await SeerrService().getRecentRequests(
         _selectedServer,
@@ -393,7 +426,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
     final targetNode = targetNodes[targetIdx];
 
     _scrollToRow(targetRowKey);
-    if (targetNode.context != null && targetNode.canRequestFocus) {
+    if (targetNode.context != null && targetNode.context!.mounted && targetNode.canRequestFocus) {
       targetNode.requestFocus();
     } else {
       final hCtrl = _rowScrollControllers[targetRowKey];
@@ -403,13 +436,19 @@ class _RequestsScreenState extends State<RequestsScreen> {
         hCtrl.jumpTo(offset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          if (targetNode.canRequestFocus && targetNode.context != null) {
+          if (targetNode.canRequestFocus && targetNode.context != null && targetNode.context!.mounted) {
             targetNode.requestFocus();
-          } else if (targetNodes.first.canRequestFocus) {
-            targetNodes.first.requestFocus();
+          } else {
+            final fallback = targetNodes.firstWhere(
+              (n) => n.canRequestFocus && n.context != null && n.context!.mounted,
+              orElse: () => targetNodes.first,
+            );
+            if (fallback.canRequestFocus) {
+              fallback.requestFocus();
+            }
           }
         });
-      } else if (targetNodes.first.canRequestFocus) {
+      } else if (targetNodes.first.canRequestFocus && targetNodes.first.context != null) {
         targetNodes.first.requestFocus();
       }
     }
@@ -510,6 +549,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
                         autofocus: isSelected,
                         onTap: () {
                           Navigator.of(ctx).pop();
+                          SharedPreferences.getInstance().then((prefs) {
+                            prefs.setString('seerr_last_selected_server_id', server.clientIdentifier);
+                          });
                           if (!isSelected) {
                             setState(() {
                               _selectedServer = server;
@@ -900,7 +942,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
                   controller: _searchScrollController,
                   cacheExtent: 1500,
                   physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                  padding: const EdgeInsets.only(bottom: 32),
+                  padding: const EdgeInsets.only(top: 8, bottom: 32),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
                     mainAxisExtent: cardMainAxisExtent,
@@ -951,11 +993,12 @@ class _RequestsScreenState extends State<RequestsScreen> {
                     final blockLeft = (index % columns == 0);
                     final blockRight = ((index + 1) % columns == 0 || index == _searchResults.length - 1);
 
-                    return _SeerrPosterCard(
+                    return SeerrPosterCard(
                       item: item,
                       focusNode: fNode,
                       onUp: onUp,
                       onDown: onDown,
+                      scrollOnFocus: false,
                       blockLeft: blockLeft,
                       blockRight: blockRight,
                       onTap: () => _openRequestDialog(item),
@@ -998,7 +1041,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       );
     }
 
-    return ListView(
+    return SingleChildScrollView(
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(
         isCompact ? 16 : 32,
@@ -1006,11 +1049,14 @@ class _RequestsScreenState extends State<RequestsScreen> {
         isCompact ? 16 : 32,
         12,
       ),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // 1. Recent Requests (if any)
         if (_recentRequests.isNotEmpty) ...[
           _buildRowSection(
             title: 'Your Recent Requests',
+            category: SeerrCategory.recent,
             items: _recentRequests,
             rowKey: 'recent',
             isCompact: isCompact,
@@ -1022,6 +1068,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
         if (_trending.isNotEmpty) ...[
           _buildRowSection(
             title: 'Trending',
+            category: SeerrCategory.trending,
             items: _trending,
             rowKey: 'trending',
             isCompact: isCompact,
@@ -1033,6 +1080,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
         if (_upcomingMovies.isNotEmpty) ...[
           _buildRowSection(
             title: 'Upcoming Movies',
+            category: SeerrCategory.movies,
             items: _upcomingMovies,
             rowKey: 'movies',
             isCompact: isCompact,
@@ -1044,6 +1092,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
         if (_upcomingTv.isNotEmpty) ...[
           _buildRowSection(
             title: 'Upcoming TV Series',
+            category: SeerrCategory.tv,
             items: _upcomingTv,
             rowKey: 'tv',
             isCompact: isCompact,
@@ -1051,17 +1100,37 @@ class _RequestsScreenState extends State<RequestsScreen> {
           const SizedBox(height: 36),
         ],
       ],
+      ),
+    );
+  }
+
+  void _openCategoryScreen(SeerrCategory category, String title, List<SeerrMediaItem> initialItems) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RequestsCategoryScreen(
+          category: category,
+          title: title,
+          server: _selectedServer,
+          servers: widget.servers,
+          seerrUrl: _selectedSeerrUrl,
+          clientId: widget.clientId,
+          initialItems: initialItems,
+          onItemRequested: _markItemRequestedEverywhere,
+        ),
+      ),
     );
   }
 
   Widget _buildRowSection({
     required String title,
+    required SeerrCategory category,
     required List<SeerrMediaItem> items,
     required String rowKey,
     required bool isCompact,
   }) {
+    final totalCount = items.length + 1; // +1 for See More card
     final listNodes = _rowFocusNodes.putIfAbsent(rowKey, () => []);
-    while (listNodes.length < items.length) {
+    while (listNodes.length < totalCount) {
       listNodes.add(FocusNode());
     }
 
@@ -1092,10 +1161,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
               controller: _rowScrollControllers.putIfAbsent(rowKey, () => ScrollController()),
               cacheExtent: 1500,
               scrollDirection: Axis.horizontal,
-              itemCount: items.length,
+              itemCount: totalCount,
               separatorBuilder: (_, __) => const SizedBox(width: 14),
               itemBuilder: (context, index) {
-                final item = items[index];
                 final node = listNodes[index];
 
                 VoidCallback onUpAction;
@@ -1121,9 +1189,26 @@ class _RequestsScreenState extends State<RequestsScreen> {
                   onDownAction = () {}; // Block moving down past the last row
                 }
 
+                if (index == items.length) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _SeerrSeeMoreCard(
+                      focusNode: node,
+                      onUp: onUpAction,
+                      onDown: onDownAction,
+                      onFocused: () {
+                        _lastFocusedIndexPerRow[rowKey] = index;
+                        _ensureHorizontalCardVisible(rowKey, index, cardWidth);
+                      },
+                      onTap: () => _openCategoryScreen(category, title, items),
+                    ),
+                  );
+                }
+
+                final item = items[index];
                 return SizedBox(
                   width: cardWidth,
-                  child: _SeerrPosterCard(
+                  child: SeerrPosterCard(
                     item: item,
                     focusNode: node,
                     onUp: onUpAction,
@@ -1134,7 +1219,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
                       _ensureHorizontalCardVisible(rowKey, index, cardWidth);
                     },
                     blockLeft: index == 0,
-                    blockRight: index == items.length - 1,
+                    blockRight: false,
                     onTap: () => _openRequestDialog(item),
                   ),
                 );
@@ -1147,7 +1232,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
   }
 }
 
-class _SeerrPosterCard extends StatefulWidget {
+class SeerrPosterCard extends StatefulWidget {
   final SeerrMediaItem item;
   final FocusNode focusNode;
   final VoidCallback onTap;
@@ -1158,7 +1243,8 @@ class _SeerrPosterCard extends StatefulWidget {
   final bool blockLeft;
   final bool blockRight;
 
-  const _SeerrPosterCard({
+  const SeerrPosterCard({
+    super.key,
     required this.item,
     required this.focusNode,
     required this.onTap,
@@ -1171,10 +1257,10 @@ class _SeerrPosterCard extends StatefulWidget {
   });
 
   @override
-  State<_SeerrPosterCard> createState() => _SeerrPosterCardState();
+  State<SeerrPosterCard> createState() => SeerrPosterCardState();
 }
 
-class _SeerrPosterCardState extends State<_SeerrPosterCard> {
+class SeerrPosterCardState extends State<SeerrPosterCard> {
   bool _isHovered = false;
 
   Widget _buildNoPosterPlaceholder() {
@@ -1375,6 +1461,150 @@ class _SeerrPosterCardState extends State<_SeerrPosterCard> {
                         fontSize: 11.5,
                       ),
                     ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SeerrSeeMoreCard extends StatefulWidget {
+  final FocusNode focusNode;
+  final VoidCallback onTap;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+  final VoidCallback? onFocused;
+
+  const _SeerrSeeMoreCard({
+    required this.focusNode,
+    required this.onTap,
+    this.onUp,
+    this.onDown,
+    this.onFocused,
+  });
+
+  @override
+  State<_SeerrSeeMoreCard> createState() => _SeerrSeeMoreCardState();
+}
+
+class _SeerrSeeMoreCardState extends State<_SeerrSeeMoreCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (focused) {
+        if (focused && context.mounted) {
+          widget.onFocused?.call();
+        }
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
+            widget.onUp!();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown && widget.onDown != null) {
+            widget.onDown!();
+            return KeyEventResult.handled;
+          }
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: AnimatedBuilder(
+        animation: widget.focusNode,
+        builder: (context, _) {
+          final isHighlighted = widget.focusNode.hasFocus || _isHovered;
+
+          return MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: GestureDetector(
+              onTap: widget.onTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      decoration: BoxDecoration(
+                        color: isHighlighted ? PlixTheme.cardFocused : PlixTheme.card,
+                        borderRadius: BorderRadius.circular(10),
+                        border: isHighlighted
+                            ? (PlixTheme.isRainbowBorder
+                                ? PlixTheme.rainbowOutlineBorder(width: 3.0)
+                                : Border.all(color: PlixTheme.plexGold, width: 3.0))
+                            : Border.all(color: PlixTheme.cardBorder, width: 1.0),
+                        boxShadow: (isHighlighted && !PlixTheme.isRainbowBorder)
+                            ? [
+                                BoxShadow(
+                                  color: PlixTheme.plexGold.withOpacity(0.5),
+                                  blurRadius: 14,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: isHighlighted ? PlixTheme.plexGold : Colors.white12,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.grid_view_rounded,
+                                color: isHighlighted ? Colors.black : PlixTheme.plexGold,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'See More',
+                              style: TextStyle(
+                                color: isHighlighted ? PlixTheme.plexGold : Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Browse all',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: PlixTheme.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Text(
+                    '',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ],
               ),
             ),

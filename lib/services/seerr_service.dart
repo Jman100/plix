@@ -13,6 +13,20 @@ import 'plix_device_helper.dart';
 import 'profile_service.dart';
 import 'update_service.dart';
 
+class SeerrPagedResult {
+  final List<SeerrMediaItem> items;
+  final int page;
+  final int totalPages;
+
+  const SeerrPagedResult({
+    required this.items,
+    required this.page,
+    required this.totalPages,
+  });
+
+  bool get hasMore => page < totalPages;
+}
+
 class SeerrResult {
   final bool success;
   final String? message;
@@ -584,64 +598,72 @@ class SeerrService {
     return res;
   }
 
+  Future<SeerrPagedResult> getTrendingPage(
+    PlexServer server,
+    String seerrUrl, {
+    int page = 1,
+  }) async {
+    return _fetchDiscoverPage(server, seerrUrl, '/api/v1/discover/trending?page=$page', page, 'getTrendingPage');
+  }
+
   Future<List<SeerrMediaItem>> getTrending(PlexServer server, String seerrUrl) async {
-    final baseUrl = normalizeUrl(seerrUrl);
-    if (baseUrl.isEmpty) return [];
-    try {
-      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/trending?page=1');
-      if (res != null && res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final results = data['results'] as List<dynamic>? ?? [];
-        return results
-            .whereType<Map<String, dynamic>>()
-            .map((e) => SeerrMediaItem.fromJson(e))
-            .where((item) => item.id > 0)
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('[SeerrService] getTrending error: $e');
-    }
-    return [];
+    final res = await getTrendingPage(server, seerrUrl, page: 1);
+    return res.items;
+  }
+
+  Future<SeerrPagedResult> getUpcomingMoviesPage(
+    PlexServer server,
+    String seerrUrl, {
+    int page = 1,
+  }) async {
+    return _fetchDiscoverPage(server, seerrUrl, '/api/v1/discover/movies/upcoming?page=$page', page, 'getUpcomingMoviesPage');
   }
 
   Future<List<SeerrMediaItem>> getUpcomingMovies(PlexServer server, String seerrUrl) async {
-    final baseUrl = normalizeUrl(seerrUrl);
-    if (baseUrl.isEmpty) return [];
-    try {
-      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/movies/upcoming?page=1');
-      if (res != null && res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final results = data['results'] as List<dynamic>? ?? [];
-        return results
-            .whereType<Map<String, dynamic>>()
-            .map((e) => SeerrMediaItem.fromJson(e))
-            .where((item) => item.id > 0)
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('[SeerrService] getUpcomingMovies error: $e');
-    }
-    return [];
+    final res = await getUpcomingMoviesPage(server, seerrUrl, page: 1);
+    return res.items;
+  }
+
+  Future<SeerrPagedResult> getUpcomingTvPage(
+    PlexServer server,
+    String seerrUrl, {
+    int page = 1,
+  }) async {
+    return _fetchDiscoverPage(server, seerrUrl, '/api/v1/discover/tv/upcoming?page=$page', page, 'getUpcomingTvPage');
   }
 
   Future<List<SeerrMediaItem>> getUpcomingTv(PlexServer server, String seerrUrl) async {
+    final res = await getUpcomingTvPage(server, seerrUrl, page: 1);
+    return res.items;
+  }
+
+  Future<SeerrPagedResult> _fetchDiscoverPage(
+    PlexServer server,
+    String seerrUrl,
+    String path,
+    int page,
+    String logTag,
+  ) async {
     final baseUrl = normalizeUrl(seerrUrl);
-    if (baseUrl.isEmpty) return [];
+    if (baseUrl.isEmpty) return SeerrPagedResult(items: const [], page: page, totalPages: 1);
     try {
-      final res = await _getAuthenticated(server, baseUrl, '/api/v1/discover/tv/upcoming?page=1');
+      final res = await _getAuthenticated(server, baseUrl, path);
       if (res != null && res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final results = data['results'] as List<dynamic>? ?? [];
-        return results
+        final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
+        final currentPage = (data['page'] as num?)?.toInt() ?? page;
+        final items = results
             .whereType<Map<String, dynamic>>()
             .map((e) => SeerrMediaItem.fromJson(e))
             .where((item) => item.id > 0)
             .toList();
+        return SeerrPagedResult(items: items, page: currentPage, totalPages: totalPages);
       }
     } catch (e) {
-      debugPrint('[SeerrService] getUpcomingTv error: $e');
+      debugPrint('[SeerrService] $logTag error: $e');
     }
-    return [];
+    return SeerrPagedResult(items: const [], page: page, totalPages: page);
   }
 
   Future<int?> getCurrentUserId(PlexServer server, String seerrUrl) async {
@@ -661,9 +683,15 @@ class SeerrService {
     return null;
   }
 
-  Future<List<SeerrMediaItem>> getRecentRequests(PlexServer server, String seerrUrl) async {
+  Future<SeerrPagedResult> getRecentRequestsPage(
+    PlexServer server,
+    String seerrUrl, {
+    int page = 1,
+    int take = 24,
+  }) async {
     final baseUrl = normalizeUrl(seerrUrl);
-    if (baseUrl.isEmpty) return [];
+    if (baseUrl.isEmpty) return SeerrPagedResult(items: const [], page: page, totalPages: 1);
+    final skip = (page - 1) * take;
     try {
       // 1. Get logged in user's ID to filter requests created by this user
       final currentUserId = await getCurrentUserId(server, baseUrl);
@@ -674,20 +702,22 @@ class SeerrService {
         res = await _getAuthenticated(
           server,
           baseUrl,
-          '/api/v1/user/$currentUserId/requests?take=30&skip=0&sort=added',
+          '/api/v1/user/$currentUserId/requests?take=$take&skip=$skip&sort=added',
         );
       }
 
       if (res == null || res.statusCode != 200) {
         // Fallback to /api/v1/request
         final path = currentUserId != null
-            ? '/api/v1/request?take=50&filter=all&sort=added&requestedBy=$currentUserId'
-            : '/api/v1/request?take=30&filter=all&sort=added';
+            ? '/api/v1/request?take=$take&skip=$skip&filter=all&sort=added&requestedBy=$currentUserId'
+            : '/api/v1/request?take=$take&skip=$skip&filter=all&sort=added';
         res = await _getAuthenticated(server, baseUrl, path);
       }
 
       if (res != null && res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final pageInfo = data['pageInfo'] as Map<String, dynamic>?;
+        final totalPages = (pageInfo?['pages'] as num?)?.toInt() ?? 1;
         final results = data['results'] as List<dynamic>? ?? [];
         final items = <SeerrMediaItem>[];
         for (final r in results) {
@@ -708,7 +738,7 @@ class SeerrService {
           }
         }
         // Enrich any items missing titles or posters
-        final enriched = await Future.wait(items.take(20).map((it) async {
+        final enriched = await Future.wait(items.map((it) async {
           if (it.title.isNotEmpty && it.posterPath != null && it.posterPath!.isNotEmpty) {
             return it;
           }
@@ -724,12 +754,17 @@ class SeerrService {
           }
           return it;
         }));
-        return enriched;
+        return SeerrPagedResult(items: enriched, page: page, totalPages: totalPages);
       }
     } catch (e) {
-      debugPrint('[SeerrService] getRecentRequests error: $e');
+      debugPrint('[SeerrService] getRecentRequestsPage error: $e');
     }
-    return [];
+    return SeerrPagedResult(items: const [], page: page, totalPages: page);
+  }
+
+  Future<List<SeerrMediaItem>> getRecentRequests(PlexServer server, String seerrUrl) async {
+    final res = await getRecentRequestsPage(server, seerrUrl, page: 1, take: 20);
+    return res.items;
   }
 
   Future<List<SeerrMediaItem>> searchSeerr(PlexServer server, String seerrUrl, String query) async {

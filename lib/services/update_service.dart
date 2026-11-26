@@ -144,8 +144,8 @@ class UpdateService {
   static const String githubReleaseManifestUrl = 'https://github.com/Jman100/plix/releases/latest/download/plix.json';
   static const String customDomainManifestUrl = 'https://plix.jman100.com/plix.json';
   static const String githubApiReleaseUrl = 'https://api.github.com/repos/Jman100/plix/releases/latest';
-  static String _currentVersion = '1.11.0';
-  static int _currentVersionCode = 59;
+  static String _currentVersion = '1.11.1';
+  static int _currentVersionCode = 60;
 
   static String get currentVersion => _currentVersion;
   static int get currentVersionCode => _currentVersionCode;
@@ -824,13 +824,21 @@ fi
     }
   }
 
+  static bool _isUpdateDialogShowing = false;
+
   static Future<void> showUpdateDialog(BuildContext context, UpdateInfo updateInfo) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
-      builder: (ctx) => _UpdateDialog(updateInfo: updateInfo),
-    );
+    if (_isUpdateDialogShowing) return;
+    _isUpdateDialogShowing = true;
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+        builder: (ctx) => _UpdateDialog(updateInfo: updateInfo),
+      );
+    } finally {
+      _isUpdateDialogShowing = false;
+    }
   }
 }
 
@@ -943,6 +951,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           }
         },
       );
+      await Future.delayed(const Duration(milliseconds: 400));
       if (mounted) {
         Navigator.of(context).pop();
       }

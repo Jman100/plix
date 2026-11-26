@@ -204,6 +204,9 @@ class SeerrMediaDetails {
   final bool hasStandardRequest;
   final List<SeerrSeason> seasons;
   final List<SeerrVideo> relatedVideos;
+  final String? firstAirDate;
+  final String? theatricalReleaseDate;
+  final String? digitalReleaseDate;
 
   SeerrMediaDetails({
     required this.id,
@@ -224,7 +227,28 @@ class SeerrMediaDetails {
     this.hasStandardRequest = false,
     required this.seasons,
     this.relatedVideos = const [],
+    this.firstAirDate,
+    this.theatricalReleaseDate,
+    this.digitalReleaseDate,
   });
+
+  static String formatDate(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    final datePart = raw.trim().split('T').first;
+    final parts = datePart.split('-');
+    if (parts.length != 3) return datePart;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null || month < 1 || month > 12) {
+      return datePart;
+    }
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[month - 1]} $day, $year';
+  }
 
   bool get isMovie => mediaType.toLowerCase() == 'movie';
   bool get isTv => mediaType.toLowerCase() == 'tv';
@@ -346,6 +370,43 @@ class SeerrMediaDetails {
       }
     }
 
+    String? extractReleaseDate(dynamic releasesJson, int targetType) {
+      if (releasesJson is! Map || releasesJson['results'] is! List) return null;
+      final results = releasesJson['results'] as List;
+
+      String? findInRegion(String? regionCode) {
+        String? earliest;
+        for (final entry in results) {
+          if (entry is! Map) continue;
+          if (regionCode != null && entry['iso_3166_1']?.toString() != regionCode) continue;
+          final dates = entry['release_dates'];
+          if (dates is! List) continue;
+          for (final d in dates) {
+            if (d is! Map) continue;
+            if (d['type'] == targetType) {
+              final raw = d['release_date']?.toString() ?? '';
+              if (raw.isNotEmpty) {
+                final normalized = raw.split('T').first;
+                if (earliest == null || normalized.compareTo(earliest) < 0) {
+                  earliest = normalized;
+                }
+              }
+            }
+          }
+        }
+        return earliest;
+      }
+
+      return findInRegion('US') ?? findInRegion(null);
+    }
+
+    final isTvType = mediaType.toLowerCase() == 'tv';
+    final firstAirDate = isTvType ? json['firstAirDate']?.toString() : null;
+    final theatricalReleaseDate = !isTvType
+        ? (extractReleaseDate(json['releases'], 3) ?? json['releaseDate']?.toString())
+        : null;
+    final digitalReleaseDate = !isTvType ? extractReleaseDate(json['releases'], 4) : null;
+
     return SeerrMediaDetails(
       id: json['id'] as int? ?? 0,
       mediaType: mediaType,
@@ -365,6 +426,9 @@ class SeerrMediaDetails {
       hasStandardRequest: hasStd,
       seasons: seasonList,
       relatedVideos: videoList,
+      firstAirDate: firstAirDate,
+      theatricalReleaseDate: theatricalReleaseDate,
+      digitalReleaseDate: digitalReleaseDate,
     );
   }
 }

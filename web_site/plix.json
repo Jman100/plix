@@ -1,6 +1,6 @@
 {
-    "version": "1.11.0",
-    "versionCode": 59,
+    "version": "1.11.1",
+    "versionCode": 60,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "20706164657390f36253cb146cbc13c0b3fa803aeb64d0654d31eacd9885f989",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -12,6 +12,6 @@
     "linuxArchSha256": "ddfba4f9dc2387f7b6ed6b8465f0c893273214fbe5456a98e6013d7e100b4965",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "linuxTarballSha256": "450d931c2013b9e5d1773c9b2f291da2514879db11130ad15944d02b844d3bfe",
-    "releaseNotes": "- Seerr Media Requests Integration: Added full movie and TV series discovery & requesting via Overseerr / Jellyseerr / Seerr (toggleable in Settings, with Your Recent Requests, Trending, Upcoming Movies, Upcoming TV Series, multi-server switcher, and 4K request support).\n- Embedded YouTube Trailers: Added fullscreen in-app trailer playback via android-youtube-player with TMDB + KinoCheck lookup, local key caching, landscape-first filtering (skipping YouTube Shorts), and automatic Android TV app fallback.\n- Mobile & TV UI Refinements: Fixed 3-column portrait / 6-column landscape search grids with true 2:3 poster ratios, expanded TV season lists and full movie descriptions in request modals, symmetrical 2-column portrait buttons, and row-to-row cursor focus memory.\n- Settings & Cold-Start Reliability: Media Requests now guards against missing Seerr URLs with a quick-configure prompt (skipping server picker for single-server setups) and reliably persists across cold restarts.\n- App Version Bump: v1.11.0 (versionCode 59)",
-    "releaseDate": "2026-11-21"
+    "releaseNotes": "- Seerr Category \"See More\" Browse Pages: Added \"See More\" cards at the end of every Requests row (Your Recent Requests, Trending, Upcoming Movies, Upcoming TV Series) opening a dedicated paginated grid page that dynamically loads more results as you scroll.\n- Seerr Detail & Status Improvements: Added release dates (First Aired for TV shows; Theatrical and Digital release dates for movies), full non-truncated TV descriptions, immediate \"Requested\" poster badge updates after submitting a request, and persistence for the last selected Seerr server.\n- TV Navigation & Scroll Fixes: Fixed D-pad cursor returning to the left nav after pressing Right from the library reorder toggle button, fixed Requests bottom-row focus getting stuck after returning from Your Recent Requests, and aligned category & search grid scrolling so previous-row years stay off-screen.\n- Android TV Updater Reliability: Fixed an issue where the Android TV updater could close without launching the system installer on the first attempt, added an install-permission check, and prevented duplicate update modals from appearing on app resume.\n- App Version Bump: v1.11.1 (versionCode 60)",
+    "releaseDate": "2026-11-26"
 }
