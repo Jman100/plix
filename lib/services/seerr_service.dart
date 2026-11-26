@@ -162,6 +162,8 @@ class SeerrService {
     }
   }
 
+  final Map<String, Future<bool>> _inFlightAuth = {};
+
   Future<bool> authenticate({
     required PlexServer server,
     required String seerrUrl,
@@ -169,44 +171,71 @@ class SeerrService {
     final baseUrl = normalizeUrl(seerrUrl);
     if (baseUrl.isEmpty) return false;
 
-    if (server.isPlex) {
-      return _authenticatePlex(server, baseUrl);
-    } else if (server.isJellyfin) {
-      return _authenticateJellyfin(server, baseUrl);
+    final existing = _inFlightAuth[baseUrl];
+    if (existing != null) return existing;
+
+    final future = () async {
+      if (server.isPlex) {
+        return _authenticatePlex(server, baseUrl);
+      } else if (server.isJellyfin) {
+        return _authenticateJellyfin(server, baseUrl);
+      }
+      return false;
+    }();
+
+    _inFlightAuth[baseUrl] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlightAuth.remove(baseUrl);
     }
+  }
+
+  Future<bool> _postPlexAuthToken(String baseUrl, String token) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/v1/auth/plex'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Plix/${UpdateService.currentVersion}',
+      },
+      body: jsonEncode({'authToken': token}),
+    ).timeout(const Duration(seconds: 10));
+
+    if (res.statusCode == 200) {
+      final cookie = _extractCookie(res);
+      if (cookie != null) {
+        _sessionCookies[baseUrl] = cookie;
+        debugPrint('[SeerrService] Plex authenticated successfully with Seerr');
+        return true;
+      }
+    }
+    debugPrint('[SeerrService] Plex auth returned status ${res.statusCode}: ${res.body}');
     return false;
   }
 
   Future<bool> _authenticatePlex(PlexServer server, String baseUrl) async {
     try {
-      String token = server.accessToken;
-      if (token.isEmpty) {
-        token = (await PlexAuthService().getSavedToken()) ?? '';
-      }
-      if (token.isEmpty) {
+      // Seerr /api/v1/auth/plex expects the user's plex.tv account token rather than
+      // a shared server's resource accessToken; try the saved plex.tv token first.
+      final savedToken = (await PlexAuthService().getSavedToken()) ?? '';
+      final serverToken = server.accessToken;
+
+      final candidates = <String>[
+        if (savedToken.isNotEmpty) savedToken,
+        if (serverToken.isNotEmpty && serverToken != savedToken) serverToken,
+      ];
+
+      if (candidates.isEmpty) {
         debugPrint('[SeerrService] Plex auth failed: No access token available');
         return false;
       }
 
-      final res = await _client.post(
-        Uri.parse('$baseUrl/api/v1/auth/plex'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'Plix/${UpdateService.currentVersion}',
-        },
-        body: jsonEncode({'authToken': token}),
-      ).timeout(const Duration(seconds: 10));
-
-      if (res.statusCode == 200) {
-        final cookie = _extractCookie(res);
-        if (cookie != null) {
-          _sessionCookies[baseUrl] = cookie;
-          debugPrint('[SeerrService] Plex authenticated successfully with Seerr');
+      for (final token in candidates) {
+        if (await _postPlexAuthToken(baseUrl, token)) {
           return true;
         }
       }
-      debugPrint('[SeerrService] Plex auth returned status ${res.statusCode}: ${res.body}');
       return false;
     } catch (e) {
       debugPrint('[SeerrService] Plex auth error: $e');
@@ -304,13 +333,11 @@ class SeerrService {
   String? _extractCookie(http.Response response) {
     final rawCookie = response.headers['set-cookie'];
     if (rawCookie == null || rawCookie.isEmpty) return null;
-    final parts = rawCookie.split(';');
-    for (final p in parts) {
-      final trimmed = p.trim();
-      if (trimmed.startsWith('connect.sid=')) {
-        return trimmed;
-      }
+    final match = RegExp(r'connect\.sid=[^;,\s]+').firstMatch(rawCookie);
+    if (match != null) {
+      return match.group(0);
     }
+    final parts = rawCookie.split(';');
     return parts.first.trim();
   }
 
