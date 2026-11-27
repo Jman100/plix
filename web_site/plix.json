@@ -7,11 +7,11 @@
     "windowsArm64Url": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
     "windowsSha256": "7cd65ad40f86b5bc95fcd882e967c432e287e9085295b2f3a7436f2e26817685",
     "linuxUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux.deb",
-    "linuxSha256": "3c2dfac8fa9f478da00a848c07a6e1837ea370339c1b5df8f9ea10eb666b2f1a",
+    "linuxSha256": "d9172fa0e36edf56dd76b39c930c713349ec3bbd5954af674395c6921a39e444",
     "linuxArchUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_arch.pkg.tar.zst",
-    "linuxArchSha256": "f2c963c571c2eff7cd2a1c7ef0f18ab847327b80b9a121d1927c86841f08efd1",
+    "linuxArchSha256": "0f3680eb4b251d0514a44c6513cef04713fa34aa3ba893bbb9d115640ef8d891",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
-    "linuxTarballSha256": "8f59aceb6b596a536f5134c459f7362cbb0fe0b68b95e470687deefa5e529a09",
+    "linuxTarballSha256": "3b06e68e9d2361ce91df6043c620a3ca085e53cd57a5ceebcda09d7cb9e9161d",
     "releaseNotes": "- Per-Profile Seerr Isolation: Scoped Seerr server URLs, the Media Requests toggle, Seerr session cookies, and the last-selected server preference strictly per Plix profile so newly created profiles no longer inherit another profile's Requests configuration.\n- Requests Grid D-Pad Navigation Fix: Added explicit Left/Right focus-node navigation to Seerr poster cards across category \"See More\" pages, search results, and overview rows so pressing Left/Right in long scrolled grids stays on the same row instead of jumping up a row.\n- App Version Bump: v1.11.3 (versionCode 62)",
     "releaseDate": "2026-11-27"
 }
