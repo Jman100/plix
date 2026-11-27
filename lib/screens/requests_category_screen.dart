@@ -392,6 +392,12 @@ class _RequestsCategoryScreenState extends State<RequestsCategoryScreen> {
                                                 focusNode: fNode,
                                                 onUp: onUp,
                                                 onDown: onDown,
+                                                onLeft: !blockLeft && index > 0
+                                                    ? () => _itemFocusNodes[index - 1].requestFocus()
+                                                    : null,
+                                                onRight: !blockRight && index + 1 < _items.length
+                                                    ? () => _itemFocusNodes[index + 1].requestFocus()
+                                                    : null,
                                                 scrollOnFocus: false,
                                                 blockLeft: blockLeft,
                                                 blockRight: blockRight,

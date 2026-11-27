@@ -12,6 +12,7 @@ import '../services/native_player_service.dart';
 import '../services/plex_auth_service.dart';
 import '../services/plex_server_service.dart';
 import '../services/plix_device_helper.dart';
+import '../services/profile_service.dart';
 import '../services/seerr_service.dart';
 import '../widgets/plix_back_button.dart';
 import '../widgets/plix_bottom_nav.dart';
@@ -164,7 +165,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
       }
 
       final prefs = await SharedPreferences.getInstance();
-      final lastServerId = prefs.getString('seerr_last_selected_server_id');
+      final lastServerId = prefs.getString(ProfileService.key('seerr_last_selected_server_id'));
 
       if (mounted) {
         setState(() {
@@ -550,7 +551,10 @@ class _RequestsScreenState extends State<RequestsScreen> {
                         onTap: () {
                           Navigator.of(ctx).pop();
                           SharedPreferences.getInstance().then((prefs) {
-                            prefs.setString('seerr_last_selected_server_id', server.clientIdentifier);
+                            prefs.setString(
+                              ProfileService.key('seerr_last_selected_server_id'),
+                              server.clientIdentifier,
+                            );
                           });
                           if (!isSelected) {
                             setState(() {
@@ -998,6 +1002,12 @@ class _RequestsScreenState extends State<RequestsScreen> {
                       focusNode: fNode,
                       onUp: onUp,
                       onDown: onDown,
+                      onLeft: !blockLeft && index > 0
+                          ? () => _searchResultFocusNodes[index - 1].requestFocus()
+                          : null,
+                      onRight: !blockRight && index + 1 < _searchResults.length
+                          ? () => _searchResultFocusNodes[index + 1].requestFocus()
+                          : null,
                       scrollOnFocus: false,
                       blockLeft: blockLeft,
                       blockRight: blockRight,
@@ -1196,6 +1206,9 @@ class _RequestsScreenState extends State<RequestsScreen> {
                       focusNode: node,
                       onUp: onUpAction,
                       onDown: onDownAction,
+                      onLeft: items.isNotEmpty
+                          ? () => listNodes[items.length - 1].requestFocus()
+                          : null,
                       onFocused: () {
                         _lastFocusedIndexPerRow[rowKey] = index;
                         _ensureHorizontalCardVisible(rowKey, index, cardWidth);
@@ -1213,6 +1226,8 @@ class _RequestsScreenState extends State<RequestsScreen> {
                     focusNode: node,
                     onUp: onUpAction,
                     onDown: onDownAction,
+                    onLeft: index > 0 ? () => listNodes[index - 1].requestFocus() : null,
+                    onRight: index + 1 < totalCount ? () => listNodes[index + 1].requestFocus() : null,
                     scrollOnFocus: false,
                     onFocused: () {
                       _lastFocusedIndexPerRow[rowKey] = index;
@@ -1238,6 +1253,8 @@ class SeerrPosterCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
+  final VoidCallback? onLeft;
+  final VoidCallback? onRight;
   final VoidCallback? onFocused;
   final bool scrollOnFocus;
   final bool blockLeft;
@@ -1250,6 +1267,8 @@ class SeerrPosterCard extends StatefulWidget {
     required this.onTap,
     this.onUp,
     this.onDown,
+    this.onLeft,
+    this.onRight,
     this.onFocused,
     this.scrollOnFocus = true,
     this.blockLeft = false,
@@ -1312,11 +1331,19 @@ class SeerrPosterCardState extends State<SeerrPosterCard> {
       },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.arrowLeft && widget.blockLeft) {
-            return KeyEventResult.handled;
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            if (widget.blockLeft) return KeyEventResult.handled;
+            if (widget.onLeft != null) {
+              widget.onLeft!();
+              return KeyEventResult.handled;
+            }
           }
-          if (event.logicalKey == LogicalKeyboardKey.arrowRight && widget.blockRight) {
-            return KeyEventResult.handled;
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            if (widget.blockRight) return KeyEventResult.handled;
+            if (widget.onRight != null) {
+              widget.onRight!();
+              return KeyEventResult.handled;
+            }
           }
           if (event.logicalKey == LogicalKeyboardKey.arrowUp && widget.onUp != null) {
             widget.onUp!();
@@ -1476,6 +1503,7 @@ class _SeerrSeeMoreCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
+  final VoidCallback? onLeft;
   final VoidCallback? onFocused;
 
   const _SeerrSeeMoreCard({
@@ -1483,6 +1511,7 @@ class _SeerrSeeMoreCard extends StatefulWidget {
     required this.onTap,
     this.onUp,
     this.onDown,
+    this.onLeft,
     this.onFocused,
   });
 
@@ -1504,6 +1533,10 @@ class _SeerrSeeMoreCardState extends State<_SeerrSeeMoreCard> {
       },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft && widget.onLeft != null) {
+            widget.onLeft!();
+            return KeyEventResult.handled;
+          }
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
             return KeyEventResult.handled;
           }

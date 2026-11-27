@@ -1,6 +1,6 @@
 {
-    "version": "1.11.2",
-    "versionCode": 61,
+    "version": "1.11.3",
+    "versionCode": 62,
     "apkUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_android.apk",
     "apkSha256": "7e7bf8d5750998f8194421de944dc721f481ff843ef98c9f82401c01b5cdaec2",
     "windowsUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_windows.exe",
@@ -12,6 +12,6 @@
     "linuxArchSha256": "f2c963c571c2eff7cd2a1c7ef0f18ab847327b80b9a121d1927c86841f08efd1",
     "linuxTarballUrl": "https://github.com/Jman100/plix/releases/latest/download/plix_linux_portable.tar.gz",
     "linuxTarballSha256": "8f59aceb6b596a536f5134c459f7362cbb0fe0b68b95e470687deefa5e529a09",
-    "releaseNotes": "- Shared Plex Server Seerr Authentication Fix: Fixed Seerr /api/v1/auth/plex failing (HTTP 500) on shared Plex servers by authenticating with the user's plex.tv account token first and falling back to the server token.\n- Seerr Session & Proxy Reliability: Added in-flight authentication deduplication so opening Requests authenticates once instead of firing duplicate requests, and improved Set-Cookie parsing for reverse proxies that prepend extra cookies.\n- App Version Bump: v1.11.2 (versionCode 61)",
-    "releaseDate": "2026-11-26"
+    "releaseNotes": "- Per-Profile Seerr Isolation: Scoped Seerr server URLs, the Media Requests toggle, Seerr session cookies, and the last-selected server preference strictly per Plix profile so newly created profiles no longer inherit another profile's Requests configuration.\n- Requests Grid D-Pad Navigation Fix: Added explicit Left/Right focus-node navigation to Seerr poster cards across category \"See More\" pages, search results, and overview rows so pressing Left/Right in long scrolled grids stays on the same row instead of jumping up a row.\n- App Version Bump: v1.11.3 (versionCode 62)",
+    "releaseDate": "2026-11-27"
 }

@@ -62,11 +62,12 @@ class SeerrService {
   final Map<String, String> _sessionCookies = {};
   final ValueNotifier<bool> requestsEnabledNotifier = ValueNotifier<bool>(false);
 
+  String _cookieKey(String baseUrl) =>
+      '${ProfileService.activeProfileId ?? ''}|${normalizeUrl(baseUrl)}';
+
   Future<bool> isRequestsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool(ProfileService.key('enable_media_requests')) ??
-        prefs.getBool('enable_media_requests') ??
-        false;
+    final enabled = prefs.getBool(ProfileService.key('enable_media_requests')) ?? false;
     requestsEnabledNotifier.value = enabled;
     return enabled;
   }
@@ -74,14 +75,19 @@ class SeerrService {
   Future<void> setRequestsEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(ProfileService.key('enable_media_requests'), enabled);
-    await prefs.setBool('enable_media_requests', enabled);
+    // Clean up legacy global key so newly created profiles never inherit it
+    if (ProfileService.activeProfileId != null &&
+        ProfileService.activeProfileId!.isNotEmpty) {
+      await prefs.remove('enable_media_requests');
+    }
     requestsEnabledNotifier.value = enabled;
   }
 
   Future<bool> hasAnySeerrUrl() async {
     final prefs = await SharedPreferences.getInstance();
+    final prefix = ProfileService.key('seerr_url_');
     for (final k in prefs.getKeys()) {
-      if (k.startsWith('seerr_url_')) {
+      if (k.startsWith(prefix)) {
         final v = prefs.getString(k);
         if (v != null && v.trim().isNotEmpty) {
           return true;
@@ -107,21 +113,8 @@ class SeerrService {
 
   Future<String?> getSeerrUrl(String serverId) async {
     final prefs = await SharedPreferences.getInstance();
-    // 1. Profile-scoped key
-    final pKey = _prefKey(serverId);
-    final val = prefs.getString(pKey);
+    final val = prefs.getString(_prefKey(serverId));
     if (val != null && val.trim().isNotEmpty) return normalizeUrl(val);
-
-    // 2. Global fallback
-    final globalKey = 'seerr_url_$serverId';
-    final globalVal = prefs.getString(globalKey);
-    if (globalVal != null && globalVal.trim().isNotEmpty) return normalizeUrl(globalVal);
-
-    // 3. Alternative naming fallback
-    final legacyKey = 'seerr_server_url_$serverId';
-    final legacyVal = prefs.getString(legacyKey);
-    if (legacyVal != null && legacyVal.trim().isNotEmpty) return normalizeUrl(legacyVal);
-
     return null;
   }
 
@@ -131,17 +124,23 @@ class SeerrService {
     final pKey = _prefKey(serverId);
     if (normalized.isEmpty) {
       await prefs.remove(pKey);
-      await prefs.remove('seerr_url_$serverId');
     } else {
       await prefs.setString(pKey, normalized);
-      await prefs.setString('seerr_url_$serverId', normalized);
+    }
+    // Clean up legacy global key so newly created profiles never inherit it
+    if (ProfileService.activeProfileId != null &&
+        ProfileService.activeProfileId!.isNotEmpty) {
+      await prefs.remove('seerr_url_$serverId');
     }
   }
 
   Future<void> removeSeerrUrl(String serverId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefKey(serverId));
-    await prefs.remove('seerr_url_$serverId');
+    if (ProfileService.activeProfileId != null &&
+        ProfileService.activeProfileId!.isNotEmpty) {
+      await prefs.remove('seerr_url_$serverId');
+    }
   }
 
   Future<bool> testConnection(String rawUrl) async {
@@ -171,7 +170,8 @@ class SeerrService {
     final baseUrl = normalizeUrl(seerrUrl);
     if (baseUrl.isEmpty) return false;
 
-    final existing = _inFlightAuth[baseUrl];
+    final cKey = _cookieKey(baseUrl);
+    final existing = _inFlightAuth[cKey];
     if (existing != null) return existing;
 
     final future = () async {
@@ -183,11 +183,11 @@ class SeerrService {
       return false;
     }();
 
-    _inFlightAuth[baseUrl] = future;
+    _inFlightAuth[cKey] = future;
     try {
       return await future;
     } finally {
-      _inFlightAuth.remove(baseUrl);
+      _inFlightAuth.remove(cKey);
     }
   }
 
@@ -205,7 +205,7 @@ class SeerrService {
     if (res.statusCode == 200) {
       final cookie = _extractCookie(res);
       if (cookie != null) {
-        _sessionCookies[baseUrl] = cookie;
+        _sessionCookies[_cookieKey(baseUrl)] = cookie;
         debugPrint('[SeerrService] Plex authenticated successfully with Seerr');
         return true;
       }
@@ -317,7 +317,7 @@ class SeerrService {
       if (completeRes.statusCode == 200) {
         final cookie = _extractCookie(completeRes);
         if (cookie != null) {
-          _sessionCookies[baseUrl] = cookie;
+          _sessionCookies[_cookieKey(baseUrl)] = cookie;
           debugPrint('[SeerrService] Jellyfin QuickConnect authenticated successfully with Seerr');
           return true;
         }
@@ -342,11 +342,12 @@ class SeerrService {
   }
 
   Future<http.Response?> _getAuthenticated(PlexServer server, String baseUrl, String path) async {
-    String? cookie = _sessionCookies[baseUrl];
+    final cKey = _cookieKey(baseUrl);
+    String? cookie = _sessionCookies[cKey];
     if (cookie == null) {
       final ok = await authenticate(server: server, seerrUrl: baseUrl);
       if (!ok) return null;
-      cookie = _sessionCookies[baseUrl];
+      cookie = _sessionCookies[cKey];
     }
 
     http.Response res = await _client.get(
@@ -359,10 +360,10 @@ class SeerrService {
     ).timeout(const Duration(seconds: 10));
 
     if (res.statusCode == 401) {
-      _sessionCookies.remove(baseUrl);
+      _sessionCookies.remove(cKey);
       final ok = await authenticate(server: server, seerrUrl: baseUrl);
       if (!ok) return res;
-      cookie = _sessionCookies[baseUrl];
+      cookie = _sessionCookies[cKey];
       res = await _client.get(
         Uri.parse('$baseUrl$path'),
         headers: {
@@ -522,13 +523,14 @@ class SeerrService {
     }
 
     try {
-      String? cookie = _sessionCookies[seerrUrl];
+      final cKey = _cookieKey(seerrUrl);
+      String? cookie = _sessionCookies[cKey];
       if (cookie == null) {
         final ok = await authenticate(server: server, seerrUrl: seerrUrl);
         if (!ok) {
           return SeerrResult.error('Failed to authenticate with Seerr.');
         }
-        cookie = _sessionCookies[seerrUrl];
+        cookie = _sessionCookies[cKey];
       }
 
       http.Response res = await _client.post(
@@ -543,10 +545,10 @@ class SeerrService {
       ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 401) {
-        _sessionCookies.remove(seerrUrl);
+        _sessionCookies.remove(cKey);
         final ok = await authenticate(server: server, seerrUrl: seerrUrl);
         if (ok) {
-          cookie = _sessionCookies[seerrUrl];
+          cookie = _sessionCookies[cKey];
           res = await _client.post(
             Uri.parse('$seerrUrl/api/v1/issue'),
             headers: {
@@ -588,11 +590,12 @@ class SeerrService {
     String path,
     Map<String, dynamic> body,
   ) async {
-    String? cookie = _sessionCookies[baseUrl];
+    final cKey = _cookieKey(baseUrl);
+    String? cookie = _sessionCookies[cKey];
     if (cookie == null) {
       final ok = await authenticate(server: server, seerrUrl: baseUrl);
       if (!ok) return null;
-      cookie = _sessionCookies[baseUrl];
+      cookie = _sessionCookies[cKey];
     }
 
     http.Response res = await _client.post(
@@ -607,10 +610,10 @@ class SeerrService {
     ).timeout(const Duration(seconds: 15));
 
     if (res.statusCode == 401) {
-      _sessionCookies.remove(baseUrl);
+      _sessionCookies.remove(cKey);
       final ok = await authenticate(server: server, seerrUrl: baseUrl);
       if (!ok) return res;
-      cookie = _sessionCookies[baseUrl];
+      cookie = _sessionCookies[cKey];
       res = await _client.post(
         Uri.parse('$baseUrl$path'),
         headers: {
